@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MyApp {
-                Greeting("from SDK")
+                GreetingFromSDK("from SDK")
             }
         }
     }
@@ -34,7 +34,7 @@ fun MyApp(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun GreetingFromSDK(name: String, modifier: Modifier = Modifier) {
     Text(
         text = "Hello $name!",
         modifier = modifier
@@ -45,6 +45,6 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun DefaultPreview() {
     MyApp {
-        Greeting("Android")
+        GreetingFromSDK("Android")
     }
 }

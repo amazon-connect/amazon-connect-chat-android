@@ -54,7 +54,7 @@ import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.Companion.ke
 import com.amazon.connect.chat.androidchatexample.utils.ContentType
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
-import com.amazon.connect.chat.sdk.Greeting
+import com.amazon.connect.chat.sdk.GreetingFromSDK
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            Greeting("from Example App")
+            GreetingFromSDK("from Example App")
 
 //            androidconnectchatandroidTheme {
 //                // A surface container using the 'background' color from the theme
