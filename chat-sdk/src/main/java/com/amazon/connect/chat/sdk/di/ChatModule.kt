@@ -1,11 +1,13 @@
 package com.amazon.connect.chat.sdk.di
 
 import com.amazon.connect.chat.sdk.ChatSession
-import com.amazon.connect.chat.sdk.network.APIClient
-import com.amazon.connect.chat.sdk.network.AWSClient
+import com.amazon.connect.chat.sdk.ChatSessionImpl
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.repository.ChatService
-import com.amazon.connect.chat.sdk.repository.ConnectionDetailProvider
+import com.amazon.connect.chat.sdk.repository.ChatServiceImpl
+import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProvider
+import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProviderImpl
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,33 +16,26 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object ChatModule {
+abstract class ChatModule {
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideChatSession(chatService: ChatService): ChatSession {
-        return ChatSession(chatService)
-    }
+    abstract fun bindChatService(impl: ChatServiceImpl): ChatService
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideChatService(
-        apiClient: APIClient,
-        awsClient: AWSClient,
-        connectionDetailProvider: ConnectionDetailProvider
-    ): ChatService {
-        return ChatService(apiClient, awsClient, connectionDetailProvider)
-    }
+    abstract fun bindChatSession(impl: ChatSessionImpl): ChatSession
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideWebSocketManager(): WebSocketManager {
-        return WebSocketManager()
-    }
+    abstract fun bindConnectionDetailsProvider(impl: ConnectionDetailsProviderImpl): ConnectionDetailsProvider
 
-    @Provides
-    @Singleton
-    fun provideConnectionDetailProvider(): ConnectionDetailProvider {
-        return ConnectionDetailProvider()
+    companion object {
+
+        @Provides
+        @Singleton
+        fun provideWebSocketManager(): WebSocketManager {
+            return WebSocketManager()
+        }
     }
 }

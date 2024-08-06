@@ -62,17 +62,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GreetingFromSDK("from Example App")
-
-//            androidconnectchatandroidTheme {
-//                // A surface container using the 'background' color from the theme
-//                Surface(
-//                    modifier = Modifier.fillMaxSize(),
-//                    color = MaterialTheme.colorScheme.background
-//                ) {
-//                    ChatScreen()
-//                }
-//            }
+            androidconnectchatandroidTheme {
+                // A surface container using the 'background' color from the theme
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    ChatScreen()
+                }
+            }
         }
     }
 }
@@ -329,6 +327,9 @@ fun ContactIdAndTokenSection(viewModel: ChatViewModel) {
         Text(text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}", color = if (participantToken != null) Color.Blue else Color.Red)
         Button(onClick = viewModel::clearParticipantToken) {
             Text("Clear Participant Token")
+        }
+        Button(onClick = viewModel::endChat) {
+            Text(text = "Disconnect")
         }
     }
 }

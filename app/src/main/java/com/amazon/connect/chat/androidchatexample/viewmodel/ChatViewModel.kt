@@ -22,10 +22,14 @@ import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
 import com.amazon.connect.chat.androidchatexample.repository.WebSocketManager
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.Companion.parseErrorMessage
 import com.amazon.connect.chat.androidchatexample.utils.ContentType
+import com.amazon.connect.chat.sdk.ChatSession
+import com.amazon.connect.chat.sdk.model.ChatDetails
+import com.amazon.connect.chat.sdk.model.GlobalConfig
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    private val chatSession: ChatSession, // Injected ChatSession
     private val chatRepository: ChatRepository,
     private val sharedPreferences: SharedPreferences
 ) : ViewModel() {
@@ -55,14 +59,14 @@ class ChatViewModel @Inject constructor(
     private var contactId: String?
         get() = liveContactId.value
         set(value) {
-            sharedPreferences.edit().putString("contactID", value).apply()
+//            sharedPreferences.edit().putString("contactID", value).apply()
             _liveContactId.value = value
         }
 
     private var participantToken: String?
         get() = liveParticipantToken.value
         set(value) {
-            sharedPreferences.edit().putString("participantToken", value).apply()
+//            sharedPreferences.edit().putString("participantToken", value).apply()
             _liveParticipantToken.value = value  // Reflect the new value in LiveData
         }
 
@@ -76,12 +80,24 @@ class ChatViewModel @Inject constructor(
         _liveParticipantToken.value = null
     }
 
+    init {
+        configureChatSession()
+    }
+
+    private fun configureChatSession() {
+        val globalConfig = GlobalConfig(region = chatConfiguration.region)
+        chatSession.configure(globalConfig)
+    }
+
     fun initiateChat() {
         viewModelScope.launch {
             _isLoading.value = true
             _messages.postValue(emptyList()) // Clear existing messages
             if (participantToken != null) {
-                participantToken?.let { createParticipantConnection(it) }
+                participantToken?.let {
+                    val chatDetails = ChatDetails(participantToken = it)
+                    createParticipantConnection(chatDetails)
+                }
             } else if (contactId != null) {
                 startChat(contactId)
             } else {
@@ -106,7 +122,7 @@ class ChatViewModel @Inject constructor(
                     response.data?.data?.startChatResult?.let { result ->
                         this@ChatViewModel.contactId = result.contactId
                         this@ChatViewModel.participantToken = result.participantToken
-                        createParticipantConnection(result.participantToken)
+                        handleStartChatResponse(result)
                     } ?: run {
                         _isLoading.value = false
                     }
@@ -122,11 +138,40 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun createParticipantConnection(participantToken: String) {
+
+    private fun handleStartChatResponse(result: StartChatResponse.Data.StartChatResult) {
+        viewModelScope.launch {
+            val chatDetails = ChatDetails(
+                contactId = result.contactId,
+                participantId = result.participantId,
+                participantToken = result.participantToken
+            )
+            createParticipantConnection(chatDetails)
+        }
+    }
+
+    private fun createParticipantConnection(chatDetails: ChatDetails) {
         viewModelScope.launch {
             _isLoading.value = true // Start loading
+            val result = chatSession.connect(chatDetails)
+            _isLoading.value = false // Stop loading
+            if (result.isSuccess) {
+                // Handle successful connection
+                Log.d("ChatViewModel", "Connection successful $result")
+            } else if (result.isFailure) {
+                _errorMessage.value = result.exceptionOrNull()?.message
+            }
+        }
+    }
+
+
+    private fun createParticipantConnection1(chatDetails: ChatDetails) {
+        viewModelScope.launch {
+            _isLoading.value = true // Start loading
+
+
             chatRepository.createParticipantConnection(
-                participantToken,
+                chatDetails.participantToken,
                 object : AsyncHandler<CreateParticipantConnectionRequest, CreateParticipantConnectionResult> {
                     override fun onError(exception: Exception?) {
                         Log.e("ChatViewModel", "CreateParticipantConnection failed: ${exception?.localizedMessage}")
@@ -269,17 +314,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun endChat(){
-        createParticipantConnectionResult.value?.connectionCredentials?.let { credentials ->
-            viewModelScope.launch {
-                val result = chatRepository.disconnectParticipant(credentials.connectionToken)
-                result.onSuccess {
-                    // Handle success - update UI or state as needed
-                    _webSocketUrl.value = null
-                }.onFailure { exception ->
-                    // Handle failure - update UI or state, log error, etc.
-                    Log.e("ChatViewModel", "Error sending message: ${exception.message}")
-                }
-            }
+        viewModelScope.launch {
+            chatSession.disconnect()
         }
         clearParticipantToken()
     }
