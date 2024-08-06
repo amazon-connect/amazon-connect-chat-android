@@ -104,9 +104,9 @@ dependencies {
 
     // Image loading
     implementation(libs.coilCompose)
-    implementation(project(":chat-sdk"))
 
     // Chat SDK
+    implementation(project(":chat-sdk"))
 }
 
 ruler {

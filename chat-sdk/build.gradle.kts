@@ -2,6 +2,10 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinAndroid)
     `maven-publish`
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.serialization)
+    id("com.spotify.ruler")
+    id("kotlin-kapt") // Add this for kapt
 }
 
 android {
@@ -60,6 +64,8 @@ dependencies {
     implementation(libs.composeUiGraphics)
     implementation(libs.composeUiToolingPreview)
     implementation(libs.material3)
+    implementation("com.google.android.gms:play-services-basement:18.2.0")
+    implementation(libs.runtimeLivedata) // Add this dependency in libs.versions.toml if necessary
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidxJunit)
     androidTestImplementation(libs.espressoCore)
@@ -67,6 +73,37 @@ dependencies {
     androidTestImplementation(libs.composeUiTestJunit4)
     debugImplementation(libs.composeUiTooling)
     debugImplementation(libs.composeUiTestManifest)
+
+    // Lifecycle livedata
+    implementation(libs.lifecycleLivedataKtx)
+    implementation(libs.lifecycleViewmodelKtx)
+    implementation(libs.coroutinesAndroid)
+
+    // Retrofit
+    implementation(libs.retrofit)
+    implementation(libs.converterGson)
+    implementation(libs.okhttp)
+    implementation(libs.loggingInterceptor)
+    implementation(libs.otto)
+    implementation(libs.adapterRxjava2)
+
+    //Hilt
+    implementation(libs.hiltAndroid)
+    implementation(libs.hiltNavigationCompose)
+    kapt(libs.hiltCompiler)
+    implementation(libs.navigationCompose)
+    kapt(libs.hiltAndroidCompiler)
+
+    // AWS
+    implementation(libs.awsSdkCore)
+    implementation(libs.awsSdkConnectParticipant)
+
+    // Serialization
+    implementation(libs.serializationJson)
+
+    // Image loading
+    implementation(libs.coilCompose)
+
 }
 
 publishing {
