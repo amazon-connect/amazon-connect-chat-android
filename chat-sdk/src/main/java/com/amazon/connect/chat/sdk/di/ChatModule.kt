@@ -2,12 +2,13 @@ package com.amazon.connect.chat.sdk.di
 
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
+import com.amazon.connect.chat.sdk.network.APIClient
+import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.repository.ChatService
 import com.amazon.connect.chat.sdk.repository.ChatServiceImpl
 import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProvider
 import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProviderImpl
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,26 +17,57 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class ChatModule {
+object ChatModule {
 
-    @Binds
+    /**
+     * Provides a singleton instance of ChatService.
+     *
+     * @param apiClient The API client for network operations.
+     * @param awsClient The AWS client for connecting to AWS services.
+     * @param connectionDetailsProvider The provider for connection details.
+     * @return An instance of ChatServiceImpl.
+     */
+    @Provides
     @Singleton
-    abstract fun bindChatService(impl: ChatServiceImpl): ChatService
+    fun provideChatService(
+        apiClient: APIClient,
+        awsClient: AWSClient,
+        connectionDetailsProvider: ConnectionDetailsProvider
+    ): ChatService {
+        return ChatServiceImpl(apiClient, awsClient, connectionDetailsProvider)
+    }
 
-    @Binds
+    /**
+     * Provides a singleton instance of ChatSession.
+     *
+     * @param chatService The chat service for managing chat sessions.
+     * @return An instance of ChatSessionImpl.
+     */
+    @Provides
     @Singleton
-    abstract fun bindChatSession(impl: ChatSessionImpl): ChatSession
+    fun provideChatSession(chatService: ChatService): ChatSession {
+        return ChatSessionImpl(chatService)
+    }
 
-    @Binds
+    /**
+     * Provides a singleton instance of ConnectionDetailsProvider.
+     *
+     * @return An instance of ConnectionDetailsProviderImpl.
+     */
+    @Provides
     @Singleton
-    abstract fun bindConnectionDetailsProvider(impl: ConnectionDetailsProviderImpl): ConnectionDetailsProvider
+    fun provideConnectionDetailsProvider(): ConnectionDetailsProvider {
+        return ConnectionDetailsProviderImpl()
+    }
 
-    companion object {
-
-        @Provides
-        @Singleton
-        fun provideWebSocketManager(): WebSocketManager {
-            return WebSocketManager()
-        }
+    /**
+     * Provides a singleton instance of WebSocketManager.
+     *
+     * @return An instance of WebSocketManager.
+     */
+    @Provides
+    @Singleton
+    fun provideWebSocketManager(): WebSocketManager {
+        return WebSocketManager()
     }
 }

@@ -30,10 +30,9 @@ interface AWSClient {
     suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult>
 }
 
-class AWSClientImpl @Inject constructor() : AWSClient {
-
-    private var connectParticipantClient: AmazonConnectParticipantClient =
-        AmazonConnectParticipantClient()
+class AWSClientImpl @Inject constructor(
+    private val connectParticipantClient: AmazonConnectParticipantClient
+) : AWSClient {
 
     override fun configure(config: GlobalConfig) {
         connectParticipantClient.setRegion(Region.getRegion(config.region))
