@@ -1,4 +1,4 @@
-package com.amazon.connect.chat.androidchatexample.models
+package com.amazon.connect.chat.sdk.model
 
 data class TranscriptResponse(
     val initialContactId: String,

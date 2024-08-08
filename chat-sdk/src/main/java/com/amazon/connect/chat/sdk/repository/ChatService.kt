@@ -11,9 +11,9 @@ class ChatService @Inject constructor(
     private val awsClient: AWSClient,
     private val connectionDetailProvider: ConnectionDetailProvider) {
 
-    private val webSocketManager: WebSocketManager by lazy {
-        WebSocketManager()
-    }
+//    private val webSocketManager: WebSocketManager by lazy {
+//        WebSocketManager()
+//    }
 
     fun initializeSession(userId: String) {
         // Initialize session logic

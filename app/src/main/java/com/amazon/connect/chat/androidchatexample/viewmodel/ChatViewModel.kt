@@ -15,19 +15,21 @@ import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionResult
 import com.amazon.connect.chat.androidchatexample.Config
-import com.amazon.connect.chat.androidchatexample.models.Message
+import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
 import com.amazon.connect.chat.androidchatexample.models.PersistentChat
 import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
-import com.amazon.connect.chat.androidchatexample.repository.WebSocketManager
-import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.Companion.parseErrorMessage
-import com.amazon.connect.chat.androidchatexample.utils.ContentType
+// import com.amazon.connect.chat.androidchatexample.repository.WebSocketManager
+import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
+import com.amazon.connect.chat.sdk.utils.ContentType
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val webSocketManager: WebSocketManager,
 ) : ViewModel() {
     private val chatConfiguration = Config
     private val _isLoading = MutableLiveData(false)
@@ -36,13 +38,13 @@ class ChatViewModel @Inject constructor(
     private val startChatResponse: LiveData<Resource<StartChatResponse>> = _startChatResponse
     private val _createParticipantConnectionResult = MutableLiveData<CreateParticipantConnectionResult?>()
     val createParticipantConnectionResult: MutableLiveData<CreateParticipantConnectionResult?> = _createParticipantConnectionResult
-    private val webSocketManager = WebSocketManager()
     private val _messages = MutableLiveData<List<Message>>()
     val messages: LiveData<List<Message>> = _messages
     private val _webSocketUrl = MutableLiveData<String?>()
     val webSocketUrl: MutableLiveData<String?> = _webSocketUrl
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
+    private var pToken: String? = null;
 
     // LiveData for actual string values, updates will reflect in the UI
     private val _liveContactId = MutableLiveData<String?>(sharedPreferences.getString("contactID", null))
@@ -50,6 +52,10 @@ class ChatViewModel @Inject constructor(
 
     private val _liveParticipantToken = MutableLiveData<String?>(sharedPreferences.getString("participantToken", null))
     val liveParticipantToken: LiveData<String?> = _liveParticipantToken
+
+    init {
+        webSocketManager.requestNewWsUrl = { createParticipantConnection(null) }
+    }
 
     // Setters that update LiveData, which in turn update the UI
     private var contactId: String?
@@ -81,7 +87,10 @@ class ChatViewModel @Inject constructor(
             _isLoading.value = true
             _messages.postValue(emptyList()) // Clear existing messages
             if (participantToken != null) {
-                participantToken?.let { createParticipantConnection(it) }
+                participantToken?.let { 
+                    createParticipantConnection(it)
+                    pToken = it
+                }
             } else if (contactId != null) {
                 startChat(contactId)
             } else {
@@ -106,6 +115,7 @@ class ChatViewModel @Inject constructor(
                     response.data?.data?.startChatResult?.let { result ->
                         this@ChatViewModel.contactId = result.contactId
                         this@ChatViewModel.participantToken = result.participantToken
+                        pToken = result.participantToken
                         createParticipantConnection(result.participantToken)
                     } ?: run {
                         _isLoading.value = false
@@ -122,11 +132,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun createParticipantConnection(participantToken: String) {
+    private fun createParticipantConnection(participantToken: String?) {
+        var token: String?;
+        token = if (participantToken !== null) participantToken else pToken
+        if (token == null) {
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true // Start loading
             chatRepository.createParticipantConnection(
-                participantToken,
+                token,
                 object : AsyncHandler<CreateParticipantConnectionRequest, CreateParticipantConnectionResult> {
                     override fun onError(exception: Exception?) {
                         Log.e("ChatViewModel", "CreateParticipantConnection failed: ${exception?.localizedMessage}")
@@ -262,7 +277,7 @@ class ChatViewModel @Inject constructor(
         if (index != -1) {
             val messageId = messagesList[index].messageID ?: return
             val content = "{\"messageId\":\"$messageId\"}"
-            sendEvent(content,ContentType.MESSAGE_READ)
+            sendEvent(content, ContentType.MESSAGE_READ)
             messagesList[index] = messagesList[index].copy(isRead = true)
             _messages.postValue(messagesList) // Safely post the updated list to the LiveData
         }
@@ -273,6 +288,7 @@ class ChatViewModel @Inject constructor(
             viewModelScope.launch {
                 val result = chatRepository.disconnectParticipant(credentials.connectionToken)
                 result.onSuccess {
+                    webSocketManager.closeWebSocket()
                     // Handle success - update UI or state as needed
                     _webSocketUrl.value = null
                 }.onFailure { exception ->

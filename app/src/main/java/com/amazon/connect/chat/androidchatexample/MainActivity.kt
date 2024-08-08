@@ -47,13 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.amazon.connect.chat.androidchatexample.models.Message
-import com.amazon.connect.chat.androidchatexample.models.MessageType
-import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme
-import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.Companion.keyboardAsState
-import com.amazon.connect.chat.androidchatexample.utils.ContentType
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.MessageType
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
+import com.amazon.connect.chat.sdk.utils.ContentType
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
+import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme
 import com.amazon.connect.chat.sdk.GreetingFromSDK
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -62,17 +62,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GreetingFromSDK("from Example App")
+            // GreetingFromSDK("from Example App")
 
-//            androidconnectchatandroidTheme {
-//                // A surface container using the 'background' color from the theme
-//                Surface(
-//                    modifier = Modifier.fillMaxSize(),
-//                    color = MaterialTheme.colorScheme.background
-//                ) {
-//                    ChatScreen()
-//                }
-//            }
+            androidconnectchatandroidTheme {
+                // A surface container using the 'background' color from the theme
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    ChatScreen()
+                }
+            }
         }
     }
 }

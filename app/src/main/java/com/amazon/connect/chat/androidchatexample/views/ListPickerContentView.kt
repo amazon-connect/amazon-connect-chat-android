@@ -36,9 +36,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.amazon.connect.chat.androidchatexample.R
-import com.amazon.connect.chat.androidchatexample.models.ListPickerContent
-import com.amazon.connect.chat.androidchatexample.models.ListPickerElement
-import com.amazon.connect.chat.androidchatexample.models.Message
+import com.amazon.connect.chat.sdk.model.ListPickerContent
+import com.amazon.connect.chat.sdk.model.ListPickerElement
+import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 
 @Composable
@@ -86,7 +86,7 @@ fun ListPickerContentView(
             )
             content.subtitle?.let {
                 Text(
-                    text = content.subtitle,
+                    text = content.subtitle!!,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp)
                 )

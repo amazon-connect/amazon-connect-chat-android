@@ -1,4 +1,4 @@
-package com.amazon.connect.chat.androidchatexample.utils
+package com.amazon.connect.chat.sdk.utils
 
 enum class ContentType(val type: String){
     TYPING("application/vnd.amazonaws.connect.event.typing"),
