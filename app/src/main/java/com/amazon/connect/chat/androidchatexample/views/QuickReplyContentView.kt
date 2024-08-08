@@ -23,8 +23,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.amazon.connect.chat.androidchatexample.models.Message
-import com.amazon.connect.chat.androidchatexample.models.QuickReplyContent
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.QuickReplyContent
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 
 @Composable

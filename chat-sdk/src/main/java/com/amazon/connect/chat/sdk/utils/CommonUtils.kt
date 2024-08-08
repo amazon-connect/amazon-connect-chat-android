@@ -1,4 +1,4 @@
-package com.amazon.connect.chat.androidchatexample.utils
+package com.amazon.connect.chat.sdk.utils
 
 import android.view.ViewTreeObserver
 import androidx.compose.foundation.text.ClickableText

@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk.di
 
+import android.content.Context
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
 import com.amazon.connect.chat.sdk.network.APIClient
@@ -12,6 +13,7 @@ import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProviderImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -67,7 +69,22 @@ object ChatModule {
      */
     @Provides
     @Singleton
-    fun provideWebSocketManager(): WebSocketManager {
-        return WebSocketManager()
+    fun provideConnectionDetailProvider(): ConnectionDetailProvider {
+        return ConnectionDetailProvider()
+    }
+
+    // Provide the Context dependency
+    @Provides
+    @Singleton
+    fun provideContext(@ApplicationContext appContext: Context): Context {
+        return appContext
+    }
+
+    @Provides
+    @Singleton
+    fun provideWebSocketManager(
+        context: Context,
+    ): WebSocketManager {
+        return WebSocketManager(context, {})
     }
 }

@@ -1,7 +1,6 @@
-package com.amazon.connect.chat.androidchatexample.models
+package com.amazon.connect.chat.sdk.model
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 interface MessageContent {
