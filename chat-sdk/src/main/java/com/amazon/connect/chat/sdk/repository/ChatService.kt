@@ -1,37 +1,59 @@
 package com.amazon.connect.chat.sdk.repository
 
+import android.util.Log
+import com.amazon.connect.chat.sdk.model.ChatDetails
+import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.WebSocketManager
 import javax.inject.Inject
 
+interface ChatService {
+    fun configure(config: GlobalConfig)
+    /**
+     * Creates a chat session with the specified chat details.
+     * @param chatDetails The details of the chat.
+     * @return A Result indicating whether the session creation was successful.
+     */
+    suspend fun createChatSession(chatDetails: ChatDetails): Result<Boolean>
 
-class ChatService @Inject constructor(
+    /**
+     * Disconnects the current chat session.
+     * @return A Result indicating whether the disconnection was successful.
+     */
+    suspend fun disconnectChatSession(): Result<Unit>
+}
+
+class ChatServiceImpl @Inject constructor(
     private val apiClient: APIClient,
     private val awsClient: AWSClient,
-    private val connectionDetailProvider: ConnectionDetailProvider) {
+    private val connectionDetailsProvider: ConnectionDetailsProvider) : ChatService {
 
-    private val webSocketManager: WebSocketManager by lazy {
-        WebSocketManager()
+    override fun configure(config: GlobalConfig) {
+        awsClient.configure(config)
     }
 
-    fun initializeSession(userId: String) {
-        // Initialize session logic
+    override suspend fun createChatSession(chatDetails: ChatDetails): Result<Boolean> {
+        return runCatching {
+            connectionDetailsProvider.updateChatDetails(chatDetails)
+            val connectionDetails = awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
+            connectionDetailsProvider.updateConnectionDetails(connectionDetails)
+            Log.d("ChatServiceImpl", "Participant Connected")
+            true
+        }.onFailure { exception ->
+            Log.e("ChatServiceImpl", "Failed to create chat session: ${exception.message}", exception)
+        }
     }
 
-    fun sendMessage(message: String) {
-        // Send message logic
+    override suspend fun disconnectChatSession(): Result<Unit> {
+        return runCatching {
+            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+                ?: throw Exception("No connection details available")
+            awsClient.disconnectParticipantConnection(connectionDetails.connectionToken).getOrThrow()
+            Log.d("ChatServiceImpl", "Participant Disconnected")
+            Unit
+        }.onFailure { exception ->
+            Log.e("ChatServiceImpl", "Failed to disconnect participant: ${exception.message}", exception)
+        }
     }
 
-    fun closeSession() {
-        // Close session logic
-    }
-
-    fun uploadAttachment() {
-        // apiClient.uploadAttachment()
-    }
-
-    fun sendMetrics() {
-        // apiClient.sendMetrics()
-    }
 }
