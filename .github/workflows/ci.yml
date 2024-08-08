@@ -68,12 +68,12 @@ jobs:
           ${{ runner.os }}-gradle-
 
     - name: Run Unit Tests
-      run: ./gradlew testDebugUnitTest
+      run: ./gradlew testDebugUnitTest | tee test-results.txt
 
     - name: Parse Unit Test Results
       id: parse_test_results
       run: |
-        TEST_RESULTS=$(grep -A 20 "Test Summary" <<< "${{ steps.run_tests.outputs.test_results }}" | tail -n +2)
+        TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +0)
         echo "::set-output name=test_results::${TEST_RESULTS}"
       shell: bash
 
