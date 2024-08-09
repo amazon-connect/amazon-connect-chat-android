@@ -3,6 +3,7 @@ androidGradlePlugin = "8.5.1"
 hiltAndroid = "2.49"
 kotlin = "1.9.20"
 hilt = "2.49"
+robolectric = "4.13"
 serialization = "1.9.20"
 androidxCoreKtx = "1.13.1"
 androidxLifecycleRuntimeKtx = "2.8.4"
@@ -35,6 +36,9 @@ chatSdk = "1.0.0"
 runtimeLivedata = "1.6.8"
 appcompat = "1.7.0"
 material = "1.12.0"
+mockito = "4.0.0"
+mockitoKotlin = "4.0.0"
+coroutinesTest = "1.5.2"
 lifecycleProcess = "2.8.4"
 
 [libraries]
@@ -71,6 +75,7 @@ hiltNavigationCompose = { module = "androidx.hilt:hilt-navigation-compose", vers
 navigationCompose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 awsSdkCore = { module = "com.amazonaws:aws-android-sdk-core", version.ref = "awsSdkCore" }
 awsSdkConnectParticipant = { module = "com.amazonaws:aws-android-sdk-connectparticipant", version.ref = "awsSdkConnectParticipant" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 serializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
 coilCompose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 chatSdk = { module = "com.amazon.connect.chat:library", version.ref = "chatSdk" }
@@ -78,6 +83,10 @@ runtimeLivedata = { group = "androidx.compose.runtime", name = "runtime-livedata
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 lifecycleProcess = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+mockito-inline = { group = "org.mockito", name = "mockito-inline", version.ref = "mockito" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "androidGradlePlugin" }
