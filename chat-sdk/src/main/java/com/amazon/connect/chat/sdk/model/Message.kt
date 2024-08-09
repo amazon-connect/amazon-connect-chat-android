@@ -1,6 +1,12 @@
-package com.amazon.connect.chat.androidchatexample.models
+package com.amazon.connect.chat.sdk.model
 
-import com.amazon.connect.chat.androidchatexample.utils.ContentType
+import com.amazon.connect.chat.sdk.utils.ContentType
+import com.amazon.connect.chat.sdk.model.GenericInteractiveTemplate
+import com.amazon.connect.chat.sdk.model.InteractiveContent
+import com.amazon.connect.chat.sdk.model.ListPickerContent
+import com.amazon.connect.chat.sdk.model.MessageContent
+import com.amazon.connect.chat.sdk.model.PlainTextContent
+import com.amazon.connect.chat.sdk.model.QuickReplyContent
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.util.UUID

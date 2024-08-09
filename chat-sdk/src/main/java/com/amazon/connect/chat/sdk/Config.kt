@@ -1,4 +1,4 @@
-package com.amazon.connect.chat.androidchatexample
+package com.amazon.connect.chat.sdk
 
 import com.amazonaws.regions.Regions
 

@@ -17,12 +17,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.amazon.connect.chat.androidchatexample.models.ListPickerContent
-import com.amazon.connect.chat.androidchatexample.models.Message
-import com.amazon.connect.chat.androidchatexample.models.MessageType
-import com.amazon.connect.chat.androidchatexample.models.PlainTextContent
-import com.amazon.connect.chat.androidchatexample.models.QuickReplyContent
-import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.Companion.MarkdownText
+import com.amazon.connect.chat.sdk.model.ListPickerContent
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.MessageType
+import com.amazon.connect.chat.sdk.model.PlainTextContent
+import com.amazon.connect.chat.sdk.model.QuickReplyContent
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.MarkdownText
 
 @Composable
 fun ChatMessageView(message: Message) {
