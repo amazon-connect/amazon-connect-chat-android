@@ -83,33 +83,19 @@ jobs:
         id: run_tests
         run: ./gradlew test | tee test-results.txt
 
-      - name: Parse Unit Test Results
-        id: parse_test_results
+      - name: Run Unit Tests and Capture Results
+        id: run_tests
         run: |
-          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +2 | sed 's/%/%25/g; s/$/%0A/g; s/\r/%0D/g')
-          echo "test_results=$TEST_RESULTS" >> $GITHUB_ENV
-        shell: bash
+          ./gradlew test | tee test-results.txt
+          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +2)
+          echo "$TEST_RESULTS" > test-summary.txt
 
-  comment-in-pr:
-    runs-on: ubuntu-latest
-    needs: test
-    permissions:
-      contents: write
-      pull-requests: write
-      repository-projects: write
-      id-token: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
       - name: Comment on PR
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const testResults = process.env.test_results;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `### Test Results\n${testResults}`
-            });
+        if: github.event_name == 'pull_request'
+        run: |
+          COMMENT_BODY=$(cat test-summary.txt)
+          echo "### Test Results" > comment_body.txt
+          echo "$COMMENT_BODY" >> comment_body.txt
+          gh pr comment ${{ github.event.pull_request.number }} --body "$(cat comment_body.txt)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
