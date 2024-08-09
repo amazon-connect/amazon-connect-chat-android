@@ -154,7 +154,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun createParticipantConnection(chatDetails: ChatDetails) {
+    private fun createParticipantConnection1(chatDetails: ChatDetails) {
         viewModelScope.launch {
             _isLoading.value = true // Start loading
             val result = chatSession.connect(chatDetails)
@@ -169,13 +169,12 @@ class ChatViewModel @Inject constructor(
     }
 
 
-    private fun createParticipantConnection1(chatDetails: ChatDetails) {
+    private fun createParticipantConnection(chatDetails: ChatDetails?) {
+        val pToken: String = if (chatDetails?.contactId == null) participantToken.toString() else chatDetails?.participantToken.toString()
         viewModelScope.launch {
             _isLoading.value = true // Start loading
-
-
             chatRepository.createParticipantConnection(
-                chatDetails.participantToken,
+                pToken,
                 object : AsyncHandler<CreateParticipantConnectionRequest, CreateParticipantConnectionResult> {
                     override fun onError(exception: Exception?) {
                         Log.e("ChatViewModel", "CreateParticipantConnection failed: ${exception?.localizedMessage}")
@@ -189,6 +188,10 @@ class ChatViewModel @Inject constructor(
                                 _createParticipantConnectionResult.value = connectionResult
                                 val websocketUrl = connectionResult.websocket?.url
                                 _webSocketUrl.value = websocketUrl
+                                if (chatDetails !== null) {
+                                    participantToken = chatDetails?.participantToken;
+                                }
+
                                 websocketUrl?.let { wsUrl ->
                                     webSocketManager.createWebSocket(
                                         wsUrl,

@@ -65,7 +65,8 @@ dependencies {
     implementation(libs.composeUiToolingPreview)
     implementation(libs.material3)
     implementation("com.google.android.gms:play-services-basement:18.2.0")
-    implementation(libs.runtimeLivedata) // Add this dependency in libs.versions.toml if necessary
+    implementation(libs.runtimeLivedata)
+    implementation(libs.lifecycleProcess) // Add this dependency in libs.versions.toml if necessary
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidxJunit)
     androidTestImplementation(libs.espressoCore)

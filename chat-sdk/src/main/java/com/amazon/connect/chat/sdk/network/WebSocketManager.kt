@@ -3,6 +3,10 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.Config
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageType
@@ -57,7 +61,9 @@ class WebSocketManager @Inject constructor(
             override fun onAvailable(network: Network) {
                 super.onAvailable(network)
                 isConnectedToNetwork = true
-                requestNewWsUrl()
+                if (isChatActive) {
+                    requestNewWsUrl()
+                }
             }
 
             override fun onLost(network: Network) {
@@ -66,12 +72,27 @@ class WebSocketManager @Inject constructor(
             }
         };
         networkConnectionManager.registerNetworkCallback(networkCallback)
+
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    Log.d("AppLifecycleObserver", "App in Foreground")
+                    if (isChatActive) {
+                        requestNewWsUrl();
+                    }
+                }
+                else -> {}
+            }
+        }
+
+        ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
     }
 
 
     fun createWebSocket(url: String, onMessageReceived: (Message) -> Unit, onConnectionFailed: (String) -> Unit) {
         val request = Request.Builder().url(url).build()
         this.messageCallBack = onMessageReceived
+        closeWebSocket();
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
                 // Handle WebSocket open event
@@ -234,7 +255,8 @@ class WebSocketManager @Inject constructor(
         this.messageCallBack(message)    }
 
     private fun handleChatEnded(innerJson: JSONObject) {
-        closeWebSocket()
+        closeWebSocket();
+        isChatActive = false;
         val message = Message(
             participant = "System Message",
             text = "The chat has ended.",

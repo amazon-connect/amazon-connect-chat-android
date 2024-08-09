@@ -62,17 +62,6 @@ object ChatModule {
         return ConnectionDetailsProviderImpl()
     }
 
-    /**
-     * Provides a singleton instance of WebSocketManager.
-     *
-     * @return An instance of WebSocketManager.
-     */
-    @Provides
-    @Singleton
-    fun provideConnectionDetailProvider(): ConnectionDetailProvider {
-        return ConnectionDetailProvider()
-    }
-
     // Provide the Context dependency
     @Provides
     @Singleton
