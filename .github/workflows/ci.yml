@@ -83,19 +83,43 @@ jobs:
         id: run_tests
         run: |
           ./gradlew test | tee test-results.txt
-          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +2 | sed 's/\x1b\[[0-9;]*m//g')
+          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +2 | sed 's/\x1B\[[0-9;]*[JKmsu]//g' | tr -d '[:space:]')
           echo "$TEST_RESULTS" > test-summary.txt
-      
+
+      - name: Format Test Results for Two-Row Markdown Table with Emojis
+        run: |
+          echo "### Test Results" > formatted-summary.txt
+          echo "" >> formatted-summary.txt
+          echo "| Total Tests | Passed | Failed | Skipped | Result |" >> formatted-summary.txt
+          echo "|-------------|--------|--------|---------|--------|" >> formatted-summary.txt
+          TOTAL=$(grep "Total Tests" test-summary.txt | awk '{print $5}')
+          PASSED=$(grep "Passed" test-summary.txt | awk '{print $4}')
+          FAILED=$(grep "Failed" test-summary.txt | awk '{print $4}')
+          SKIPPED=$(grep "Skipped" test-summary.txt | awk '{print $4}')
+          RESULT=$(grep "Result" test-summary.txt | awk '{print $4}' | sed 's/\x1B\[[0-9;]*[JKmsu]//g' | tr -d '[:space:]')
+  
+          echo "Cleaned RESULT: '$RESULT'"
+  
+          if [[ "$RESULT" == "SUCCESS" ]]; then
+            EMOJI="✅"
+          elif [[ "$RESULT" == "FAILURE" ]]; then
+            EMOJI="❌"
+          else
+            EMOJI="⚠️"
+          fi
+  
+          echo "| $TOTAL | $PASSED | $FAILED | $SKIPPED | $RESULT $EMOJI |" >> formatted-summary.txt
+
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
             const fs = require('fs');
-            const testResults = fs.readFileSync('test-summary.txt', 'utf8');
+            const testResults = fs.readFileSync('formatted-summary.txt', 'utf8');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `### Test Results\n${testResults}`
+              body: testResults
             });
