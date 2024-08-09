@@ -96,12 +96,12 @@ jobs:
           echo "Raw Test Summary Content:"
           cat test-summary.txt
   
-          # Extracting values from the test summary
-          TOTAL=$(grep "Total Tests" test-summary.txt | awk -F"|" '{print $3}' | tr -d '[:space:]')
-          PASSED=$(grep "Passed" test-summary.txt | awk -F"|" '{print $4}' | tr -d '[:space:]')
-          FAILED=$(grep "Failed" test-summary.txt | awk -F"|" '{print $5}' | tr -d '[:space:]')
-          SKIPPED=$(grep "Skipped" test-summary.txt | awk -F"|" '{print $6}' | tr -d '[:space:]')
-          RESULT=$(grep "Result" test-summary.txt | awk -F"|" '{print $7}' | tr -d '[:space:]')
+          # Extracting values using awk
+          TOTAL=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/TotalTests/ {print $2}')
+          PASSED=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Passed/ {print $2}')
+          FAILED=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Failed/ {print $2}')
+          SKIPPED=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Skipped/ {print $2}')
+          RESULT=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Result/ {print $2}')
   
           # Detailed debugging
           echo "Debug: Extracted Values:"
@@ -118,7 +118,7 @@ jobs:
           else
             EMOJI="⚠️"
           fi
-
+  
           echo "Debug: Final RESULT after processing: '$RESULT $EMOJI'"
   
           echo "| $TOTAL | $PASSED | $FAILED | $SKIPPED | $RESULT $EMOJI |" >> formatted-summary.txt
