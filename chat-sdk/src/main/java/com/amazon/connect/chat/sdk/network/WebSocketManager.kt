@@ -54,7 +54,7 @@ class WebSocketManager @Inject constructor(
     private val networkConnectionManager: NetworkConnectionManager = NetworkConnectionManager.getInstance(context)
     private var isConnectedToNetwork: Boolean = false
     private var isChatActive: Boolean = false
-
+    private var isReconnecting: Boolean = false
 
     init {
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -78,7 +78,7 @@ class WebSocketManager @Inject constructor(
                 Lifecycle.Event.ON_START -> {
                     Log.d("AppLifecycleObserver", "App in Foreground")
                     if (isChatActive) {
-                        requestNewWsUrl();
+                        reestablishConnection();
                     }
                 }
                 else -> {}
@@ -88,6 +88,12 @@ class WebSocketManager @Inject constructor(
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
     }
 
+    fun reestablishConnection() {
+        if (!isReconnecting) {
+            requestNewWsUrl()
+            isReconnecting = true
+        }
+    }
 
     fun createWebSocket(url: String, onMessageReceived: (Message) -> Unit, onConnectionFailed: (String) -> Unit) {
         val request = Request.Builder().url(url).build()
@@ -100,7 +106,7 @@ class WebSocketManager @Inject constructor(
 
                 // Start heartbeats
                 startHeartbeats()
-
+                isReconnecting = false
                 isChatActive = true
             }
 
@@ -126,7 +132,9 @@ class WebSocketManager @Inject constructor(
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
                 onConnectionFailed(t.message ?: "Unknown Error")
                 if (t is IOException && t.message == "Software caused connection abort") {
-                    // requestNewWsUrl()
+                    if (isChatActive && isConnectedToNetwork) {
+                        reestablishConnection()
+                    }
                 }
             }
         })
@@ -192,11 +200,17 @@ class WebSocketManager @Inject constructor(
     }
 
     fun onHeartbeatMissed() {
-        // TODO: Invoke DeepHearbeatFailure(), Check internet connectivity, publish connectionBroken event
+        // TODO: Invoke hearbeatFailure(), Check internet connectivity, publish connectionBroken event
+        if (isConnectedToNetwork) {
+            reestablishConnection()
+        }
     }
 
     fun onDeepHeartbeatMissed() {
         // TODO: Invoke DeepHearbeatFailure(), Check internet connectivity, publish connectionBroken event
+        if (isConnectedToNetwork) {
+            reestablishConnection()
+        }
     }
 
     // Message Handling Logic
