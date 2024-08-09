@@ -124,8 +124,8 @@ class WebSocketManager @Inject constructor(
                 if (code == 1000) {
                     // TODO: set isChatActive to false
                     isChatActive = false
-                } else {
-                    // TODO: check connectivity, retry if unexpected closure
+                } else if (isConnectedToNetwork && isChatActive) {
+                    reestablishConnection();
                 }
             }
 
