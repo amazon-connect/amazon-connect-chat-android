@@ -78,14 +78,15 @@ jobs:
         with:
           name: app-build
           path: app/build/outputs/apk/
-
+          
       - name: Run Unit Tests
+        id: run_tests
         run: ./gradlew test | tee test-results.txt
 
       - name: Parse Unit Test Results
         id: parse_test_results
         run: |
-          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +0)
+          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +2 | sed 's/%/%25/g; s/$/%0A/g; s/\r/%0D/g')
           echo "test_results=$TEST_RESULTS" >> $GITHUB_ENV
         shell: bash
 
