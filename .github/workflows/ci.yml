@@ -86,7 +86,7 @@ jobs:
         id: parse_test_results
         run: |
           TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +0)
-          echo "::set-output name=test_results::${TEST_RESULTS}"
+          echo "test_results=$TEST_RESULTS" >> $GITHUB_ENV
         shell: bash
 
   comment-in-pr:
@@ -105,7 +105,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const testResults = `{{ steps.parse_test_results.outputs.test_results }}`;
+            const testResults = process.env.test_results;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
