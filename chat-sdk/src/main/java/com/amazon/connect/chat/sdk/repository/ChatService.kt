@@ -20,7 +20,7 @@ interface ChatService {
      * Disconnects the current chat session.
      * @return A Result indicating whether the disconnection was successful.
      */
-    suspend fun disconnectChatSession(): Result<Unit>
+    suspend fun disconnectChatSession(): Result<Boolean>
 }
 
 class ChatServiceImpl @Inject constructor(
@@ -44,13 +44,13 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    override suspend fun disconnectChatSession(): Result<Unit> {
+    override suspend fun disconnectChatSession(): Result<Boolean> {
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
             awsClient.disconnectParticipantConnection(connectionDetails.connectionToken).getOrThrow()
             Log.d("ChatServiceImpl", "Participant Disconnected")
-            Unit
+            true
         }.onFailure { exception ->
             Log.e("ChatServiceImpl", "Failed to disconnect participant: ${exception.message}", exception)
         }
