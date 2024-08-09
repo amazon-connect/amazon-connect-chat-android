@@ -92,14 +92,22 @@ jobs:
           echo "" >> formatted-summary.txt
           echo "| Total Tests | Passed | Failed | Skipped | Result |" >> formatted-summary.txt
           echo "|-------------|--------|--------|---------|--------|" >> formatted-summary.txt
+  
+          # Extracting values from the test summary
           TOTAL=$(grep "Total Tests" test-summary.txt | awk '{print $5}')
           PASSED=$(grep "Passed" test-summary.txt | awk '{print $4}')
           FAILED=$(grep "Failed" test-summary.txt | awk '{print $4}')
           SKIPPED=$(grep "Skipped" test-summary.txt | awk '{print $4}')
-          RESULT=$(grep "Result" test-summary.txt | awk '{print $4}' | sed 's/\x1B\[[0-9;]*[JKmsu]//g' | tr -d '[:space:]')
   
-          echo "Cleaned RESULT: '$RESULT'"
+          # Directly capture the line that contains "Result" for inspection
+          RESULT_LINE=$(grep "Result" test-summary.txt)
+          echo "Debug: Raw RESULT_LINE='$RESULT_LINE'"
   
+          # Extract and clean up the RESULT variable
+          RESULT=$(echo "$RESULT_LINE" | awk '{print $4}' | sed 's/\x1B\[[0-9;]*[JKmsu]//g' | tr -d '[:space:]')
+          echo "Debug: Cleaned RESULT='$RESULT'"
+  
+          # Use `if` or `case` to compare the result
           if [[ "$RESULT" == "SUCCESS" ]]; then
             EMOJI="✅"
           elif [[ "$RESULT" == "FAILURE" ]]; then
@@ -109,7 +117,10 @@ jobs:
           fi
   
           echo "| $TOTAL | $PASSED | $FAILED | $SKIPPED | $RESULT $EMOJI |" >> formatted-summary.txt
-
+  
+          # Show the final output for debugging
+          cat formatted-summary.txt
+  
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
