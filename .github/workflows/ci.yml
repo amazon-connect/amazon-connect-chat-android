@@ -78,10 +78,6 @@ jobs:
         with:
           name: app-build
           path: app/build/outputs/apk/
-          
-      - name: Run Unit Tests
-        id: run_tests
-        run: ./gradlew test | tee test-results.txt
 
       - name: Run Unit Tests and Capture Results
         id: run_tests
