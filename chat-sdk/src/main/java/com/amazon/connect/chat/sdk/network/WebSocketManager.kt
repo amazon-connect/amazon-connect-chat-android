@@ -57,6 +57,10 @@ class WebSocketManager @Inject constructor(
     private var isReconnecting: Boolean = false
 
     init {
+        registerObservers()
+    }
+
+    private fun registerObservers() {
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 super.onAvailable(network)
