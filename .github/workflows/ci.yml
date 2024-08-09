@@ -35,9 +35,15 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Build with Gradle
-      run: ./gradlew build
+    - name: Build with Gradle (no tests)
+      run: ./gradlew assemble
 
+    - name: Save Build Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: app-build
+        path: app/build/outputs/apk/
+        
   test:
     runs-on: ubuntu-latest
     needs: build
@@ -67,8 +73,14 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
+    - name: Download Build Artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: app-build
+        path: app/build/outputs/apk/
+        
     - name: Run Unit Tests
-      run: ./gradlew testDebugUnitTest | tee test-results.txt
+      run: ./gradlew test | tee test-results.txt
 
     - name: Parse Unit Test Results
       id: parse_test_results
@@ -84,3 +96,4 @@ jobs:
         header: Test Results
         message: ${{ steps.parse_test_results.outputs.test_results }}
         recreate: true
+
