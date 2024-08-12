@@ -64,16 +64,7 @@ dependencies {
     implementation(libs.composeUiGraphics)
     implementation(libs.composeUiToolingPreview)
     implementation(libs.material3)
-    implementation("com.google.android.gms:play-services-basement:18.2.0")
     implementation(libs.runtimeLivedata)
-    implementation(libs.lifecycleProcess) // Add this dependency in libs.versions.toml if necessary
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidxJunit)
-    androidTestImplementation(libs.espressoCore)
-    androidTestImplementation(platform(libs.composeBom))
-    androidTestImplementation(libs.composeUiTestJunit4)
-    debugImplementation(libs.composeUiTooling)
-    debugImplementation(libs.composeUiTestManifest)
 
     // Lifecycle livedata
     implementation(libs.lifecycleLivedataKtx)
@@ -91,6 +82,7 @@ dependencies {
     //Hilt
     implementation(libs.hiltAndroid)
     implementation(libs.hiltNavigationCompose)
+    implementation(libs.lifecycleProcess)
     kapt(libs.hiltCompiler)
     implementation(libs.navigationCompose)
     kapt(libs.hiltAndroidCompiler)
@@ -105,6 +97,24 @@ dependencies {
     // Image loading
     implementation(libs.coilCompose)
 
+    // Testing
+    // Mockito for mocking
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.inline)
+
+    // Kotlin extensions for Mockito
+    testImplementation(libs.mockito.kotlin)
+
+    // Coroutines test library
+    testImplementation(libs.coroutines.test)
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidxJunit)
+    androidTestImplementation(platform(libs.composeBom))
+    androidTestImplementation(libs.composeUiTestJunit4)
+    debugImplementation(libs.composeUiTooling)
+    debugImplementation(libs.composeUiTestManifest)
+    testImplementation(libs.robolectric)
 }
 
 publishing {
@@ -129,3 +139,6 @@ publishing {
 tasks.withType<AbstractPublishToMaven>().configureEach {
     dependsOn(tasks.named("assembleRelease"))
 }
+
+// Test summary gradle file
+apply(from = "test-summary.gradle.kts")
