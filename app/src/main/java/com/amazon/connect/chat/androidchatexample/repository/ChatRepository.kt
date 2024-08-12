@@ -1,5 +1,13 @@
 package com.amazon.connect.chat.androidchatexample.repository
 
+import com.amazon.connect.chat.androidchatexample.Config
+import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
+import com.amazon.connect.chat.androidchatexample.models.StartChatResponse
+import com.amazon.connect.chat.androidchatexample.network.ApiInterface
+import com.amazon.connect.chat.androidchatexample.network.Resource
+import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazon.connect.chat.sdk.model.TranscriptResponse
+import com.amazon.connect.chat.sdk.utils.ContentType
 import com.amazonaws.AmazonClientException
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.handlers.AsyncHandler
@@ -13,22 +21,11 @@ import com.amazonaws.services.connectparticipant.model.SendEventRequest
 import com.amazonaws.services.connectparticipant.model.SendEventResult
 import com.amazonaws.services.connectparticipant.model.SendMessageRequest
 import com.amazonaws.services.connectparticipant.model.SendMessageResult
-import com.amazon.connect.chat.androidchatexample.Config
-import com.amazon.connect.chat.sdk.model.MessageMetadata
-import com.amazon.connect.chat.sdk.model.Receipt
-import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
-import com.amazon.connect.chat.androidchatexample.models.StartChatResponse
-import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.model.TranscriptResponse
-import com.amazon.connect.chat.androidchatexample.network.ApiInterface
-import com.amazon.connect.chat.androidchatexample.network.Resource
-import com.amazon.connect.chat.sdk.utils.ContentType
 import dagger.hilt.android.scopes.ActivityScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import retrofit2.HttpException
-import java.lang.Exception
 import javax.inject.Inject
 
 @ActivityScoped
@@ -176,36 +173,37 @@ class ChatRepository @Inject constructor(
             }
 
             val result = connectParticipantClient.getTranscript(request)
-            val transcriptItems: List<TranscriptItem> = result.transcript.map { apiItem ->
-                TranscriptItem(
-                    absoluteTime = apiItem.absoluteTime,
-                    content = apiItem.content,
-                    contentType = apiItem.contentType,
-                    displayName = apiItem.displayName,
-                    id = apiItem.id,
-                    participantId = apiItem.participantId,
-                    participantRole = apiItem.participantRole,
-                    type = apiItem.type,
-                    messageMetadata = apiItem.messageMetadata?.let { metadata ->
-                        MessageMetadata(
-                            messageId = metadata.messageId,
-                            receipts = metadata.receipts?.map { receipt ->
-                                Receipt(
-                                    deliveredTimestamp = receipt.deliveredTimestamp,
-                                    readTimestamp = receipt.readTimestamp,
-                                    recipientParticipantId = receipt.recipientParticipantId
-                                )
-                            }
-                        )
-                    }
-                )
-            }
+            // TODO : Need to be parsed correctly
+//            val transcriptItems: List<TranscriptItem> = result.transcript.map { apiItem ->
+//                TranscriptItem(
+//                    absoluteTime = apiItem.absoluteTime,
+//                    content = apiItem.content,
+//                    contentType = apiItem.contentType,
+//                    displayName = apiItem.displayName,
+//                    id = apiItem.id,
+//                    participantId = apiItem.participantId,
+//                    participantRole = apiItem.participantRole,
+//                    type = apiItem.type,
+//                    messageMetadata = apiItem.messageMetadata?.let { metadata ->
+//                        MessageMetadata(
+//                            messageId = metadata.messageId,
+//                            receipts = metadata.receipts?.map { receipt ->
+//                                Receipt(
+//                                    deliveredTimestamp = receipt.deliveredTimestamp,
+//                                    readTimestamp = receipt.readTimestamp,
+//                                    recipientParticipantId = receipt.recipientParticipantId
+//                                )
+//                            }
+//                        )
+//                    }
+//                )
+//            }
 
             // Create the full response object
             val fullResponse = TranscriptResponse(
                 initialContactId = result.initialContactId,
                 nextToken = result.nextToken,
-                transcript = transcriptItems
+                transcript = emptyList()  // TODO : Need to be updated with actual transcript items
             )
 
             Resource.Success(fullResponse)

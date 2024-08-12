@@ -48,13 +48,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.sdk.model.MessageType
+import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
 import com.amazon.connect.chat.sdk.utils.ContentType
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
 import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme
-import com.amazon.connect.chat.sdk.GreetingFromSDK
+import com.amazon.connect.chat.sdk.model.TranscriptItem
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -274,9 +274,10 @@ fun ChatView(viewModel: ChatViewModel) {
                     }
                     // Logic to determine if the message is visible.
                     // For simplicity, let's say it's visible if it's one of the last three messages.
-                    if (index >= messages.size - 3 && message.messageType == MessageType.RECEIVER) {
-                        viewModel.sendReadEventOnAppear(message)
-                    }
+                    // TODO: Update here to send read receipts from SDK
+//                    if (index >= messages.size - 3 && message.messageDirection == MessageDirection.INCOMING) {
+//                        viewModel.sendReadEventOnAppear(message)
+//                    }
                 }
             }
         }
@@ -308,9 +309,9 @@ fun ChatView(viewModel: ChatViewModel) {
 }
 
 @Composable
-fun ChatMessage(message: Message) {
+fun ChatMessage(transcriptItem: TranscriptItem) {
     // Customize this composable to display each message
-    ChatMessageView(message = message)
+    ChatMessageView(transcriptItem = transcriptItem)
 }
 
 @Composable
@@ -353,73 +354,73 @@ fun ChatViewPreview(messages: List<Message>) {
 @Preview(showBackground = true)
 @Composable
 fun ChatViewPreview() {
-    val sampleMessages = listOf(
-        Message(
-            participant = "CUSTOMER",
-            text = "Hello asdfioahsdfoas idfuoasdfihjasdlfihjsoadfjopasoaisdfhjoasidjf ",
-            contentType = "text/plain",
-            messageType = MessageType.SENDER,
-            timeStamp = "06=51",
-            status = "Delivered"
-        ),
-        Message(
-            participant = "SYSTEM",
-            text = "{\"templateType\":\"ListPicker\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"Which department do you want to select?\",\"subtitle\":\"Tap to select option\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/company.jpg\",\"elements\":[{\"title\":\"Billing\",\"subtitle\":\"Request billing information\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/billing.jpg\"},{\"title\":\"New Service\",\"subtitle\":\"Set up a new service\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/new_service.jpg\"},{\"title\":\"Cancellation\",\"subtitle\":\"Request a cancellation\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/cancel.jpg\"}]}}}",
-            contentType = "application/vnd.amazonaws.connect.message.interactive",
-            messageType = MessageType.RECEIVER,
-            timeStamp = "14:18",
-            messageID = "f905d16e-12a0-4854-9079-d5b34476c3ba",
-            status = null,
-            isRead = false
-        ),
-        Message(
-            participant = "AGENT",
-            text = "...",
-            contentType = "text/plain",
-            messageType = MessageType.RECEIVER,
-            timeStamp = "06:51",
-            isRead = true
-        ),
-        Message(
-            participant = "AGENT",
-            text = "Hello, **this** is a agent \n\n speaking.Hello, this is a agent speaking.",
-            contentType = "text/plain",
-            messageType = MessageType.RECEIVER,
-            timeStamp = "06:51",
-            isRead = true
-        ),
-
-        Message(
-            participant = "SYSTEM",
-            text = "{\"templateType\":\"QuickReply\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"How was your experience?\",\"elements\":[{\"title\":\"Very unsatisfied\"},{\"title\":\"Unsatisfied\"},{\"title\":\"Neutral\"},{\"title\":\"Satisfied\"},{\"title\":\"Very Satisfied\"}]}}}",
-            contentType = "application/vnd.amazonaws.connect.message.interactive",
-            messageType = MessageType.RECEIVER,
-            timeStamp = "06:20",
-            messageID = "8f76a266-6654-434f-94ea-87ec111ee341",
-            status = null,
-            isRead = false
-        ),
-
-        Message(
-            participant = "SYSTEM",
-            text = "{\"templateType\":\"ListPicker\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"Which department would you like?\",\"subtitle\":\"Tap to select option\",\"elements\":[{\"title\":\"Billing\",\"subtitle\":\"For billing issues\"},{\"title\":\"New Service\",\"subtitle\":\"For new service\"},{\"title\":\"Cancellation\",\"subtitle\":\"For new service requests\"}]}}}",
-            contentType = "application/vnd.amazonaws.connect.message.interactive",
-            messageType = MessageType.RECEIVER,
-            timeStamp = "14:18",
-            messageID = "f905d16e-12a0-4854-9079-d5b34476c3ba",
-            status = null,
-            isRead = false
-        ),
-
-        Message(
-            participant = "SYSTEM",
-            text = "Someone joined the chat.Someone joined the chat.Someone joined the chat.",
-            contentType = "text/plain",
-            messageType = MessageType.COMMON,
-            timeStamp = "06:51",
-            isRead = true
-        )
-    )
-
-    ChatViewPreview(messages = sampleMessages)
+//    val sampleMessages = listOf(
+//        Message(
+//            participant = "CUSTOMER",
+//            text = "Hello asdfioahsdfoas idfuoasdfihjasdlfihjsoadfjopasoaisdfhjoasidjf ",
+//            contentType = "text/plain",
+//            messageDirection = MessageDirection.OUTGOING,
+//            timeStamp = "06=51",
+//            status = "Delivered"
+//        ),
+//        Message(
+//            participant = "SYSTEM",
+//            text = "{\"templateType\":\"ListPicker\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"Which department do you want to select?\",\"subtitle\":\"Tap to select option\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/company.jpg\",\"elements\":[{\"title\":\"Billing\",\"subtitle\":\"Request billing information\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/billing.jpg\"},{\"title\":\"New Service\",\"subtitle\":\"Set up a new service\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/new_service.jpg\"},{\"title\":\"Cancellation\",\"subtitle\":\"Request a cancellation\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/cancel.jpg\"}]}}}",
+//            contentType = "application/vnd.amazonaws.connect.message.interactive",
+//            messageDirection = MessageDirection.INCOMING,
+//            timeStamp = "14:18",
+//            messageID = "f905d16e-12a0-4854-9079-d5b34476c3ba",
+//            status = null,
+//            isRead = false
+//        ),
+//        Message(
+//            participant = "AGENT",
+//            text = "...",
+//            contentType = "text/plain",
+//            messageDirection = MessageDirection.INCOMING,
+//            timeStamp = "06:51",
+//            isRead = true
+//        ),
+//        Message(
+//            participant = "AGENT",
+//            text = "Hello, **this** is a agent \n\n speaking.Hello, this is a agent speaking.",
+//            contentType = "text/plain",
+//            messageDirection = MessageDirection.INCOMING,
+//            timeStamp = "06:51",
+//            isRead = true
+//        ),
+//
+//        Message(
+//            participant = "SYSTEM",
+//            text = "{\"templateType\":\"QuickReply\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"How was your experience?\",\"elements\":[{\"title\":\"Very unsatisfied\"},{\"title\":\"Unsatisfied\"},{\"title\":\"Neutral\"},{\"title\":\"Satisfied\"},{\"title\":\"Very Satisfied\"}]}}}",
+//            contentType = "application/vnd.amazonaws.connect.message.interactive",
+//            messageDirection = MessageDirection.INCOMING,
+//            timeStamp = "06:20",
+//            messageID = "8f76a266-6654-434f-94ea-87ec111ee341",
+//            status = null,
+//            isRead = false
+//        ),
+//
+//        Message(
+//            participant = "SYSTEM",
+//            text = "{\"templateType\":\"ListPicker\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"Which department would you like?\",\"subtitle\":\"Tap to select option\",\"elements\":[{\"title\":\"Billing\",\"subtitle\":\"For billing issues\"},{\"title\":\"New Service\",\"subtitle\":\"For new service\"},{\"title\":\"Cancellation\",\"subtitle\":\"For new service requests\"}]}}}",
+//            contentType = "application/vnd.amazonaws.connect.message.interactive",
+//            messageDirection = MessageDirection.INCOMING,
+//            timeStamp = "14:18",
+//            messageID = "f905d16e-12a0-4854-9079-d5b34476c3ba",
+//            status = null,
+//            isRead = false
+//        ),
+//
+//        Message(
+//            participant = "SYSTEM",
+//            text = "Someone joined the chat.Someone joined the chat.Someone joined the chat.",
+//            contentType = "text/plain",
+//            messageDirection = MessageDirection.COMMON,
+//            timeStamp = "06:51",
+//            isRead = true
+//        )
+//    )
+//
+//    ChatViewPreview(messages = sampleMessages)
 }
