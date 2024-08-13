@@ -27,11 +27,11 @@ class Message(
     override var messageDirection: MessageDirection? = null,
     timeStamp: String,
     private var attachmentId: String? = null,
-    id: String? = null,
+    id: String,
     override var metadata: MessageMetadataProtocol? = null,
     serializedContent: Map<String, Any>? = null
 ) : TranscriptItem(
-    id = id ?: UUID.randomUUID().toString(),
+    id = id,
     timeStamp = timeStamp,
     contentType = contentType,
     serializedContent = serializedContent
