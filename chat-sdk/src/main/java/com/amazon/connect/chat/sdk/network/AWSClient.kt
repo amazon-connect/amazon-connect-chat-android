@@ -2,7 +2,7 @@ package com.amazon.connect.chat.sdk.network
 
 import android.util.Log
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
-import com.amazon.connect.chat.sdk.model.Constants
+import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazonaws.regions.Region
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient

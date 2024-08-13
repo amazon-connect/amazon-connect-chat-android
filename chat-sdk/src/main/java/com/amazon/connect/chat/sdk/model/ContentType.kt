@@ -1,4 +1,4 @@
-package com.amazon.connect.chat.sdk.utils
+package com.amazon.connect.chat.sdk.model
 
 enum class ContentType(val type: String){
     TYPING("application/vnd.amazonaws.connect.event.typing"),
@@ -11,5 +11,11 @@ enum class ContentType(val type: String){
     ENDED("application/vnd.amazonaws.connect.event.chat.ended"),
     PLAIN_TEXT("text/plain"),
     RICH_TEXT("text/markdown"),
-    INTERACTIVE_TEXT("application/vnd.amazonaws.connect.message.interactive")
+    INTERACTIVE_TEXT("application/vnd.amazonaws.connect.message.interactive");
+
+    companion object {
+        fun fromType(type: String): ContentType? {
+            return values().find { it.type.equals(type, ignoreCase = true) }
+        }
+    }
 }

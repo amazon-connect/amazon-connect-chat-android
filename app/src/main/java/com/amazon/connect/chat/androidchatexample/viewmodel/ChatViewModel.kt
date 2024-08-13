@@ -22,7 +22,7 @@ import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
-import com.amazon.connect.chat.sdk.utils.ContentType
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.Event

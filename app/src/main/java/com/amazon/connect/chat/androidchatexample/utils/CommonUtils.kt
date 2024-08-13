@@ -4,7 +4,7 @@ import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.utils.ContentType
+import com.amazon.connect.chat.sdk.model.ContentType
 
 object CommonUtils {
 
