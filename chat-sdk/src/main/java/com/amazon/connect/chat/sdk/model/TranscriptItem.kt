@@ -10,7 +10,7 @@ interface TranscriptItemProtocol {
 }
 
 open class TranscriptItem(
-    id: String = UUID.randomUUID().toString(),
+    id: String = "",
     timeStamp: String,
     override var contentType: String,
     override var serializedContent: Map<String, Any>? = null
