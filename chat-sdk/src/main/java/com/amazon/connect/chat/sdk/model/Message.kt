@@ -1,9 +1,7 @@
 package com.amazon.connect.chat.sdk.model
 
-import com.amazon.connect.chat.sdk.utils.ContentType
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import java.util.UUID
 
 enum class MessageDirection {
     OUTGOING,

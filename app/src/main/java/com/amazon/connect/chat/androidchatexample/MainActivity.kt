@@ -48,9 +48,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
-import com.amazon.connect.chat.sdk.utils.ContentType
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
 import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme

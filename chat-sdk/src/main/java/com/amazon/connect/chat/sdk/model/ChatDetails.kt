@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk.model
 
+import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazonaws.regions.Regions
 
 data class ChatDetails(
