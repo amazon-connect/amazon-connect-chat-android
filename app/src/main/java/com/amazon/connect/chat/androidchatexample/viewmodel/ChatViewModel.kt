@@ -19,6 +19,7 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
 import com.amazon.connect.chat.androidchatexample.models.PersistentChat
 import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
 import com.amazon.connect.chat.sdk.utils.ContentType
@@ -249,6 +250,10 @@ class ChatViewModel @Inject constructor(
 
                 when (transcriptItem) {
                     is Message  -> {
+
+                        // Get message direction here
+                        CommonUtils.getMessageDirection(transcriptItem)
+
                         if (!(transcriptItem.text == "..." && transcriptItem.participant == chatConfiguration.customerName)) {
                             add(transcriptItem)
                         }
@@ -261,6 +266,7 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     is Event -> {
+                        CommonUtils.customizeEvent(transcriptItem)
                         add(transcriptItem)
                     }
                     else -> {
