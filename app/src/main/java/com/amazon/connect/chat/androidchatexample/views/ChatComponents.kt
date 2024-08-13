@@ -50,7 +50,7 @@ fun ChatMessageView(transcriptItem: TranscriptItem) {
         }
         // Add handling for other TranscriptItem subclasses if necessary
         is Event -> {
-
+            EventView(transcriptItem)
         }
         else -> Text(text = "Unsupported transcript item type")
     }
@@ -156,6 +156,26 @@ fun CommonChatBubble(message: Message) {
             modifier = Modifier
                 .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
         )
+    }
+}
+
+@Composable
+fun EventView(event: Event) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        event.text?.let {
+            Text(
+                text = it,
+                color = Color.Blue,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+            )
+        }
     }
 }
 

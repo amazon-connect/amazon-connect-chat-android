@@ -245,16 +245,16 @@ class WebSocketManager @Inject constructor(
         val time = innerJson.getString("AbsoluteTime")
         val eventId = innerJson.getString("Id")
 
-        val message = Event(
+        val event = Event(
             id = eventId,
             timeStamp = time,
             displayName = displayName,
             participant = participantRole,
-            text = "Participant Joined",
+            text = innerJson.getString("ContentType"), // TODO: Need to be removed and replaced in UI once callbacks are hooked
             contentType = innerJson.getString("ContentType"),
             eventDirection = MessageDirection.COMMON,
         )
-        this.messageCallBack(message)
+        this.messageCallBack(event)
     }
 
     private fun handleTyping(innerJson: JSONObject) {

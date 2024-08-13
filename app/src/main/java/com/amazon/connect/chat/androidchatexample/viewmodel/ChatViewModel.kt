@@ -24,6 +24,7 @@ import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
 import com.amazon.connect.chat.sdk.utils.ContentType
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.model.ChatDetails
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import kotlinx.coroutines.launch
@@ -247,7 +248,7 @@ class ChatViewModel @Inject constructor(
                 removeIf { it is Message && it.text == "..." }
 
                 when (transcriptItem) {
-                    is Message -> {
+                    is Message  -> {
                         if (!(transcriptItem.text == "..." && transcriptItem.participant == chatConfiguration.customerName)) {
                             add(transcriptItem)
                         }
@@ -258,6 +259,9 @@ class ChatViewModel @Inject constructor(
                             val content = "{\"messageId\":\"${transcriptItem.id}\"}"
                             sendEvent(content, ContentType.MESSAGE_DELIVERED)
                         }
+                    }
+                    is Event -> {
+                        add(transcriptItem)
                     }
                     else -> {
                         Log.i("ChatViewModel", "Unhandled transcript item type: ${transcriptItem::class.simpleName}")
