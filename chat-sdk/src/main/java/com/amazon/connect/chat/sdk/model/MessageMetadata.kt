@@ -16,7 +16,7 @@ class MessageMetadata(
     override var eventDirection: MessageDirection? = MessageDirection.COMMON,
     timeStamp: String,
     contentType: String,
-    id: String = UUID.randomUUID().toString(),
+    id: String,
     serializedContent: Map<String, Any>? = null
 ) : TranscriptItem(
     id = id,
