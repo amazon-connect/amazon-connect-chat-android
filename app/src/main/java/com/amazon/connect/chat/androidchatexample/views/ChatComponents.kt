@@ -17,32 +17,45 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.ListPickerContent
 import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.sdk.model.MessageType
+import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.PlainTextContent
 import com.amazon.connect.chat.sdk.model.QuickReplyContent
+import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.MarkdownText
 
 @Composable
-fun ChatMessageView(message: Message) {
-    when (message.messageType) {
-        MessageType.SENDER -> SenderChatBubble(message)
-        MessageType.RECEIVER -> {
-            if (message.text == "...") {
-                TypingIndicator()
-            } else {
-                when (val content = message.content) {
-                    is PlainTextContent -> ReceiverChatBubble(message)
-                    is QuickReplyContent -> QuickReplyContentView(message,content)
-                    is ListPickerContent -> ListPickerContentView(message, content)
-                    else -> Text(text = "Unsupported message type")
+fun ChatMessageView(transcriptItem: TranscriptItem) {
+    when (transcriptItem) {
+        is Message -> {
+            when (transcriptItem.messageDirection) {
+                MessageDirection.OUTGOING -> SenderChatBubble(transcriptItem)
+                MessageDirection.INCOMING -> {
+                    if (transcriptItem.text == "...") {
+                        TypingIndicator()
+                    } else {
+                        when (val content = transcriptItem.content) {
+                            is PlainTextContent -> ReceiverChatBubble(transcriptItem)
+                            is QuickReplyContent -> QuickReplyContentView(transcriptItem, content)
+                            is ListPickerContent -> ListPickerContentView(transcriptItem, content)
+                            else -> Text(text = "Unsupported message type")
+                        }
+                    }
                 }
+                MessageDirection.COMMON -> CommonChatBubble(transcriptItem)
+                null -> CommonChatBubble(transcriptItem)
             }
         }
-        MessageType.COMMON -> CommonChatBubble(message)
+        // Add handling for other TranscriptItem subclasses if necessary
+        is Event -> {
+            EventView(transcriptItem)
+        }
+        else -> Text(text = "Unsupported transcript item type")
     }
 }
+
 
 @Composable
 fun SenderChatBubble(message: Message) {
@@ -78,13 +91,14 @@ fun SenderChatBubble(message: Message) {
                 }
             }
         }
-        message.status?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-        }
+        // TODO : update receipts
+//        message.status?.let {
+//            Text(
+//                text = it,
+//                style = MaterialTheme.typography.bodySmall,
+//                color = Color.Gray
+//            )
+//        }
     }
 }
 
@@ -142,6 +156,26 @@ fun CommonChatBubble(message: Message) {
             modifier = Modifier
                 .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
         )
+    }
+}
+
+@Composable
+fun EventView(event: Event) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        event.text?.let {
+            Text(
+                text = it,
+                color = Color.Blue,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+            )
+        }
     }
 }
 

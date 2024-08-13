@@ -19,12 +19,15 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
 import com.amazon.connect.chat.androidchatexample.models.PersistentChat
 import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
 import com.amazon.connect.chat.sdk.utils.ContentType
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.model.ChatDetails
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.TranscriptItem
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -41,8 +44,8 @@ class ChatViewModel @Inject constructor(
     private val startChatResponse: LiveData<Resource<StartChatResponse>> = _startChatResponse
     private val _createParticipantConnectionResult = MutableLiveData<CreateParticipantConnectionResult?>()
     val createParticipantConnectionResult: MutableLiveData<CreateParticipantConnectionResult?> = _createParticipantConnectionResult
-    private val _messages = MutableLiveData<List<Message>>()
-    val messages: LiveData<List<Message>> = _messages
+    private val _messages = MutableLiveData<List<TranscriptItem>>()
+    val messages: LiveData<List<TranscriptItem>> = _messages
     private val _webSocketUrl = MutableLiveData<String?>()
     val webSocketUrl: MutableLiveData<String?> = _webSocketUrl
     private val _errorMessage = MutableLiveData<String?>()
@@ -235,39 +238,48 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun onMessageReceived(message: Message) {
-        // Log the current state before the update
+    private fun onMessageReceived(transcriptItem: TranscriptItem) {
         viewModelScope.launch {
+            // Log the current state before the update
+            Log.i("ChatViewModel", "Received transcript item: $transcriptItem")
 
-            Log.i("ChatViewModel", "Received message: $message")
-
-            // Construct the new list with modifications based on the received message
+            // Construct the new list with modifications based on the received transcript item
             val updatedMessages = _messages.value.orEmpty().toMutableList().apply {
-                // Filter out typing indicators and apply message status updates or add new messages
-                removeIf { it.text == "..." }
-                if (message.contentType == ContentType.META_DATA.type) {
-                    val index = indexOfFirst { it.messageID == message.messageID }
-                    if (index != -1) {
-                        this[index] = get(index).copy(status = message.status)
+                // Remove any typing indicators
+                removeIf { it is Message && it.text == "..." }
+
+                when (transcriptItem) {
+                    is Message  -> {
+
+                        // Get message direction here
+                        CommonUtils.getMessageDirection(transcriptItem)
+
+                        if (!(transcriptItem.text == "..." && transcriptItem.participant == chatConfiguration.customerName)) {
+                            add(transcriptItem)
+                        }
+
+                        // Additional logic like sending 'Delivered' events
+                        // TODO : Update here to send read receipts from SDK
+                        if (transcriptItem.participant == chatConfiguration.agentName && transcriptItem.contentType.contains("text")) {
+                            val content = "{\"messageId\":\"${transcriptItem.id}\"}"
+                            sendEvent(content, ContentType.MESSAGE_DELIVERED)
+                        }
                     }
-                } else {
-                    // Exclude customer's typing events
-                    if (!(message.text == "..." && message.participant == chatConfiguration.customerName)) {
-                        add(message)
+                    is Event -> {
+                        CommonUtils.customizeEvent(transcriptItem)
+                        add(transcriptItem)
+                    }
+                    else -> {
+                        Log.i("ChatViewModel", "Unhandled transcript item type: ${transcriptItem::class.simpleName}")
                     }
                 }
             }
 
             // Update messages LiveData in a thread-safe manner
-            _messages.value =updatedMessages
-
-            // Additional logic like sending 'Delivered' events
-            if (message.participant == chatConfiguration.agentName && message.contentType.contains("text")) {
-                val content = "{\"messageId\":\"${message.messageID}\"}"
-                sendEvent(content, ContentType.MESSAGE_DELIVERED)
-            }
+            _messages.value = updatedMessages
         }
     }
+
 
 
     private fun onWebSocketError(errorMessage: String) {
@@ -306,18 +318,19 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendReadEventOnAppear(message: Message) {
-        val messagesList = (_messages.value ?: return).toMutableList()
-        val index = messagesList.indexOfFirst {
-            it.text == message.text && it.text.isNotEmpty() && it.contentType.contains("text")
-                    && it.participant != chatConfiguration.customerName && !it.isRead
-        }
-        if (index != -1) {
-            val messageId = messagesList[index].messageID ?: return
-            val content = "{\"messageId\":\"$messageId\"}"
-            sendEvent(content, ContentType.MESSAGE_READ)
-            messagesList[index] = messagesList[index].copy(isRead = true)
-            _messages.postValue(messagesList) // Safely post the updated list to the LiveData
-        }
+        // TODO : Update here to send read receipts from SDK
+//        val messagesList = (_messages.value ?: return).toMutableList()
+//        val index = messagesList.indexOfFirst {
+//            it.text == message.text && it.text.isNotEmpty() && it.contentType.contains("text")
+//                    && it.participant != chatConfiguration.customerName && !it.isRead
+//        }
+//        if (index != -1) {
+//            val messageId = messagesList[index].messageID ?: return
+//            val content = "{\"messageId\":\"$messageId\"}"
+//            sendEvent(content, ContentType.MESSAGE_READ)
+//            messagesList[index] = messagesList[index].copy(isRead = true)
+//            _messages.postValue(messagesList) // Safely post the updated list to the LiveData
+//        }
     }
 
     fun endChat(){

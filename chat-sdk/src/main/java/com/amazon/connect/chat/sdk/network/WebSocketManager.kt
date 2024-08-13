@@ -7,8 +7,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.Config
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.sdk.model.MessageType
+import com.amazon.connect.chat.sdk.model.MessageDirection
+import com.amazon.connect.chat.sdk.model.MessageMetadata
+import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.utils.CommonUtils
 import com.amazon.connect.chat.sdk.utils.ContentType
@@ -40,7 +43,7 @@ class WebSocketManager @Inject constructor(
         .pingInterval(60, TimeUnit.SECONDS)
         .build()
     private var webSocket: WebSocket? = null
-    private lateinit var messageCallBack : (Message) -> Unit
+    private lateinit var messageCallBack : (TranscriptItem) -> Unit
     private val chatConfiguration = Config
     private var heartbeatManager: HeartbeatManager = HeartbeatManager(
         sendHeartbeatCallback = ::sendHeartbeat,
@@ -98,7 +101,7 @@ class WebSocketManager @Inject constructor(
         }
     }
 
-    fun createWebSocket(url: String, onMessageReceived: (Message) -> Unit, onConnectionFailed: (String) -> Unit) {
+    fun createWebSocket(url: String, onMessageReceived: (TranscriptItem) -> Unit, onConnectionFailed: (String) -> Unit) {
         val request = Request.Builder().url(url).build()
         this.messageCallBack = onMessageReceived
         closeWebSocket();
@@ -170,8 +173,8 @@ class WebSocketManager @Inject constructor(
                             val contentType = it.getString("ContentType")
                             when {
                                 type == "MESSAGE" -> handleMessage(it)
-                                contentType == ContentType.JOINED.type -> handleParticipantJoined(it)
-                                contentType == ContentType.LEFT.type -> handleParticipantLeft(it)
+                                contentType == ContentType.JOINED.type -> handleParticipantEvent(it)
+                                contentType == ContentType.LEFT.type -> handleParticipantEvent(it)
                                 contentType == ContentType.TYPING.type -> handleTyping(it)
                                 contentType == ContentType.ENDED.type -> handleChatEnded(it)
                                 contentType == ContentType.META_DATA.type -> handleMetadata(it)
@@ -220,93 +223,95 @@ class WebSocketManager @Inject constructor(
     private fun handleMessage(innerJson: JSONObject) {
         val participantRole = innerJson.getString("ParticipantRole")
         val messageId = innerJson.getString("Id")
-        var messageText = innerJson.getString("Content")
-        val messageType = if (participantRole.equals(chatConfiguration.customerName, ignoreCase = true)) MessageType.SENDER else MessageType.RECEIVER
-        val time = CommonUtils.formatTime(innerJson.getString("AbsoluteTime"))
+        val messageText = innerJson.getString("Content")
+        val displayName = innerJson.getString("DisplayName")
+        val time = innerJson.getString("AbsoluteTime")
+
+        // TODO: Pass raw data
         val message = Message(
             participant = participantRole,
             text = messageText,
             contentType = innerJson.getString("ContentType"),
-            messageType = messageType,
             timeStamp = time,
-            messageID = messageId
+            id = messageId,
+            displayName = displayName
         )
         this.messageCallBack(message)
     }
 
-    private fun handleParticipantJoined(innerJson: JSONObject) {
+    private fun handleParticipantEvent(innerJson: JSONObject) {
         val participantRole = innerJson.getString("ParticipantRole")
-        val messageText = "$participantRole has joined"
-        val message = Message(
-            participant = participantRole,
-            text = messageText,
-            contentType = innerJson.getString("ContentType"),
-            messageType = MessageType.COMMON
-        )
-        this.messageCallBack(message)
-    }
+        val displayName = innerJson.getString("DisplayName")
+        val time = innerJson.getString("AbsoluteTime")
+        val eventId = innerJson.getString("Id")
 
-    private fun handleParticipantLeft(innerJson: JSONObject) {
-        val participantRole = innerJson.getString("ParticipantRole")
-        val messageText = "$participantRole has left"
-        val message = Message(
+        val event = Event(
+            id = eventId,
+            timeStamp = time,
+            displayName = displayName,
             participant = participantRole,
-            text = messageText,
+            text = innerJson.getString("ContentType"), // TODO: Need to be removed and replaced in UI once callbacks are hooked
             contentType = innerJson.getString("ContentType"),
-            messageType = MessageType.COMMON
+            eventDirection = MessageDirection.COMMON,
         )
-        this.messageCallBack(message)
+        this.messageCallBack(event)
     }
 
     private fun handleTyping(innerJson: JSONObject) {
         val participantRole = innerJson.getString("ParticipantRole")
-        val time = CommonUtils.formatTime(innerJson.getString("AbsoluteTime"))
-        val messageType = if (participantRole.equals(chatConfiguration.customerName, ignoreCase = true)) MessageType.SENDER else MessageType.RECEIVER
-        val message = Message(
-            participant = participantRole,
-            text = "...",
-            contentType = innerJson.getString("ContentType"),
-            messageType = messageType,
-            timeStamp = time
+        val time = innerJson.getString("AbsoluteTime")
+        val displayName = innerJson.getString("DisplayName")
+        val eventId = innerJson.getString("Id")
+
+        val event = Event(
+            timeStamp = time,
+            contentType =  innerJson.getString("ContentType"),
+            id = eventId,
+            displayName = displayName,
+            participant = participantRole
         )
-        this.messageCallBack(message)    }
+
+        this.messageCallBack(event)
+    }
 
     private fun handleChatEnded(innerJson: JSONObject) {
         closeWebSocket();
         isChatActive = false;
-        val message = Message(
-            participant = "System Message",
-            text = "The chat has ended.",
-            contentType = innerJson.getString("ContentType"),
-            messageType = MessageType.COMMON
+        val time = innerJson.getString("AbsoluteTime")
+        val eventId = innerJson.getString("Id")
+        val event = Event(
+            timeStamp = time,
+            contentType =  innerJson.getString("ContentType"),
+            id = eventId,
+            eventDirection = MessageDirection.COMMON
         )
-        this.messageCallBack(message)
+
+        this.messageCallBack(event)
     }
 
     private fun handleMetadata(innerJson: JSONObject) {
         val messageMetadata = innerJson.getJSONObject("MessageMetadata")
         val messageId = messageMetadata.getString("MessageId")
         val receipts = messageMetadata.optJSONArray("Receipts")
-        var status = "Delivered"
-        val time = CommonUtils.formatTime(innerJson.getString("AbsoluteTime"))
+        var status = MessageStatus.Delivered
+        val time = innerJson.getString("AbsoluteTime")
+
         receipts?.let {
             for (i in 0 until it.length()) {
                 val receipt = it.getJSONObject(i)
                 if (receipt.optString("ReadTimestamp").isNotEmpty()) {
-                    status = "Read"
+                    status = MessageStatus.Read
                 }
             }
         }
-        val message = Message(
-            participant = "",
-            text = "",
+        val metadata = MessageMetadata(
             contentType = innerJson.getString("ContentType"),
-            messageType = MessageType.SENDER,
+            eventDirection = MessageDirection.OUTGOING,
             timeStamp = time,
-            messageID = messageId,
+            id = messageId,
             status = status
         )
-        this.messageCallBack(message)
+        this.messageCallBack(metadata)
     }
 
 
@@ -324,29 +329,30 @@ class WebSocketManager @Inject constructor(
     }
 
     fun formatAndProcessTranscriptItems(transcriptItems: List<TranscriptItem>) {
-        transcriptItems.forEach { item ->
-            val participantRole = item.participantRole
-
-            // Create the message content in JSON format
-            val messageContentJson = JSONObject().apply {
-                put("Id", item.id ?: "")
-                put("ParticipantRole", participantRole)
-                put("AbsoluteTime", item.absoluteTime ?: "")
-                put("ContentType", item.contentType ?: "")
-                put("Content", item.content ?: "")
-                put("Type", item.type)
-                put("DisplayName", item.displayName ?: "")
-            }
-
-            // Convert JSON object to String format
-            val messageContentString = messageContentJson.toString()
-
-            // Prepare the message in the format expected by WebSocket
-            val wrappedMessageString = "{\"content\":\"${messageContentString.replace("\"", "\\\"")}\"}"
-
-            // Send the formatted message string via WebSocket
-            websocketDidReceiveMessage(wrappedMessageString)
-        }
+        // TODO: Need to be updated with latest transcript items format
+//        transcriptItems.forEach { item ->
+//            val participantRole = item.participantRole
+//
+//            // Create the message content in JSON format
+//            val messageContentJson = JSONObject().apply {
+//                put("Id", item.id ?: "")
+//                put("ParticipantRole", participantRole)
+//                put("AbsoluteTime", item.absoluteTime ?: "")
+//                put("ContentType", item.contentType ?: "")
+//                put("Content", item.content ?: "")
+//                put("Type", item.type)
+//                put("DisplayName", item.displayName ?: "")
+//            }
+//
+//            // Convert JSON object to String format
+//            val messageContentString = messageContentJson.toString()
+//
+//            // Prepare the message in the format expected by WebSocket
+//            val wrappedMessageString = "{\"content\":\"${messageContentString.replace("\"", "\\\"")}\"}"
+//
+//            // Send the formatted message string via WebSocket
+//            websocketDidReceiveMessage(wrappedMessageString)
+//        }
     }
 
 }
