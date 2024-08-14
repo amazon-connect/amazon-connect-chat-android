@@ -9,4 +9,6 @@ object Config {
     val region: Regions = Regions.US_WEST_2
     val agentName = "AGENT"
     val customerName = "CUSTOMER"
+    val isDevMode: Boolean = true
+    val disableCsm: Boolean = false
 }

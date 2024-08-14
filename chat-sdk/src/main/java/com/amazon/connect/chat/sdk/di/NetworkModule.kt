@@ -5,6 +5,8 @@ import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AWSClientImpl
 import com.amazon.connect.chat.sdk.network.ApiUrl
 import com.amazon.connect.chat.sdk.network.MetricsInterface
+import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.Config
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
 import dagger.Provides
@@ -56,7 +58,23 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideMetricsInterface(retrofitBuilder: Retrofit.Builder): MetricsInterface {
-        return createService(MetricsInterface::class.java, retrofitBuilder)
+        return if (Config.isDevMode) {
+            createService(MetricsInterface::class.java, retrofitBuilder, url="https://f9cskafqk3.execute-api.us-west-2.amazonaws.com/devo/")
+        } else {
+            createService(MetricsInterface::class.java, retrofitBuilder, url="https://ieluqbvv.telemetry.connect.us-west-2.amazonaws.com/prod/")
+        }
+    }
+
+    /**
+     * Provides a singleton instance of MetricsInterface.
+     *
+     * @param retrofitBuilder The Retrofit.Builder instance for creating the service.
+     * @return An instance of MetricsInterface.
+     */
+    @Provides
+    @Singleton
+    fun provideMetricsManager(apiClient: APIClient): MetricsManager {
+        return MetricsManager(apiClient = apiClient)
     }
 
     /**
@@ -108,12 +126,12 @@ object NetworkModule {
      * @param retrofitBuilder The Retrofit.Builder instance for creating the service.
      * @return An instance of the specified service class.
      */
-    private fun <T> createService(clazz: Class<T>, retrofitBuilder: Retrofit.Builder): T {
+    private fun <T> createService(clazz: Class<T>, retrofitBuilder: Retrofit.Builder, url: String? = null): T {
         // Check if the service has an annotation
         val apiUrlAnnotation = clazz.annotations.find { it is ApiUrl } as ApiUrl?
         // Take the URL value, otherwise use the default
-        val url = apiUrlAnnotation?.url ?: defaultApiUrl
+        val apiUrl = url ?: (apiUrlAnnotation?.url ?: defaultApiUrl)
         // Create the service using the extracted URL
-        return retrofitBuilder.baseUrl(url).build().create(clazz)
+        return retrofitBuilder.baseUrl(apiUrl).build().create(clazz)
     }
 }
