@@ -1,4 +1,5 @@
 package com.amazon.connect.chat.sdk.network
+
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -13,8 +14,8 @@ import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.utils.CommonUtils
-import com.amazon.connect.chat.sdk.utils.ContentType
+import com.amazon.connect.chat.sdk.model.WebSocketMessageType
+import com.amazon.connect.chat.sdk.model.ContentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.IOException
+import org.json.JSONException
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -104,87 +106,139 @@ class WebSocketManager @Inject constructor(
     fun createWebSocket(url: String, onMessageReceived: (TranscriptItem) -> Unit, onConnectionFailed: (String) -> Unit) {
         val request = Request.Builder().url(url).build()
         this.messageCallBack = onMessageReceived
-        closeWebSocket();
+        closeWebSocket()
+
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                // Handle WebSocket open event
-                sendMessage(EventTypes.subscribe)
-
-                // Start heartbeats
-                startHeartbeats()
-                isReconnecting = false
-                isChatActive = true
+                handleWebSocketOpen()
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
-                Log.i("text@onMessage",text)
-                websocketDidReceiveMessage(text)
+                Log.i("WebSocket", "Received message: $text")
+                processJsonContent(text)
             }
 
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
-                // Handle WebSocket closing event
+                Log.i("WebSocket", "WebSocket is closing with code: $code, reason: $reason")
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-                // Handle WebSocket closed event
-                if (code == 1000) {
-                    // TODO: set isChatActive to false
-                    isChatActive = false
-                } else if (isConnectedToNetwork && isChatActive) {
-                    reestablishConnection();
-                }
+                handleWebSocketClosed(code, reason)
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                onConnectionFailed(t.message ?: "Unknown Error")
-                if (t is IOException && t.message == "Software caused connection abort") {
-                    if (isChatActive && isConnectedToNetwork) {
-                        reestablishConnection()
-                    }
-                }
+                handleWebSocketFailure(t, onConnectionFailed)
             }
         })
     }
 
-    fun websocketDidReceiveMessage(text: String) {
-        val json = JSONObject(text)
+    private fun handleWebSocketOpen() {
+        sendMessage(EventTypes.subscribe)
+        startHeartbeats()
+        isReconnecting = false
+        isChatActive = true
+    }
 
-        val topic = json.opt("topic")
-        when (topic) {
-            "aws/ping" -> {
-                val statusCode = json.opt("statusCode")
-                val statusContent = json.opt("statusContent")
-                if ((statusCode as? Int == 200) && (statusContent == "OK")) {
-                    deepHeartbeatManager?.heartbeatReceived()
-                } else {
-                    println("Deep heartbeat failed. Status: ${statusCode ?: "nil"}, StatusContent: ${statusContent ?: "nil"}")
-                }
-            }
-            "aws/heartbeat" -> {
-                heartbeatManager?.heartbeatReceived()
-            }
-            "aws/chat" -> {
-                val content = json.opt("content")
-                if (content is String) {
-                    val contentJson = JSONObject(content)
-                    contentJson?.let {
-                        if (it.has("Type") && it.has("ContentType")) {
-                            val type = it.getString("Type")
-                            val contentType = it.getString("ContentType")
-                            when {
-                                type == "MESSAGE" -> handleMessage(it)
-                                contentType == ContentType.JOINED.type -> handleParticipantEvent(it)
-                                contentType == ContentType.LEFT.type -> handleParticipantEvent(it)
-                                contentType == ContentType.TYPING.type -> handleTyping(it)
-                                contentType == ContentType.ENDED.type -> handleChatEnded(it)
-                                contentType == ContentType.META_DATA.type -> handleMetadata(it)
-                            }
-                        }
-                    }
-                }
+    private fun handleWebSocketClosed(code: Int, reason: String) {
+        Log.i("WebSocket", "WebSocket closed with code: $code, reason: $reason")
+        if (code == 1000) {
+            isChatActive = false
+        } else if (isConnectedToNetwork && isChatActive) {
+            reestablishConnection()
+        }
+    }
+
+    private fun handleWebSocketFailure(t: Throwable, onConnectionFailed: (String) -> Unit) {
+        onConnectionFailed(t.message ?: "Unknown Error")
+        if (t is IOException && t.message == "Software caused connection abort") {
+            if (isChatActive && isConnectedToNetwork) {
+                reestablishConnection()
             }
         }
     }
+
+    private fun processJsonContent(text: String) {
+        val json = try {
+            JSONObject(text)
+        } catch (e: JSONException) {
+            Log.e("WebSocket", "Failed to parse JSON message: $text", e)
+            return
+        }
+
+        val topic = json.optString("topic")
+        when (topic) {
+            "aws/ping" -> handlePing(json)
+            "aws/heartbeat" -> handleHeartbeat()
+            "aws/chat" -> websocketDidReceiveMessage(json.optString("content"))
+            else -> Log.i("WebSocket", "Unhandled topic: $topic")
+        }
+    }
+
+    private fun handlePing(json: JSONObject) {
+        val statusCode = json.optInt("statusCode")
+        val statusContent = json.optString("statusContent")
+        if (statusCode == 200 && statusContent == "OK") {
+            deepHeartbeatManager.heartbeatReceived()
+        } else {
+            Log.w("WebSocket", "Deep heartbeat failed. Status: $statusCode, StatusContent: $statusContent")
+        }
+    }
+
+    private fun handleHeartbeat() {
+        heartbeatManager?.heartbeatReceived()
+    }
+
+    private fun websocketDidReceiveMessage(content: String?) {
+        content?.let {
+            val transcriptItem = parseTranscriptItemFromJson(it)
+            if (transcriptItem != null) {
+                this.messageCallBack(transcriptItem)
+            } else {
+                Log.i("WebSocket", "Received unrecognized or unsupported content.")
+            }
+        } ?: run {
+            Log.w("WebSocket", "Received null or empty content in chat message")
+        }
+    }
+
+    private fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem? {
+        val json = try {
+            JSONObject(jsonString)
+        } catch (e: JSONException) {
+            Log.e("WebSocket", "Failed to parse inner JSON content: $jsonString", e)
+            return null
+        }
+
+        json?.let { jsonObject ->
+            val typeString = jsonObject.optString("Type")
+            val type = WebSocketMessageType.fromType(typeString)
+
+            return when (type) {
+                WebSocketMessageType.MESSAGE -> handleMessage(jsonObject)
+                WebSocketMessageType.EVENT -> {
+                    val eventTypeString = jsonObject.optString("ContentType")
+                    when (val eventType = ContentType.fromType(eventTypeString)) {
+                        ContentType.JOINED -> handleParticipantEvent(jsonObject)
+                        ContentType.LEFT -> handleParticipantEvent(jsonObject)
+                        ContentType.TYPING -> handleTyping(jsonObject)
+                        ContentType.ENDED -> handleChatEnded(jsonObject)
+                        else -> {
+                            Log.w("WebSocket", "Unknown event: $eventType")
+                            null
+                        }
+                    }
+                }
+                // WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject)
+                WebSocketMessageType.MESSAGE_METADATA -> handleMetadata(jsonObject)
+                else -> {
+                    Log.w("WebSocket", "Unknown websocket message type: $type")
+                    null
+                }
+            }
+        }
+        return null
+    }
+
 
     // Heartbeat Logic
     fun resetHeartbeatManagers() {
@@ -220,7 +274,7 @@ class WebSocketManager @Inject constructor(
     }
 
     // Message Handling Logic
-    private fun handleMessage(innerJson: JSONObject) {
+    private fun handleMessage(innerJson: JSONObject): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val messageId = innerJson.getString("Id")
         val messageText = innerJson.getString("Content")
@@ -236,10 +290,10 @@ class WebSocketManager @Inject constructor(
             id = messageId,
             displayName = displayName
         )
-        this.messageCallBack(message)
+        return message
     }
 
-    private fun handleParticipantEvent(innerJson: JSONObject) {
+    private fun handleParticipantEvent(innerJson: JSONObject): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val displayName = innerJson.getString("DisplayName")
         val time = innerJson.getString("AbsoluteTime")
@@ -254,10 +308,10 @@ class WebSocketManager @Inject constructor(
             contentType = innerJson.getString("ContentType"),
             eventDirection = MessageDirection.COMMON,
         )
-        this.messageCallBack(event)
+        return event
     }
 
-    private fun handleTyping(innerJson: JSONObject) {
+    private fun handleTyping(innerJson: JSONObject): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val time = innerJson.getString("AbsoluteTime")
         val displayName = innerJson.getString("DisplayName")
@@ -270,11 +324,10 @@ class WebSocketManager @Inject constructor(
             displayName = displayName,
             participant = participantRole
         )
-
-        this.messageCallBack(event)
+        return event
     }
 
-    private fun handleChatEnded(innerJson: JSONObject) {
+    private fun handleChatEnded(innerJson: JSONObject): TranscriptItem {
         closeWebSocket();
         isChatActive = false;
         val time = innerJson.getString("AbsoluteTime")
@@ -285,11 +338,10 @@ class WebSocketManager @Inject constructor(
             id = eventId,
             eventDirection = MessageDirection.COMMON
         )
-
-        this.messageCallBack(event)
+        return event
     }
 
-    private fun handleMetadata(innerJson: JSONObject) {
+    private fun handleMetadata(innerJson: JSONObject): TranscriptItem {
         val messageMetadata = innerJson.getJSONObject("MessageMetadata")
         val messageId = messageMetadata.getString("MessageId")
         val receipts = messageMetadata.optJSONArray("Receipts")
@@ -311,7 +363,7 @@ class WebSocketManager @Inject constructor(
             id = messageId,
             status = status
         )
-        this.messageCallBack(metadata)
+        return metadata
     }
 
 

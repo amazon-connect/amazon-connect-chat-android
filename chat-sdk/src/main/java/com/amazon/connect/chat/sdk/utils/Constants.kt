@@ -1,4 +1,4 @@
-package com.amazon.connect.chat.sdk.model
+package com.amazon.connect.chat.sdk.utils
 
 import com.amazonaws.regions.Regions
 

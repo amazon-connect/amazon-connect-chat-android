@@ -7,7 +7,7 @@ import com.amazon.connect.chat.androidchatexample.network.ApiInterface
 import com.amazon.connect.chat.androidchatexample.network.Resource
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
-import com.amazon.connect.chat.sdk.utils.ContentType
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazonaws.AmazonClientException
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.handlers.AsyncHandler
