@@ -94,6 +94,30 @@ class ChatViewModel @Inject constructor(
     private fun configureChatSession() {
         val globalConfig = GlobalConfig(region = chatConfiguration.region)
         chatSession.configure(globalConfig)
+        setupChatHandlers(chatSession)
+    }
+
+    private fun setupChatHandlers(chatSession: ChatSession) {
+        chatSession.onConnectionEstablished = {
+            Log.d("ChatViewModel", "Connection established.")
+        }
+
+        chatSession.onMessageReceived = { transcriptItem ->
+            // Handle received message
+            Log.d("ChatViewModel", "Received transcript item: $transcriptItem")
+        }
+
+        chatSession.onChatEnded = {
+           Log.d("ChatViewModel", "Chat ended.")
+        }
+
+        chatSession.onConnectionBroken = {
+            Log.d("ChatViewModel", "Connection broken.")
+        }
+
+        chatSession.onConnectionReEstablished = {
+            Log.d("ChatViewModel", "Connection re-established.")
+        }
     }
 
     fun initiateChat() {
