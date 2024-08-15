@@ -8,6 +8,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.Config
+import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
@@ -18,6 +19,8 @@ import com.amazon.connect.chat.sdk.model.WebSocketMessageType
 import com.amazon.connect.chat.sdk.model.ContentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -35,6 +38,17 @@ object EventTypes {
         "{\"topic\": \"aws/subscribe\", \"content\": {\"topics\": [\"aws/chat\"]}}"
     const val heartbeat = "{\"topic\": \"aws/heartbeat\"}"
     const val deepHeartbeat = "{\"topic\": \"aws/ping\"}"
+}
+
+interface WebSocketManagerInterface {
+    // TODO - Align it with IOS
+    /*
+    *     var eventPublisher: PassthroughSubject<ChatEvent, Never> { get }
+    var transcriptPublisher: PassthroughSubject<TranscriptItem, Never> { get }
+    func connect(wsUrl: URL?, isReconnect: Bool?)
+    func disconnect()
+    func formatAndProcessTranscriptItems(_ transcriptItems: [AWSConnectParticipantItem]) -> [TranscriptItem]
+    * */
 }
 
 class WebSocketManager @Inject constructor(
@@ -59,6 +73,19 @@ class WebSocketManager @Inject constructor(
     private var isConnectedToNetwork: Boolean = false
     private var isChatActive: Boolean = false
     private var isReconnecting: Boolean = false
+
+    private val _eventPublisher = MutableSharedFlow<ChatEvent>(
+// Keeping these here for future reference if we encounter issue with SharedFlow memory - Will update or remove later
+//        replay = 1,              // Replay the last event to new subscribers
+//        extraBufferCapacity = 10  // Buffer up to 10 events in case of bursts or slow consumption
+    )
+    val eventPublisher: SharedFlow<ChatEvent> get() = _eventPublisher
+
+    private val _transcriptPublisher = MutableSharedFlow<TranscriptItem>(
+//        replay = 1,              // Replay the last transcript item to new subscribers
+//        extraBufferCapacity = 10  // Buffer up to 10 transcript items
+    )
+    val transcriptPublisher: SharedFlow<TranscriptItem> get() = _transcriptPublisher
 
     init {
         registerObservers()
@@ -108,35 +135,41 @@ class WebSocketManager @Inject constructor(
         this.messageCallBack = onMessageReceived
         closeWebSocket()
 
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(ws: WebSocket, response: Response) {
-                handleWebSocketOpen()
-            }
+            webSocket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(ws: WebSocket, response: Response) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        handleWebSocketOpen()
+                    }
+                }
 
-            override fun onMessage(ws: WebSocket, text: String) {
-                Log.i("WebSocket", "Received message: $text")
-                processJsonContent(text)
-            }
+                override fun onMessage(ws: WebSocket, text: String) {
+                    Log.i("WebSocket", "Received message: $text")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        processJsonContent(text)
+                    }
+                }
 
-            override fun onClosing(ws: WebSocket, code: Int, reason: String) {
-                Log.i("WebSocket", "WebSocket is closing with code: $code, reason: $reason")
-            }
+                override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+                    Log.i("WebSocket", "WebSocket is closing with code: $code, reason: $reason")
+                }
 
-            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-                handleWebSocketClosed(code, reason)
-            }
+                override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                    handleWebSocketClosed(code, reason)
+                }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                handleWebSocketFailure(t, onConnectionFailed)
-            }
-        })
+                override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                    handleWebSocketFailure(t, onConnectionFailed)
+                }
+            })
+
     }
 
-    private fun handleWebSocketOpen() {
+    private suspend fun handleWebSocketOpen() {
         sendMessage(EventTypes.subscribe)
         startHeartbeats()
         isReconnecting = false
         isChatActive = true
+        this._eventPublisher.emit(ChatEvent.ConnectionEstablished)
     }
 
     private fun handleWebSocketClosed(code: Int, reason: String) {
@@ -157,7 +190,7 @@ class WebSocketManager @Inject constructor(
         }
     }
 
-    private fun processJsonContent(text: String) {
+    private suspend fun processJsonContent(text: String) {
         val json = try {
             JSONObject(text)
         } catch (e: JSONException) {
@@ -185,14 +218,15 @@ class WebSocketManager @Inject constructor(
     }
 
     private fun handleHeartbeat() {
-        heartbeatManager?.heartbeatReceived()
+        heartbeatManager.heartbeatReceived()
     }
 
-    private fun websocketDidReceiveMessage(content: String?) {
+    private suspend fun websocketDidReceiveMessage(content: String?) {
         content?.let {
             val transcriptItem = parseTranscriptItemFromJson(it)
             if (transcriptItem != null) {
                 this.messageCallBack(transcriptItem)
+                this._transcriptPublisher.emit(transcriptItem)
             } else {
                 Log.i("WebSocket", "Received unrecognized or unsupported content.")
             }
@@ -201,7 +235,7 @@ class WebSocketManager @Inject constructor(
         }
     }
 
-    private fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem? {
+    private suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem? {
         val json = try {
             JSONObject(jsonString)
         } catch (e: JSONException) {
@@ -228,7 +262,7 @@ class WebSocketManager @Inject constructor(
                         }
                     }
                 }
-                // WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject)
+                // TODO-  WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject)
                 WebSocketMessageType.MESSAGE_METADATA -> handleMetadata(jsonObject)
                 else -> {
                     Log.w("WebSocket", "Unknown websocket message type: $type")
@@ -270,6 +304,10 @@ class WebSocketManager @Inject constructor(
         // TODO: Invoke DeepHearbeatFailure(), Check internet connectivity, publish connectionBroken event
         if (isConnectedToNetwork) {
             reestablishConnection()
+        }
+        val success = this._eventPublisher.tryEmit(ChatEvent.ConnectionBroken)
+        if (!success) {
+            println("Emission failed for ${ChatEvent.ConnectionBroken}, no subscribers and no buffer capacity")
         }
     }
 
@@ -327,9 +365,10 @@ class WebSocketManager @Inject constructor(
         return event
     }
 
-    private fun handleChatEnded(innerJson: JSONObject): TranscriptItem {
+    private suspend fun handleChatEnded(innerJson: JSONObject): TranscriptItem {
         closeWebSocket();
         isChatActive = false;
+        this._eventPublisher.emit(ChatEvent.ChatEnded)
         val time = innerJson.getString("AbsoluteTime")
         val eventId = innerJson.getString("Id")
         val event = Event(

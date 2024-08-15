@@ -34,9 +34,10 @@ object ChatModule {
     fun provideChatService(
         apiClient: APIClient,
         awsClient: AWSClient,
-        connectionDetailsProvider: ConnectionDetailsProvider
+        connectionDetailsProvider: ConnectionDetailsProvider,
+        webSocketManager: WebSocketManager
     ): ChatService {
-        return ChatServiceImpl(apiClient, awsClient, connectionDetailsProvider)
+        return ChatServiceImpl(apiClient, awsClient, connectionDetailsProvider, webSocketManager)
     }
 
     /**

@@ -19,3 +19,10 @@ enum class ContentType(val type: String){
         }
     }
 }
+
+enum class ChatEvent {
+    ConnectionEstablished,
+    ConnectionReEstablished,
+    ChatEnded,
+    ConnectionBroken,
+}
