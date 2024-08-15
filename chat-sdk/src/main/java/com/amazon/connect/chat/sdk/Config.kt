@@ -9,6 +9,8 @@ object Config {
     val region: Regions = Regions.US_WEST_2
     val agentName = "AGENT"
     val customerName = "CUSTOMER"
+
+    // TODO: Find home for non-feature configs in SDK
     val isDevMode: Boolean = true
     val disableCsm: Boolean = false
 }

@@ -7,6 +7,7 @@ import com.amazon.connect.chat.sdk.network.ApiUrl
 import com.amazon.connect.chat.sdk.network.MetricsInterface
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.Config
+import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
 import dagger.Provides
@@ -58,11 +59,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideMetricsInterface(retrofitBuilder: Retrofit.Builder): MetricsInterface {
-        return if (Config.isDevMode) {
-            createService(MetricsInterface::class.java, retrofitBuilder, url="https://f9cskafqk3.execute-api.us-west-2.amazonaws.com/devo/")
-        } else {
-            createService(MetricsInterface::class.java, retrofitBuilder, url="https://ieluqbvv.telemetry.connect.us-west-2.amazonaws.com/prod/")
-        }
+        return createService(MetricsInterface::class.java, retrofitBuilder, url=getMetricsEndpoint())
     }
 
     /**
