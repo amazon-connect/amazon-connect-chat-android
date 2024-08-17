@@ -5,9 +5,10 @@ import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.model.MetricName
+import com.amazon.connect.chat.sdk.network.MetricsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -36,10 +37,10 @@ interface ChatService {
 }
 
 class ChatServiceImpl @Inject constructor(
-    private val apiClient: APIClient,
     private val awsClient: AWSClient,
     private val connectionDetailsProvider: ConnectionDetailsProvider,
-    private val webSocketManager: WebSocketManager
+    private val webSocketManager: WebSocketManager,
+    private val metricsManager: MetricsManager
 ) : ChatService {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -62,6 +63,7 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             connectionDetailsProvider.updateChatDetails(chatDetails)
             val connectionDetails = awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
+            metricsManager.addCountMetric(MetricName.CreateParticipantConnection);
             connectionDetailsProvider.updateConnectionDetails(connectionDetails)
             val wsUrl = connectionDetails.websocketUrl?.let { URL(it) }
             wsUrl?.let {

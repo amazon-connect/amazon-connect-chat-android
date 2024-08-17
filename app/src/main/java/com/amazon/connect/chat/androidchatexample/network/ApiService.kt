@@ -45,15 +45,3 @@ class ApiService {
             .create(ApiInterface::class.java)
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-

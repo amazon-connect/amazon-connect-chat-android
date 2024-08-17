@@ -6,6 +6,7 @@ import com.amazon.connect.chat.sdk.ChatSessionImpl
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.repository.ChatService
 import com.amazon.connect.chat.sdk.repository.ChatServiceImpl
 import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProvider
@@ -32,12 +33,12 @@ object ChatModule {
     @Provides
     @Singleton
     fun provideChatService(
-        apiClient: APIClient,
         awsClient: AWSClient,
         connectionDetailsProvider: ConnectionDetailsProvider,
-        webSocketManager: WebSocketManager
+        webSocketManager: WebSocketManager,
+        metricsManager: MetricsManager
     ): ChatService {
-        return ChatServiceImpl(apiClient, awsClient, connectionDetailsProvider, webSocketManager)
+        return ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager)
     }
 
     /**
