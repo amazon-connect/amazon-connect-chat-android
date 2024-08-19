@@ -5,6 +5,9 @@ import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
+import com.amazon.connect.chat.sdk.network.MetricsInterface
+import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
 import junit.framework.TestCase.assertTrue
@@ -31,12 +34,18 @@ class ChatServiceImplTest {
     @Mock
     private lateinit var connectionDetailsProvider: ConnectionDetailsProvider
 
+    @Mock
+    private lateinit var webSocketManager: WebSocketManager
+
+    @Mock
+    private lateinit var metricsManager: MetricsManager
+
     private lateinit var chatService: ChatService
 
     @Before
     fun setUp() {
         MockitoAnnotations.openMocks(this)
-        chatService = ChatServiceImpl(apiClient, awsClient, connectionDetailsProvider)
+        chatService = ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager)
     }
 
     @Test

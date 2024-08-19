@@ -1,12 +1,13 @@
 package com.amazon.connect.chat.sdk.di
 
+import android.content.Context
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AWSClientImpl
 import com.amazon.connect.chat.sdk.network.ApiUrl
 import com.amazon.connect.chat.sdk.network.MetricsInterface
 import com.amazon.connect.chat.sdk.network.MetricsManager
-import com.amazon.connect.chat.sdk.Config
+import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
 import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
@@ -109,11 +110,17 @@ object NetworkModule {
         return APIClient(metricsInterface)
     }
 
-    // @Provides
-    // @Singleton
-    // fun provideUploadInterface(retrofitBuilder: Retrofit.Builder): UploadInterface {
-    //     return createService(UploadInterface::class.java, retrofitBuilder)
-    // }
+    /**
+     * Provides a singleton instance of NetworkConnectionManager.
+     *
+     * @param context The application context.
+     * @return An instance of NetworkConnectionManager.
+     */
+    @Provides
+    @Singleton
+    fun provideNetworkConnectionManager(context: Context): NetworkConnectionManager {
+        return NetworkConnectionManager.getInstance(context)
+    }
 
     /**
      * Creates a Retrofit service for the specified class.

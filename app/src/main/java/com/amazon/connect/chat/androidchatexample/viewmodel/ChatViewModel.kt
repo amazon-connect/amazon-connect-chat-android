@@ -40,14 +40,14 @@ class ChatViewModel @Inject constructor(
     private val chatConfiguration = Config
     private val _isLoading = MutableLiveData(false)
     val isLoading: MutableLiveData<Boolean> = _isLoading
-    private val _startChatResponse = MutableLiveData<Resource<StartChatResponse>>()
-    private val startChatResponse: LiveData<Resource<StartChatResponse>> = _startChatResponse
+
+    private val _isChatActive = MutableLiveData(false)
+    val isChatActive: MutableLiveData<Boolean> = _isChatActive
+
     private val _createParticipantConnectionResult = MutableLiveData<CreateParticipantConnectionResult?>()
     val createParticipantConnectionResult: MutableLiveData<CreateParticipantConnectionResult?> = _createParticipantConnectionResult
     private val _messages = MutableLiveData<List<TranscriptItem>>()
     val messages: LiveData<List<TranscriptItem>> = _messages
-    private val _webSocketUrl = MutableLiveData<String?>()
-    val webSocketUrl: MutableLiveData<String?> = _webSocketUrl
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
 
@@ -57,10 +57,6 @@ class ChatViewModel @Inject constructor(
 
     private val _liveParticipantToken = MutableLiveData<String?>(sharedPreferences.getString("participantToken", null))
     val liveParticipantToken: LiveData<String?> = _liveParticipantToken
-
-    init {
-        webSocketManager.requestNewWsUrl = { createParticipantConnection(null) }
-    }
 
     // Setters that update LiveData, which in turn update the UI
     private var contactId: String?
@@ -100,15 +96,18 @@ class ChatViewModel @Inject constructor(
     private fun setupChatHandlers(chatSession: ChatSession) {
         chatSession.onConnectionEstablished = {
             Log.d("ChatViewModel", "Connection established.")
+            _isChatActive.value = true
         }
 
         chatSession.onMessageReceived = { transcriptItem ->
             // Handle received message
             Log.d("ChatViewModel", "Received transcript item: $transcriptItem")
+            this.onMessageReceived(transcriptItem)
         }
 
         chatSession.onChatEnded = {
            Log.d("ChatViewModel", "Chat ended.")
+            _isChatActive.value = false
         }
 
         chatSession.onConnectionBroken = {
@@ -117,6 +116,7 @@ class ChatViewModel @Inject constructor(
 
         chatSession.onConnectionReEstablished = {
             Log.d("ChatViewModel", "Connection re-established.")
+            _isChatActive.value = true
         }
     }
 
@@ -181,7 +181,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun createParticipantConnection1(chatDetails: ChatDetails) {
+    private fun createParticipantConnection(chatDetails: ChatDetails) {
         viewModelScope.launch {
             _isLoading.value = true // Start loading
             val result = chatSession.connect(chatDetails)
@@ -196,7 +196,7 @@ class ChatViewModel @Inject constructor(
     }
 
 
-    private fun createParticipantConnection(chatDetails: ChatDetails?) {
+    private fun createParticipantConnection1(chatDetails: ChatDetails?) {
         val pToken: String = if (chatDetails?.contactId == null) participantToken.toString() else chatDetails?.participantToken.toString()
         viewModelScope.launch {
             _isLoading.value = true // Start loading
@@ -214,16 +214,15 @@ class ChatViewModel @Inject constructor(
                             result?.let { connectionResult ->
                                 _createParticipantConnectionResult.value = connectionResult
                                 val websocketUrl = connectionResult.websocket?.url
-                                _webSocketUrl.value = websocketUrl
+//                                _webSocketUrl.value = websocketUrl
                                 if (chatDetails !== null) {
                                     participantToken = chatDetails?.participantToken;
                                 }
 
                                 websocketUrl?.let { wsUrl ->
-                                    webSocketManager.createWebSocket(
+                                    webSocketManager.connect(
                                         wsUrl,
-                                        this@ChatViewModel::onMessageReceived,
-                                        this@ChatViewModel::onWebSocketError
+                                        false
                                     )
                                 }
                                 connectionResult.connectionCredentials?.connectionToken?.let { cToken ->
@@ -303,7 +302,6 @@ class ChatViewModel @Inject constructor(
             _messages.value = updatedMessages
         }
     }
-
 
 
     private fun onWebSocketError(errorMessage: String) {
