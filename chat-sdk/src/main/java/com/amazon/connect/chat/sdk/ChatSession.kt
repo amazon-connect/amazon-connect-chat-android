@@ -44,20 +44,13 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onMessageReceived: ((TranscriptItem) -> Unit)? = null
     override var onChatEnded: (() -> Unit)? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
-    private var eventCollectionJob: Job? = null
-    private var transcriptCollectionJob: Job? = null
 
     init {
         setupEventSubscriptions()
     }
 
     private fun setupEventSubscriptions() {
-        // Cancel any existing subscriptions before setting up new ones
-        eventCollectionJob?.cancel()
-        transcriptCollectionJob?.cancel()
-
-        // Set up new subscriptions
-        eventCollectionJob = coroutineScope.launch {
+        coroutineScope.launch {
             chatService.eventPublisher.collect { event ->
                 when (event) {
                     ChatEvent.ConnectionEstablished -> onConnectionEstablished?.invoke()
@@ -67,8 +60,7 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                 }
             }
         }
-
-        transcriptCollectionJob = coroutineScope.launch {
+        coroutineScope.launch {
             chatService.transcriptPublisher.collect { transcriptItem ->
                 onMessageReceived?.invoke(transcriptItem)
             }
@@ -98,14 +90,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             }.getOrElse {
                 Result.failure(it)
             }
-        }.also {
-            cleanup()
         }
-    }
-
-    private fun cleanup() {
-        // Cancel flow collection jobs when disconnecting or cleaning up
-        eventCollectionJob?.cancel()
-        transcriptCollectionJob?.cancel()
     }
 }

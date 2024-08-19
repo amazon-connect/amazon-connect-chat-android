@@ -4,17 +4,17 @@ import android.util.Log
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.GlobalConfig
-import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.model.MetricName
+import com.amazon.connect.chat.sdk.network.MetricsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import java.net.URL
 import javax.inject.Inject
 
 interface ChatService {
@@ -47,19 +47,16 @@ class ChatServiceImpl @Inject constructor(
 
     private val _eventPublisher= MutableSharedFlow<ChatEvent>()
     override val eventPublisher: SharedFlow<ChatEvent> get() = _eventPublisher
-    private var eventCollectionJob: Job? = null
 
     private val _transcriptPublisher = MutableSharedFlow<TranscriptItem>()
     override val transcriptPublisher: SharedFlow<TranscriptItem> get() = _transcriptPublisher
-    private var transcriptCollectionJob: Job? = null
 
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
     }
 
     init {
-        setupEventSubscriptions()
-        registerNotificationListeners()
+        setupWebSocket()
     }
 
     override suspend fun createChatSession(chatDetails: ChatDetails): Result<Boolean> {
@@ -68,7 +65,11 @@ class ChatServiceImpl @Inject constructor(
             val connectionDetails = awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
             metricsManager.addCountMetric(MetricName.CreateParticipantConnection);
             connectionDetailsProvider.updateConnectionDetails(connectionDetails)
-            setupWebSocket(connectionDetails.websocketUrl)
+            val wsUrl = connectionDetails.websocketUrl?.let { URL(it) }
+            wsUrl?.let {
+                // TODO
+//                setupWebSocket()
+            }
             Log.d("ChatServiceImpl", "Participant Connected")
             true
         }.onFailure { exception ->
@@ -76,28 +77,16 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    private suspend fun setupWebSocket(url: String, isReconnectFlow: Boolean = false) {
-        webSocketManager.connect(
-            url,
-            isReconnectFlow
-        )
-    }
-
-    private fun setupEventSubscriptions() {
-        transcriptCollectionJob?.cancel()
-        eventCollectionJob?.cancel()
-
-        eventCollectionJob = coroutineScope.launch {
-            webSocketManager.eventPublisher.collect { event ->
-                when (event) {
+    private fun setupWebSocket(){
+        coroutineScope.launch {
+            webSocketManager.eventPublisher.collect{ event ->
+                when(event) {
                     ChatEvent.ConnectionEstablished -> {
                         Log.d("ChatServiceImpl", "Connection Established")
                     }
-
                     ChatEvent.ConnectionReEstablished -> {
                         Log.d("ChatServiceImpl", "Connection Re-Established")
                     }
-
                     ChatEvent.ChatEnded -> Log.d("ChatServiceImpl", "Chat Ended")
                     ChatEvent.ConnectionBroken -> Log.d("ChatServiceImpl", "Connection Broken")
                 }
@@ -105,11 +94,12 @@ class ChatServiceImpl @Inject constructor(
             }
         }
 
-        transcriptCollectionJob = coroutineScope.launch {
-            webSocketManager.transcriptPublisher.collect { transcriptItem ->
+        coroutineScope.launch {
+            webSocketManager.transcriptPublisher.collect{ transcriptItem ->
                 _transcriptPublisher.emit(transcriptItem)
             }
         }
+
     }
 
     override suspend fun disconnectChatSession(): Result<Boolean> {
@@ -118,49 +108,10 @@ class ChatServiceImpl @Inject constructor(
                 ?: throw Exception("No connection details available")
             awsClient.disconnectParticipantConnection(connectionDetails.connectionToken).getOrThrow()
             Log.d("ChatServiceImpl", "Participant Disconnected")
-            clearSubscriptionsAndPublishers()
             true
         }.onFailure { exception ->
             Log.e("ChatServiceImpl", "Failed to disconnect participant: ${exception.message}", exception)
         }
-    }
-
-
-    private fun registerNotificationListeners() {
-        coroutineScope.launch {
-            Log.d("ChatServiceImpl", "registerNotificationListeners")
-            webSocketManager.requestNewWsUrlFlow.collect{
-                handleNewWsUrlRequest()
-            }
-        }
-    }
-
-    private suspend fun handleNewWsUrlRequest() {
-        Log.d("ChatServiceImpl", "handleNewWsUrlRequest")
-
-        val chatDetails = connectionDetailsProvider.getChatDetails()
-        chatDetails?.let {
-            val result = awsClient.createParticipantConnection(it.participantToken)
-            if (result.isSuccess) {
-                val connectionDetails = result.getOrNull()
-                connectionDetailsProvider.updateConnectionDetails(connectionDetails!!)
-                setupWebSocket(connectionDetails.websocketUrl, true)
-            } else {
-                val error = result.exceptionOrNull()
-                if (error?.message == "Access denied") {
-                    // Handle chat ended scenario
-//                    val endedEvent = TranscriptItemUtils.createDummyEndedEvent()
-//                    updateTranscriptDict(endedEvent)
-                    _eventPublisher.emit(ChatEvent.ChatEnded)
-                }
-                Log.e("ChatServiceImpl", "CreateParticipantConnection failed: $error")
-            }
-        }
-    }
-
-    private fun clearSubscriptionsAndPublishers() {
-        transcriptCollectionJob?.cancel()
-        eventCollectionJob?.cancel()
     }
 
 }

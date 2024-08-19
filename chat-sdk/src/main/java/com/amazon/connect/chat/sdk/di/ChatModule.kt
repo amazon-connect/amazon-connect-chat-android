@@ -7,8 +7,6 @@ import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
-import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
-import com.amazon.connect.chat.sdk.network.WebSocketManagerImpl
 import com.amazon.connect.chat.sdk.repository.ChatService
 import com.amazon.connect.chat.sdk.repository.ChatServiceImpl
 import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProvider
@@ -27,10 +25,9 @@ object ChatModule {
     /**
      * Provides a singleton instance of ChatService.
      *
+     * @param apiClient The API client for network operations.
      * @param awsClient The AWS client for connecting to AWS services.
      * @param connectionDetailsProvider The provider for connection details.
-     * @param webSocketManager The WebSocket manager for managing WebSocket connections.
-     * @param metricsManager The metrics manager for managing metrics.
      * @return An instance of ChatServiceImpl.
      */
     @Provides
@@ -67,29 +64,18 @@ object ChatModule {
         return ConnectionDetailsProviderImpl()
     }
 
-    /**
-     * Provides a singleton instance of Context.
-     *
-     * @param appContext The application context.
-     * @return An instance of Context.
-     */
+    // Provide the Context dependency
     @Provides
     @Singleton
     fun provideContext(@ApplicationContext appContext: Context): Context {
         return appContext
     }
 
-    /**
-     * Provides a singleton instance of NetworkConnectionManager.
-     *
-     * @param networkConnectionManager The network connection manager.
-     * @return An instance of NetworkConnectionManager.
-     */
     @Provides
     @Singleton
     fun provideWebSocketManager(
-        networkConnectionManager: NetworkConnectionManager,
+        context: Context,
     ): WebSocketManager {
-        return WebSocketManagerImpl(networkConnectionManager = networkConnectionManager)
+        return WebSocketManager(context, {})
     }
 }
