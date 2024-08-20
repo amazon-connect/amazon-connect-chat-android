@@ -80,12 +80,9 @@ class MainActivity : ComponentActivity() {
 fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
     var showCustomSheet by remember { mutableStateOf(false) }
     val isLoading = viewModel.isLoading.observeAsState(initial = false)
-    val createParticipantConnectionResult =
-        viewModel.createParticipantConnectionResult.observeAsState()
-    val webSocketUrl = viewModel.webSocketUrl.observeAsState()
+    val isChatActive = viewModel.isChatActive.observeAsState(initial = false)
     var showDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
-    val contactId = viewModel.liveContactId.observeAsState()
     val participantToken = viewModel.liveParticipantToken.observeAsState()
     var showErrorDialog by remember { mutableStateOf(false) }
     val errorMessage by viewModel.errorMessage.observeAsState()
@@ -161,7 +158,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             if (!showCustomSheet) {
                 ExtendedFloatingActionButton(
                     text = {
-                        if (webSocketUrl.value == null) {
+                        if (isChatActive.value) {
                             Text("Start Chat")
                         } else {
                             Text("Resume Chat")
@@ -173,14 +170,10 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
                         }
                     },
                     onClick = {
-                        if (!contactId.value.isNullOrEmpty() && participantToken.value.isNullOrEmpty()) {
-                            showRestoreDialog = true
+                        if (isChatActive.value == false) {
+                            viewModel.initiateChat()
                         } else {
-                            if (webSocketUrl.value == null) {
-                                viewModel.initiateChat()
-                            } else {
-                                showCustomSheet = true
-                            }
+                            showCustomSheet = true
                         }
                     },
 
@@ -188,8 +181,8 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             }
         }
     ) {
-        LaunchedEffect(isLoading.value) {
-            if (!isLoading.value && createParticipantConnectionResult.value != null) {
+        LaunchedEffect(isChatActive.value) {
+            if (!isLoading.value && isChatActive.value) {
                 showCustomSheet = true
             }
         }
