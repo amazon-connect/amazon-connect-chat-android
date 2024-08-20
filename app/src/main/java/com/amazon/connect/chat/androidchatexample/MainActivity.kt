@@ -158,7 +158,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             if (!showCustomSheet) {
                 ExtendedFloatingActionButton(
                     text = {
-                        if (isChatActive.value == false) {
+                        if (isChatActive.value) {
                             Text("Start Chat")
                         } else {
                             Text("Resume Chat")

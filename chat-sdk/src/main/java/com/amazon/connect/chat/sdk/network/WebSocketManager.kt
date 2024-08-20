@@ -320,7 +320,7 @@ class WebSocketManagerImpl @Inject constructor(
         if (isConnectedToNetwork) {
             reestablishConnection()
             Log.w("WebSocket", "Deep Heartbeat missed, retrying connection")
-        }else {
+        } else {
             Log.w("WebSocket", "Deep Heartbeat missed, no internet connection")
         }
         val success = this._eventPublisher.tryEmit(ChatEvent.ConnectionBroken)
