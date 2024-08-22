@@ -28,10 +28,17 @@ interface ChatSession {
      */
     suspend fun disconnect(): Result<Unit>
 
+    /**
+     * Checks if a chat session is currently active.
+     * @return True if a chat session is active, false otherwise.
+     */
+    var onChatSessionStateChanged: ((Boolean) -> Unit)?
+
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
     var onConnectionBroken: (() -> Unit)?
     var onMessageReceived: ((TranscriptItem) -> Unit)?
+    var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)?
     var onChatEnded: (() -> Unit)?
 }
 
@@ -42,19 +49,19 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onConnectionReEstablished: (() -> Unit)? = null
     override var onConnectionBroken: (() -> Unit)? = null
     override var onMessageReceived: ((TranscriptItem) -> Unit)? = null
+    override var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)? = null
     override var onChatEnded: (() -> Unit)? = null
+    override var onChatSessionStateChanged: ((Boolean) -> Unit)? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     private var eventCollectionJob: Job? = null
     private var transcriptCollectionJob: Job? = null
+    private var transcriptListCollectionJob: Job? = null
+    private var chatSessionStateCollectionJob: Job? = null
 
-    init {
-        setupEventSubscriptions()
-    }
 
     private fun setupEventSubscriptions() {
         // Cancel any existing subscriptions before setting up new ones
-        eventCollectionJob?.cancel()
-        transcriptCollectionJob?.cancel()
+        cleanup()
 
         // Set up new subscriptions
         eventCollectionJob = coroutineScope.launch {
@@ -70,7 +77,27 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
 
         transcriptCollectionJob = coroutineScope.launch {
             chatService.transcriptPublisher.collect { transcriptItem ->
-                onMessageReceived?.invoke(transcriptItem)
+                // Make sure it runs on main thread
+                coroutineScope.launch {
+                    onMessageReceived?.invoke(transcriptItem)
+                }
+            }
+        }
+
+        transcriptListCollectionJob = coroutineScope.launch {
+            chatService.transcriptListPublisher.collect { transcriptList ->
+                if (transcriptList.isNotEmpty()) {
+                    // Make sure it runs on main thread
+                    coroutineScope.launch {
+                        onTranscriptUpdated?.invoke(transcriptList)
+                    }
+                }
+            }
+        }
+
+        chatSessionStateCollectionJob = coroutineScope.launch {
+            chatService.chatSessionStatePublisher.collect { isActive ->
+                onChatSessionStateChanged?.invoke(isActive)
             }
         }
     }
@@ -80,6 +107,8 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     }
 
     override suspend fun connect(chatDetails: ChatDetails): Result<Unit> {
+        // Establish subscriptions whenever a new chat session is initiated
+        setupEventSubscriptions()
         return withContext(Dispatchers.IO) {
             runCatching {
                 chatService.createChatSession(chatDetails)
@@ -107,5 +136,12 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         // Cancel flow collection jobs when disconnecting or cleaning up
         eventCollectionJob?.cancel()
         transcriptCollectionJob?.cancel()
+        transcriptListCollectionJob?.cancel()
+        chatSessionStateCollectionJob?.cancel()
+
+        eventCollectionJob = null
+        transcriptCollectionJob = null
+        transcriptListCollectionJob = null
+        chatSessionStateCollectionJob = null
     }
 }

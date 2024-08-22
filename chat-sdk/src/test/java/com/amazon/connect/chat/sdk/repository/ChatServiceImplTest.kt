@@ -1,8 +1,13 @@
 package com.amazon.connect.chat.sdk.repository
 
+import android.os.Looper
+import androidx.compose.animation.fadeIn
 import com.amazon.connect.chat.sdk.model.ChatDetails
+import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.MetricsInterface
@@ -10,8 +15,18 @@ import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
@@ -20,6 +35,7 @@ import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.MockitoAnnotations
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
@@ -41,10 +57,25 @@ class ChatServiceImplTest {
     private lateinit var metricsManager: MetricsManager
 
     private lateinit var chatService: ChatService
+    private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
+    private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
+    private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
+    private lateinit var transcriptListSharedFlow: MutableSharedFlow<List<TranscriptItem>>
+
 
     @Before
     fun setUp() {
         MockitoAnnotations.openMocks(this)
+
+        eventSharedFlow = MutableSharedFlow()
+        transcriptSharedFlow = MutableSharedFlow()
+        transcriptListSharedFlow = MutableSharedFlow()
+        chatSessionStateFlow = MutableStateFlow(false)
+
+        `when`(webSocketManager.eventPublisher).thenReturn(eventSharedFlow)
+        `when`(webSocketManager.transcriptPublisher).thenReturn(transcriptSharedFlow)
+        `when`(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
+
         chatService = ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager)
     }
 
@@ -125,6 +156,78 @@ class ChatServiceImplTest {
             websocketUrl = "mockedWebsocketUrl",
             expiry = "mockedExpiryTime"
         )
+    }
+
+    @Test
+    fun test_eventPublisher_emitsCorrectEvent() = runTest {
+        val chatEvent = ChatEvent.ConnectionEstablished
+
+        // Launch the flow collection within the test's coroutine scope
+        val job = chatService.eventPublisher
+            .onEach { event ->
+                assertEquals(chatEvent, event)
+            }
+            .launchIn(this)
+
+        // Emit the event
+        eventSharedFlow.emit(chatEvent)
+
+        // Cancel the job after testing to ensure the coroutine completes
+        job.cancel()
+    }
+
+    @Test
+    fun test_transcriptPublisher_emitsCorrectTranscriptItem() = runTest {
+        val transcriptItem = Message(id = "1", timeStamp = "mockedTimestamp", participant = "user",
+            contentType = "text/plain", text = "Hello")
+
+        val job = chatService.transcriptPublisher
+            .onEach { item ->
+                assertEquals(transcriptItem, item)
+            }
+            .launchIn(this)
+
+        // Emit the transcript item
+        transcriptSharedFlow.emit(transcriptItem)
+
+        // Cancel the job after testing to ensure the coroutine completes
+        job.cancel()
+    }
+
+    @Test
+    fun test_transcriptListPublisher_emitsTranscriptList() = runTest {
+        val transcriptItem1 = Message(id = "1", timeStamp = "2024-01-01T00:00:00Z", participant = "user", contentType = "text/plain", text = "Hello")
+        val transcriptItem2 = Message(id = "2", timeStamp = "2024-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
+        val transcriptList = listOf(transcriptItem1, transcriptItem2)
+
+        // Launch the flow collection within the test's coroutine scope
+        val job = chatService.transcriptListPublisher
+            .onEach { items ->
+                assertEquals(transcriptList, items)
+            }
+            .launchIn(this)
+
+        // Emit the transcript list
+        transcriptListSharedFlow.emit(transcriptList)
+
+        // Cancel the job after testing to ensure the coroutine completes
+        job.cancel()
+    }
+
+    @Test
+    fun test_chatSessionStatePublisher_emitsSessionState() = runTest {
+        // Launch the flow collection within the test's coroutine scope
+        val job = chatService.chatSessionStatePublisher
+            .onEach { isActive ->
+                assertTrue(isActive)
+            }
+            .launchIn(this)
+
+        // Emit the session state
+        chatSessionStateFlow.emit(true)
+
+        // Cancel the job after testing to ensure the coroutine completes
+        job.cancel()
     }
 
 }

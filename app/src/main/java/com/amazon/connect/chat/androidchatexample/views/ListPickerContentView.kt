@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.amazon.connect.chat.androidchatexample.R
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.model.ListPickerContent
 import com.amazon.connect.chat.sdk.model.ListPickerElement
 import com.amazon.connect.chat.sdk.model.Message
@@ -115,7 +116,7 @@ fun ListPickerContentView(
                 )
                 message.timeStamp?.let {
                     Text(
-                        text = it,
+                        text = CommonUtils.formatTime(it),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White,
                         modifier = Modifier.align(Alignment.End).alpha(0.7f)

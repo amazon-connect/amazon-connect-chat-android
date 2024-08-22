@@ -3,12 +3,17 @@ package com.amazon.connect.chat.sdk.repository
 import android.util.Log
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
+import com.amazon.connect.chat.sdk.model.ContentType
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.utils.Constants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,13 +39,15 @@ interface ChatService {
 
     val eventPublisher: SharedFlow<ChatEvent>
     val transcriptPublisher: SharedFlow<TranscriptItem>
+    val transcriptListPublisher : SharedFlow<List<TranscriptItem>>
+    val chatSessionStatePublisher: SharedFlow<Boolean>
 }
 
 class ChatServiceImpl @Inject constructor(
     private val awsClient: AWSClient,
     private val connectionDetailsProvider: ConnectionDetailsProvider,
     private val webSocketManager: WebSocketManager,
-    private val metricsManager: MetricsManager
+    private val metricsManager: MetricsManager,
 ) : ChatService {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -53,16 +60,26 @@ class ChatServiceImpl @Inject constructor(
     override val transcriptPublisher: SharedFlow<TranscriptItem> get() = _transcriptPublisher
     private var transcriptCollectionJob: Job? = null
 
+    private val _transcriptListPublisher = MutableSharedFlow<List<TranscriptItem>>()
+    override val transcriptListPublisher: SharedFlow<List<TranscriptItem>> get() = _transcriptListPublisher
+
+    private val _chatSessionStatePublisher = MutableSharedFlow<Boolean>()
+    override val chatSessionStatePublisher: SharedFlow<Boolean> get() = _chatSessionStatePublisher
+    private var chatSessionStateCollectionJob: Job? = null
+
+    private var transcriptDict = mutableMapOf<String, TranscriptItem>()
+    private var internalTranscript = mutableListOf<TranscriptItem>()
+
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
     }
 
     init {
-        setupEventSubscriptions()
         registerNotificationListeners()
     }
 
     override suspend fun createChatSession(chatDetails: ChatDetails): Result<Boolean> {
+        setupEventSubscriptions()
         return runCatching {
             connectionDetailsProvider.updateChatDetails(chatDetails)
             val connectionDetails = awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
@@ -84,13 +101,13 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private fun setupEventSubscriptions() {
-        transcriptCollectionJob?.cancel()
-        eventCollectionJob?.cancel()
+        clearSubscriptionsAndPublishers()
 
         eventCollectionJob = coroutineScope.launch {
             webSocketManager.eventPublisher.collect { event ->
                 when (event) {
                     ChatEvent.ConnectionEstablished -> {
+                        connectionDetailsProvider.setChatSessionState(true)
                         Log.d("ChatServiceImpl", "Connection Established")
                     }
 
@@ -98,7 +115,11 @@ class ChatServiceImpl @Inject constructor(
                         Log.d("ChatServiceImpl", "Connection Re-Established")
                     }
 
-                    ChatEvent.ChatEnded -> Log.d("ChatServiceImpl", "Chat Ended")
+                    ChatEvent.ChatEnded -> {
+                        Log.d("ChatServiceImpl", "Chat Ended")
+                        connectionDetailsProvider.setChatSessionState(false)
+                    }
+
                     ChatEvent.ConnectionBroken -> Log.d("ChatServiceImpl", "Connection Broken")
                 }
                 _eventPublisher.emit(event)
@@ -107,8 +128,87 @@ class ChatServiceImpl @Inject constructor(
 
         transcriptCollectionJob = coroutineScope.launch {
             webSocketManager.transcriptPublisher.collect { transcriptItem ->
-                _transcriptPublisher.emit(transcriptItem)
+                updateTranscriptDict(transcriptItem)
             }
+        }
+
+        chatSessionStateCollectionJob = coroutineScope.launch {
+            connectionDetailsProvider.chatSessionState.collect { isActive ->
+                _chatSessionStatePublisher.emit(isActive)
+            }
+        }
+    }
+
+    private fun updateTranscriptDict(item: TranscriptItem) {
+        when(item) {
+            is MessageMetadata -> {
+                // Associate metadata with message based on its ID
+                val messageItem = transcriptDict[item.id] as? Message
+                messageItem?.let {
+                    it.metadata = item
+                    transcriptDict[item.id] = it
+                }
+            }
+            is Message -> {
+                // Remove typing indicators when a new message from the agent is received
+                if (item.participant == Constants.AGENT) {
+                    removeTypingIndicators()
+                }
+
+                // TODO ; Handle temporary attachment here
+
+                transcriptDict[item.id] = item
+            }
+            is Event -> {
+                handleEvent(item, transcriptDict)
+            }
+        }
+
+        transcriptDict[item.id]?.let {
+            handleTranscriptItemUpdate(it)
+        }
+
+    }
+
+    private fun removeTypingIndicators() {
+        // TODO
+        // TODO("removeTypingIndicators: Not yet implemented")
+    }
+
+    private fun handleEvent(event: Event, currentDict: MutableMap<String, TranscriptItem>) {
+        if (event.contentType == ContentType.TYPING.type) {
+            // TODO ; reset typing timer
+        }
+        currentDict[event.id] = event
+    }
+
+
+    private fun handleTranscriptItemUpdate(item: TranscriptItem) {
+        // Send out the individual transcript item to subscribers
+        coroutineScope.launch {
+            _transcriptPublisher.emit(item)
+        }
+
+        // Update the internal transcript list with the new or updated item
+        val existingIndex = internalTranscript.indexOfFirst { it.id == item.id }
+        if (existingIndex != -1) {
+            // If the item already exists in the internal transcript list, update it
+            internalTranscript[existingIndex] = item
+        } else {
+            // If the item is new, determine where to insert it in the list based on its timestamp
+            if (internalTranscript.isEmpty() || item.timeStamp < internalTranscript.first().timeStamp) {
+                // If the list is empty or the new item is older than the first item, add it to the beginning
+                internalTranscript.add(0, item)
+            } else {
+                // Otherwise, add it to the end of the list
+                internalTranscript.add(item)
+            }
+        }
+        Log.d("ChatServiceImpl", "Updated transcript: $internalTranscript")
+
+        // Send the updated transcript list to subscribers
+        coroutineScope.launch {
+            _transcriptListPublisher.emit(internalTranscript)
         }
     }
 
@@ -118,6 +218,7 @@ class ChatServiceImpl @Inject constructor(
                 ?: throw Exception("No connection details available")
             awsClient.disconnectParticipantConnection(connectionDetails.connectionToken).getOrThrow()
             Log.d("ChatServiceImpl", "Participant Disconnected")
+            connectionDetailsProvider.setChatSessionState(false)
             clearSubscriptionsAndPublishers()
             true
         }.onFailure { exception ->
@@ -127,8 +228,8 @@ class ChatServiceImpl @Inject constructor(
 
 
     private fun registerNotificationListeners() {
+        Log.d("ChatServiceImpl", "registerNotificationListeners")
         coroutineScope.launch {
-            Log.d("ChatServiceImpl", "registerNotificationListeners")
             webSocketManager.requestNewWsUrlFlow.collect{
                 handleNewWsUrlRequest()
             }
@@ -161,6 +262,14 @@ class ChatServiceImpl @Inject constructor(
     private fun clearSubscriptionsAndPublishers() {
         transcriptCollectionJob?.cancel()
         eventCollectionJob?.cancel()
+        chatSessionStateCollectionJob?.cancel()
+
+        transcriptCollectionJob = null
+        eventCollectionJob = null
+        chatSessionStateCollectionJob = null
+
+        transcriptDict = mutableMapOf()
+        internalTranscript = mutableListOf()
     }
 
 }

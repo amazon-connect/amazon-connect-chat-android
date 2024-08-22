@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.QuickReplyContent
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
@@ -56,7 +57,7 @@ fun QuickReplyContentView(message: Message, messageContent: QuickReplyContent) {
                 )
                 message.timeStamp?.let {
                     Text(
-                        text = it,
+                        text = CommonUtils.formatTime(it),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White,
                         modifier = Modifier.align(Alignment.End).alpha(0.7f)
