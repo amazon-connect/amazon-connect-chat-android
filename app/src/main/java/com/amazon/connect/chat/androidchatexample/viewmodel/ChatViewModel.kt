@@ -5,30 +5,29 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.amazon.connect.chat.androidchatexample.Config
+import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
+import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
 import com.amazon.connect.chat.androidchatexample.models.StartChatResponse
 import com.amazon.connect.chat.androidchatexample.network.Resource
 import com.amazon.connect.chat.androidchatexample.repository.ChatRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import androidx.lifecycle.viewModelScope
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
+import com.amazon.connect.chat.sdk.ChatSession
+import com.amazon.connect.chat.sdk.model.ChatDetails
+import com.amazon.connect.chat.sdk.model.ContentType
+import com.amazon.connect.chat.sdk.model.Event
+import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionResult
-import com.amazon.connect.chat.androidchatexample.Config
-import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
-import com.amazon.connect.chat.androidchatexample.models.PersistentChat
-import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
-import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
-import com.amazon.connect.chat.sdk.network.WebSocketManager
-import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
-import com.amazon.connect.chat.sdk.model.ContentType
-import com.amazon.connect.chat.sdk.ChatSession
-import com.amazon.connect.chat.sdk.model.ChatDetails
-import com.amazon.connect.chat.sdk.model.Event
-import com.amazon.connect.chat.sdk.model.GlobalConfig
-import com.amazon.connect.chat.sdk.model.TranscriptItem
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -51,20 +50,8 @@ class ChatViewModel @Inject constructor(
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
 
-    // LiveData for actual string values, updates will reflect in the UI
-    private val _liveContactId = MutableLiveData<String?>(sharedPreferences.getString("contactID", null))
-    val liveContactId: LiveData<String?> = _liveContactId
-
     private val _liveParticipantToken = MutableLiveData<String?>(sharedPreferences.getString("participantToken", null))
     val liveParticipantToken: LiveData<String?> = _liveParticipantToken
-
-    // Setters that update LiveData, which in turn update the UI
-    private var contactId: String?
-        get() = liveContactId.value
-        set(value) {
-//            sharedPreferences.edit().putString("contactID", value).apply()
-            _liveContactId.value = value
-        }
 
     private var participantToken: String?
         get() = liveParticipantToken.value
@@ -73,27 +60,24 @@ class ChatViewModel @Inject constructor(
             _liveParticipantToken.value = value  // Reflect the new value in LiveData
         }
 
-    fun clearContactId() {
-        sharedPreferences.edit().remove("contactID").apply()
-        _liveContactId.value = null
-    }
-
     fun clearParticipantToken() {
         sharedPreferences.edit().remove("participantToken").apply()
         _liveParticipantToken.value = null
     }
 
     init {
-        configureChatSession()
+        viewModelScope.launch {
+            configureChatSession()
+        }
     }
 
-    private fun configureChatSession() {
+    private suspend fun configureChatSession() {
         val globalConfig = GlobalConfig(region = chatConfiguration.region)
         chatSession.configure(globalConfig)
         setupChatHandlers(chatSession)
     }
 
-    private fun setupChatHandlers(chatSession: ChatSession) {
+    private suspend fun setupChatHandlers(chatSession: ChatSession) {
         chatSession.onConnectionEstablished = {
             Log.d("ChatViewModel", "Connection established.")
             _isChatActive.value = true
@@ -102,7 +86,14 @@ class ChatViewModel @Inject constructor(
         chatSession.onMessageReceived = { transcriptItem ->
             // Handle received message
             Log.d("ChatViewModel", "Received transcript item: $transcriptItem")
-            this.onMessageReceived(transcriptItem)
+//            this.onMessageReceived(transcriptItem)
+        }
+
+        chatSession.onTranscriptUpdated = { transcriptList ->
+            Log.d("ChatViewModel", "Transcript onTranscriptUpdated: $transcriptList")
+            viewModelScope.launch {
+                onUpdateTranscript(transcriptList)
+            }
         }
 
         chatSession.onChatEnded = {
@@ -118,6 +109,11 @@ class ChatViewModel @Inject constructor(
             Log.d("ChatViewModel", "Connection re-established.")
             _isChatActive.value = true
         }
+
+        chatSession.onChatSessionStateChanged = {
+            Log.d("ChatViewModel", "Chat session state changed: $it")
+            _isChatActive.value = it
+        }
     }
 
     fun initiateChat() {
@@ -129,29 +125,24 @@ class ChatViewModel @Inject constructor(
                     val chatDetails = ChatDetails(participantToken = it)
                     createParticipantConnection(chatDetails)
                 }
-            } else if (contactId != null) {
-                startChat(contactId)
             } else {
-                startChat(null) // Start a fresh chat if no tokens are present
+                startChat() // Start a fresh chat if no tokens are present
             }
         }
     }
 
-    private fun startChat(sourceContactId: String?) {
+    private fun startChat() {
         viewModelScope.launch {
             _isLoading.value = true
             val participantDetails = ParticipantDetails(displayName = chatConfiguration.customerName)
-            val persistentChat: PersistentChat? = sourceContactId?.let { PersistentChat(it, "ENTIRE_PAST_SESSION") }
             val request = StartChatRequest(
                 connectInstanceId = chatConfiguration.connectInstanceId,
                 contactFlowId = chatConfiguration.contactFlowId,
-                participantDetails = participantDetails,
-                persistentChat = persistentChat
+                participantDetails = participantDetails
             )
             when (val response = chatRepository.startChat(startChatRequest = request)) {
                 is Resource.Success -> {
                     response.data?.data?.startChatResult?.let { result ->
-                        this@ChatViewModel.contactId = result.contactId
                         this@ChatViewModel.participantToken = result.participantToken
                         handleStartChatResponse(result)
                     } ?: run {
@@ -161,7 +152,6 @@ class ChatViewModel @Inject constructor(
                 is Resource.Error -> {
                     _errorMessage.value = response.message
                     _isLoading.value = false
-                    clearContactId()
                 }
 
                 is Resource.Loading -> _isLoading.value = true
@@ -197,7 +187,7 @@ class ChatViewModel @Inject constructor(
 
 
     private fun createParticipantConnection1(chatDetails: ChatDetails?) {
-        val pToken: String = if (chatDetails?.contactId == null) participantToken.toString() else chatDetails?.participantToken.toString()
+        val pToken: String = chatDetails?.participantToken.toString()
         viewModelScope.launch {
             _isLoading.value = true // Start loading
             chatRepository.createParticipantConnection(
@@ -259,6 +249,18 @@ class ChatViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    private fun onUpdateTranscript(transcriptList: List<TranscriptItem>) {
+        val updatedMessages = transcriptList.map { transcriptItem ->
+            if (transcriptItem is Event) {
+                CommonUtils.customizeEvent(transcriptItem)
+            }
+            CommonUtils.getMessageDirection(transcriptItem)
+            transcriptItem
+        }
+        _messages.value = updatedMessages
+        Log.d("ChatViewModel", "Transcript updated: ${_messages.value}")
     }
 
     private fun onMessageReceived(transcriptItem: TranscriptItem) {

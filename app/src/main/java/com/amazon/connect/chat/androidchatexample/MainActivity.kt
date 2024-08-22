@@ -125,7 +125,6 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             dismissButton = {
                 TextButton(onClick = {
                     showRestoreDialog = false
-                    viewModel.clearContactId() // Clear contactId
                     viewModel.clearParticipantToken()
                     viewModel.initiateChat() // Start new chat
                 }) { Text("Start new") }
@@ -158,7 +157,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             if (!showCustomSheet) {
                 ExtendedFloatingActionButton(
                     text = {
-                        if (isChatActive.value) {
+                        if (isChatActive.value == false) {
                             Text("Start Chat")
                         } else {
                             Text("Resume Chat")
@@ -187,7 +186,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             }
         }
 
-        ContactIdAndTokenSection(viewModel)
+        ParticipantTokenSection(viewModel)
 
         AnimatedVisibility(
             visible = showCustomSheet,
@@ -307,22 +306,13 @@ fun ChatMessage(transcriptItem: TranscriptItem) {
 }
 
 @Composable
-fun ContactIdAndTokenSection(viewModel: ChatViewModel) {
-    val contactId by viewModel.liveContactId.observeAsState()
+fun ParticipantTokenSection(viewModel: ChatViewModel) {
     val participantToken by viewModel.liveParticipantToken.observeAsState()
 
     Column {
-        Text(text = "Contact ID: ${if (contactId != null) "Available" else "Not available"}", color = if (contactId != null) Color.Blue else Color.Red)
-        Button(onClick = viewModel::clearContactId) {
-            Text("Clear Contact ID")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}", color = if (participantToken != null) Color.Blue else Color.Red)
         Button(onClick = viewModel::clearParticipantToken) {
             Text("Clear Participant Token")
-        }
-        Button(onClick = viewModel::endChat) {
-            Text(text = "Disconnect")
         }
     }
 }

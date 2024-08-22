@@ -21,27 +21,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
 
 class CommonUtils {
     companion object{
-        fun formatTime(timeStamp: String): String {
-            val utcFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-
-            val date = utcFormatter.parse(timeStamp)
-            return if (date != null) {
-                val localFormatter = SimpleDateFormat("HH:mm", Locale.getDefault()).apply {
-                    timeZone = TimeZone.getDefault()
-                }
-                localFormatter.format(date)
-            } else {
-                timeStamp
-            }
-        }
 
         @Composable
         fun keyboardAsState(): State<Boolean> {

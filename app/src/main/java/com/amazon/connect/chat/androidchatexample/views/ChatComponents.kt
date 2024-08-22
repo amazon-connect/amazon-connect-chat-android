@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.ListPickerContent
 import com.amazon.connect.chat.sdk.model.Message
@@ -83,7 +84,7 @@ fun SenderChatBubble(message: Message) {
                 )
                 message.timeStamp?.let {
                     Text(
-                        text = it,
+                        text = CommonUtils.formatTime(it),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFFB0BEC5),
                         modifier = Modifier.align(Alignment.End)
@@ -130,7 +131,7 @@ fun ReceiverChatBubble(message: Message) {
                 )
                 message.timeStamp?.let {
                     Text(
-                        text = it,
+                        text = CommonUtils.formatTime(it),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White,
                         modifier = Modifier.align(Alignment.End).alpha(0.7f)
