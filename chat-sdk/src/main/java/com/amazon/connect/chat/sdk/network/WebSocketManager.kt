@@ -131,20 +131,20 @@ class WebSocketManagerImpl @Inject constructor(
     // --- Initialization and Connection Management ---
 
     override suspend fun connect(wsUrl: String, isReconnectFlow: Boolean) {
-        closeWebSocket()
+        closeWebSocket("Connecting...")
         val request = Request.Builder().url(wsUrl).build()
         webSocket = client.newWebSocket(request, createWebSocketListener(isReconnectFlow))
     }
 
-    private fun closeWebSocket() {
+    private fun closeWebSocket(reason: String? = null) {
         CoroutineScope(Dispatchers.IO).launch {
             resetHeartbeatManagers()
-            webSocket?.close(1000, null)
+            webSocket?.close(1000, reason)
         }
     }
 
     override suspend fun disconnect() {
-        closeWebSocket()
+        closeWebSocket("Disconnecting...")
     }
 
     // --- WebSocket Listener ---
@@ -408,7 +408,7 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private suspend fun handleChatEnded(innerJson: JSONObject): TranscriptItem {
-        closeWebSocket();
+        closeWebSocket("Chat Ended");
         isChatActive = false;
         this._eventPublisher.emit(ChatEvent.ChatEnded)
         val time = innerJson.getString("AbsoluteTime")

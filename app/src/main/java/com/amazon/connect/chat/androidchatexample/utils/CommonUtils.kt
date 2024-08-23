@@ -5,8 +5,28 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.ContentType
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 object CommonUtils {
+
+    fun formatTime(timeStamp: String): String {
+        val utcFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+
+        val date = utcFormatter.parse(timeStamp)
+        return if (date != null) {
+            val localFormatter = SimpleDateFormat("HH:mm", Locale.getDefault()).apply {
+                timeZone = TimeZone.getDefault()
+            }
+            localFormatter.format(date)
+        } else {
+            timeStamp
+        }
+    }
+
 
     fun getMessageDirection(transcriptItem: TranscriptItem) {
         when (transcriptItem) {
