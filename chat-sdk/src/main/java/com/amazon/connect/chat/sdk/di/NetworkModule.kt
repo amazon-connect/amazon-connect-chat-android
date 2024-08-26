@@ -5,9 +5,11 @@ import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AWSClientImpl
 import com.amazon.connect.chat.sdk.network.ApiUrl
+import com.amazon.connect.chat.sdk.network.AttachmentsInterface
 import com.amazon.connect.chat.sdk.network.MetricsInterface
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
+import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
@@ -76,6 +78,30 @@ object NetworkModule {
     }
 
     /**
+     * Provides a singleton instance of MetricsInterface.
+     *
+     * @param retrofitBuilder The Retrofit.Builder instance for creating the service.
+     * @return An instance of MetricsInterface.
+     */
+    @Provides
+    @Singleton
+    fun provideAttachmentsManager(context: Context, awsClient: AWSClient, apiClient: APIClient): AttachmentsManager {
+        return AttachmentsManager(context, awsClient, apiClient)
+    }
+
+    /**
+     * Provides a singleton instance of AttachmentsInterface.
+     *
+     * @param retrofitBuilder The Retrofit.Builder instance for creating the service.
+     * @return An instance of MetricsInterface.
+     */
+    @Provides
+    @Singleton
+    fun provideAttachmentsInterface(retrofitBuilder: Retrofit.Builder): AttachmentsInterface {
+        return createService(AttachmentsInterface::class.java, retrofitBuilder)
+    }
+
+    /**
      * Provides a singleton instance of AmazonConnectParticipantClient.
      *
      * @return An instance of AmazonConnectParticipantClient.
@@ -106,8 +132,8 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideAPIClient(metricsInterface: MetricsInterface): APIClient {
-        return APIClient(metricsInterface)
+    fun provideAPIClient(metricsInterface: MetricsInterface, attachmentsInterface: AttachmentsInterface): APIClient {
+        return APIClient(metricsInterface, attachmentsInterface)
     }
 
     /**

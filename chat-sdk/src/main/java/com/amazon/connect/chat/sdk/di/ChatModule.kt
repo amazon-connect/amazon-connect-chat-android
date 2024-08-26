@@ -3,8 +3,8 @@ package com.amazon.connect.chat.sdk.di
 import android.content.Context
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
-import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
+import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
@@ -39,9 +39,10 @@ object ChatModule {
         awsClient: AWSClient,
         connectionDetailsProvider: ConnectionDetailsProvider,
         webSocketManager: WebSocketManager,
-        metricsManager: MetricsManager
+        metricsManager: MetricsManager,
+        attachmentsManager: AttachmentsManager
     ): ChatService {
-        return ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager)
+        return ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager)
     }
 
     /**

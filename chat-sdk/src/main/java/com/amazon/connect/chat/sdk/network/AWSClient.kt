@@ -6,9 +6,13 @@ import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazonaws.regions.Region
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
+import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
+import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
+import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -28,6 +32,10 @@ interface AWSClient {
      * @return A Result containing the disconnect participant result if successful, or an exception if an error occurred.
      */
     suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult>
+
+    suspend fun startAttachmentUpload(connectionToken: String, request: StartAttachmentUploadRequest): Result<StartAttachmentUploadResult>
+
+    suspend fun completeAttachmentUpload(connectionToken: String, request: CompleteAttachmentUploadRequest): Result<CompleteAttachmentUploadResult>
 }
 
 class AWSClientImpl @Inject constructor(
@@ -65,6 +73,26 @@ class AWSClientImpl @Inject constructor(
                 }
                 val response = connectParticipantClient.disconnectParticipant(request)
                 Log.d("AWSClientImpl", "disconnectParticipantConnection: $response")
+                response
+            }
+        }
+    }
+
+    override suspend fun startAttachmentUpload(connectionToken: String, request: StartAttachmentUploadRequest): Result<StartAttachmentUploadResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val response = connectParticipantClient.startAttachmentUpload(request)
+                Log.d("AWSClientImpl", "startAttachmentUpload: $response")
+                response
+            }
+        }
+    }
+
+    override suspend fun completeAttachmentUpload(connectionToken: String, request: CompleteAttachmentUploadRequest): Result<CompleteAttachmentUploadResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val response = connectParticipantClient.completeAttachmentUpload(request)
+                Log.d("AWSClientImpl", "completeAttachmentUpload: $response")
                 response
             }
         }

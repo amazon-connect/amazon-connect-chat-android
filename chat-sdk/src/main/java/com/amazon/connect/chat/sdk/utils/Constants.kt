@@ -28,4 +28,23 @@ object Constants {
             return "Failed to create connection: $reason."
         }
     }
+
+    val attachmentTypeMap = mapOf(
+        "csv" to "text/csv",
+        "doc" to "application/msword",
+        "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "heic" to "image/heic",
+        "jpg" to "image/jpeg",
+        "mov" to "video/quicktime",
+        "mp4" to "video/mp4",
+        "pdf" to "application/pdf",
+        "png" to "image/png",
+        "ppt" to "application/vnd.ms-powerpoint",
+        "pptx" to "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "rtf" to "application/rtf",
+        "txt" to "text/plain",
+        "wav" to "audio/wav",
+        "xls" to "application/vnd.ms-excel",
+        "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 }

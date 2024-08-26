@@ -5,7 +5,9 @@ import com.amazonaws.regions.Regions
 
 data class GlobalConfig(
     var region: Regions = defaultRegion,
-    var features: Features = Features.defaultFeatures
+    var features: Features = Features.defaultFeatures,
+    var disableCsm: Boolean = false,
+    var isDevMode: Boolean = false
 ) {
     companion object {
         val defaultRegion: Regions

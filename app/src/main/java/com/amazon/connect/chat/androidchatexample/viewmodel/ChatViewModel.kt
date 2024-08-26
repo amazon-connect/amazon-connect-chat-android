@@ -1,6 +1,9 @@
 package com.amazon.connect.chat.androidchatexample.viewmodel
 
+import android.app.Activity
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -368,4 +371,22 @@ class ChatViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
+    // Request code for selecting a PDF document.
+    val PICK_PDF_FILE = 2
+
+    fun openFile(activity: Activity) {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+
+        activity.startActivityForResult(intent, PICK_PDF_FILE)
+    }
+
+
+    fun uploadAttachment(fileUri: Uri) {
+        viewModelScope.launch {
+            chatSession.sendAttachment(fileUri)
+        }
+    }
 }
