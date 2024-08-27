@@ -13,10 +13,10 @@ import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.WebSocketManager
-import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.TranscriptItemUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +29,9 @@ import javax.inject.Inject
 import kotlin.concurrent.schedule
 
 interface ChatService {
+
     fun configure(config: GlobalConfig)
+
     /**
      * Creates a chat session with the specified chat details.
      * @param chatDetails The details of the chat.
@@ -59,16 +61,16 @@ interface ChatService {
      */
     suspend fun sendEvent(contentType: ContentType, event: String): Result<Boolean>
 
-    val eventPublisher: SharedFlow<ChatEvent>
-    val transcriptPublisher: SharedFlow<TranscriptItem>
-    val transcriptListPublisher : SharedFlow<List<TranscriptItem>>
-    val chatSessionStatePublisher: SharedFlow<Boolean>
-
     /**
      * Sends an attachment.
      * @return A Result indicating whether sending the attachment was successful.
      */
     suspend fun sendAttachment(fileUri: Uri): Result<Boolean>
+
+    val eventPublisher: SharedFlow<ChatEvent>
+    val transcriptPublisher: SharedFlow<TranscriptItem>
+    val transcriptListPublisher : SharedFlow<List<TranscriptItem>>
+    val chatSessionStatePublisher: SharedFlow<Boolean>
 }
 
 class ChatServiceImpl @Inject constructor(
@@ -100,6 +102,9 @@ class ChatServiceImpl @Inject constructor(
     private var internalTranscript = mutableListOf<TranscriptItem>()
 
     private var typingIndicatorTimer: Timer? = null
+    private var throttleTypingEventTimer: Timer? = null
+    private var throttleTypingEvent: Boolean = false
+
 
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
@@ -346,6 +351,22 @@ class ChatServiceImpl @Inject constructor(
     }
 
     override suspend fun sendEvent(contentType: ContentType, event: String): Result<Boolean> {
+        // Check if it's a typing event and throttle if necessary
+        if (contentType == ContentType.TYPING && throttleTypingEvent) {
+            // Skip sending if throttled
+            return Result.success(true)
+        }
+
+        // Set up throttling for typing events
+        if (contentType == ContentType.TYPING) {
+            throttleTypingEvent = true
+            throttleTypingEventTimer = Timer().apply {
+                schedule(10000) {
+                    throttleTypingEvent = false
+                }
+            }
+        }
+
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
@@ -385,8 +406,8 @@ class ChatServiceImpl @Inject constructor(
                 val error = result.exceptionOrNull()
                 if (error?.message == "Access denied") {
                     // Handle chat ended scenario
-//                    val endedEvent = TranscriptItemUtils.createDummyEndedEvent()
-//                    updateTranscriptDict(endedEvent)
+                    val endedEvent = TranscriptItemUtils.createDummyEndedEvent()
+                    updateTranscriptDict(endedEvent)
                     _eventPublisher.emit(ChatEvent.ChatEnded)
                 }
                 Log.e("ChatServiceImpl", "CreateParticipantConnection failed: $error")
@@ -405,6 +426,9 @@ class ChatServiceImpl @Inject constructor(
 
         transcriptDict = mutableMapOf()
         internalTranscript = mutableListOf()
+
+        typingIndicatorTimer?.cancel()
+        throttleTypingEventTimer?.cancel()
     }
 
     override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
