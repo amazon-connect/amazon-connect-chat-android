@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk
 
+import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.GlobalConfig
@@ -33,6 +34,12 @@ interface ChatSession {
      * @return True if a chat session is active, false otherwise.
      */
     var onChatSessionStateChanged: ((Boolean) -> Unit)?
+
+    /**
+     * Sends an attachment.
+     * @return A Result indicating whether sending the attachment was successful.
+     */
+    suspend fun sendAttachment(fileUri: Uri): Result<Unit>
 
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
@@ -143,5 +150,16 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         transcriptCollectionJob = null
         transcriptListCollectionJob = null
         chatSessionStateCollectionJob = null
+    }
+    
+    override suspend fun sendAttachment(fileUri: Uri): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                chatService.sendAttachment(fileUri)
+                Result.success(Unit)
+            }.getOrElse {
+                Result.failure(it)
+            }
+        }
     }
 }

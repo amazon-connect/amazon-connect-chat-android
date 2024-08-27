@@ -2,6 +2,7 @@ package com.amazon.connect.chat.sdk.repository
 
 import android.os.Looper
 import androidx.compose.animation.fadeIn
+import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
@@ -10,7 +11,7 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.MetricsInterface
+import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazonaws.regions.Regions
@@ -34,6 +35,7 @@ import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.anyOrNull
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 
@@ -56,12 +58,17 @@ class ChatServiceImplTest {
     @Mock
     private lateinit var metricsManager: MetricsManager
 
+    @Mock
+    private lateinit var attachmentsManager: AttachmentsManager
+
     private lateinit var chatService: ChatService
     private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
     private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
     private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
     private lateinit var transcriptListSharedFlow: MutableSharedFlow<List<TranscriptItem>>
 
+
+    private val mockUri: Uri = Uri.parse("https://example.com/dummy")
 
     @Before
     fun setUp() {
@@ -76,7 +83,7 @@ class ChatServiceImplTest {
         `when`(webSocketManager.transcriptPublisher).thenReturn(transcriptSharedFlow)
         `when`(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
 
-        chatService = ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager)
+        chatService = ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager)
     }
 
     @Test
@@ -148,6 +155,41 @@ class ChatServiceImplTest {
         assertTrue(result.isFailure)
         verify(connectionDetailsProvider).getConnectionDetails()
         verify(awsClient, never()).disconnectParticipantConnection(anyString())
+    }
+
+    @Test
+    fun test_sendAttachment_success() = runTest {
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(attachmentsManager.sendAttachment(mockConnectionDetails.connectionToken, mockUri)).thenReturn(Unit)
+
+        val result = chatService.sendAttachment(mockUri)
+
+        assertTrue(result.isSuccess)
+        verify(connectionDetailsProvider).getConnectionDetails()
+        verify(attachmentsManager).sendAttachment(mockConnectionDetails.connectionToken, mockUri)
+    }
+
+    @Test
+    fun test_sendAttachment_failure() = runTest {
+        val mockConnectionDetails = createMockConnectionDetails("invalid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(attachmentsManager.sendAttachment(mockConnectionDetails.connectionToken, mockUri)).thenThrow(RuntimeException("Network error"))
+
+        val result = chatService.sendAttachment(mockUri)
+
+        assertTrue(result.isFailure)
+        verify(connectionDetailsProvider).getConnectionDetails()
+        verify(attachmentsManager).sendAttachment(mockConnectionDetails.connectionToken, mockUri)
+    }
+
+    @Test
+    fun test_sendAttachment_noConnectionDetails() = runTest {
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(null)
+        val result = chatService.sendAttachment(mockUri)
+        assertTrue(result.isFailure)
+        verify(connectionDetailsProvider).getConnectionDetails()
+        verify(attachmentsManager, never()).sendAttachment(anyString(), anyOrNull())
     }
 
     private fun createMockConnectionDetails(token : String): ConnectionDetails {

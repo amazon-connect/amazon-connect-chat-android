@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk.repository
 
+import android.net.Uri
 import android.util.Log
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
@@ -11,9 +12,10 @@ import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.utils.Constants
+import com.amazon.connect.chat.sdk.network.AttachmentsManager
+import com.amazon.connect.chat.sdk.network.MetricsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +43,12 @@ interface ChatService {
     val transcriptPublisher: SharedFlow<TranscriptItem>
     val transcriptListPublisher : SharedFlow<List<TranscriptItem>>
     val chatSessionStatePublisher: SharedFlow<Boolean>
+
+    /**
+     * Sends an attachment.
+     * @return A Result indicating whether sending the attachment was successful.
+     */
+    suspend fun sendAttachment(fileUri: Uri): Result<Boolean>
 }
 
 class ChatServiceImpl @Inject constructor(
@@ -48,6 +56,7 @@ class ChatServiceImpl @Inject constructor(
     private val connectionDetailsProvider: ConnectionDetailsProvider,
     private val webSocketManager: WebSocketManager,
     private val metricsManager: MetricsManager,
+    private val attachmentsManager: AttachmentsManager
 ) : ChatService {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -272,4 +281,15 @@ class ChatServiceImpl @Inject constructor(
         internalTranscript = mutableListOf()
     }
 
+    override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
+        return runCatching {
+            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+                ?: throw Exception("No connection details available")
+
+            attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
+            true
+        }.onFailure { exception ->
+            Log.e("ChatServiceImpl", "Failed to send attachment: ${exception.message}", exception)
+        }
+    }
 }

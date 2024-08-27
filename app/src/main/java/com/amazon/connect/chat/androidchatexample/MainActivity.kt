@@ -1,6 +1,8 @@
 package com.amazon.connect.chat.androidchatexample
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
 import com.amazon.connect.chat.sdk.model.ContentType
@@ -58,8 +61,12 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private lateinit var chatViewModel: ChatViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        chatViewModel = ViewModelProvider(this).get(ChatViewModel::class.java)
         setContent {
             androidconnectchatandroidTheme {
                 // A surface container using the 'background' color from the theme
@@ -67,8 +74,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ChatScreen()
+                    ChatScreen(this)
                 }
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 2 && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { fileUri ->
+                chatViewModel.uploadAttachment(fileUri)
             }
         }
     }
@@ -77,7 +94,7 @@ class MainActivity : ComponentActivity() {
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
+fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
     var showCustomSheet by remember { mutableStateOf(false) }
     val isLoading = viewModel.isLoading.observeAsState(initial = false)
     val isChatActive = viewModel.isChatActive.observeAsState(initial = false)
@@ -186,7 +203,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             }
         }
 
-        ParticipantTokenSection(viewModel)
+        ParticipantTokenSection(activity, viewModel)
 
         AnimatedVisibility(
             visible = showCustomSheet,
@@ -306,13 +323,16 @@ fun ChatMessage(transcriptItem: TranscriptItem) {
 }
 
 @Composable
-fun ParticipantTokenSection(viewModel: ChatViewModel) {
+fun ParticipantTokenSection(activity: Activity, viewModel: ChatViewModel) {
     val participantToken by viewModel.liveParticipantToken.observeAsState()
 
     Column {
         Text(text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}", color = if (participantToken != null) Color.Blue else Color.Red)
         Button(onClick = viewModel::clearParticipantToken) {
             Text("Clear Participant Token")
+        }
+        Button(onClick = { viewModel.openFile(activity) }) {
+            Text(text = "Upload Attachment")
         }
     }
 }
