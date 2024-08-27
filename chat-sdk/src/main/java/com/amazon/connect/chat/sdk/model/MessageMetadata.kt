@@ -2,8 +2,13 @@ package com.amazon.connect.chat.sdk.model
 
 import java.util.UUID
 
-enum class MessageStatus {
-    Delivered, Read, Sending, Failed, Sent, Unknown
+enum class MessageStatus(val status: String) {
+    Delivered("Delivered"),
+    Read("Read"),
+    Sending("Sending"),
+    Failed("Failed"),
+    Sent("Sent"),
+    Unknown("Unknown")
 }
 
 interface MessageMetadataProtocol : TranscriptItemProtocol {

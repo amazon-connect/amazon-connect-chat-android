@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -251,18 +252,29 @@ fun ChatView(viewModel: ChatViewModel) {
     val messages by viewModel.messages.observeAsState(listOf())
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val isKeyboardVisible = keyboardAsState().value
+    var isKeyboardVisible = keyboardAsState().value
     var isChatEnded by remember { mutableStateOf(false) }
+    // Track if the typing event has been sent
+    var hasSentTypingEvent by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages, isKeyboardVisible) {
-        if (messages.isNotEmpty() ) {
+        if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
 
-        if (isKeyboardVisible){
+        // Send typing event only once when the keyboard is visible and there's input
+        if (isKeyboardVisible && !hasSentTypingEvent) {
+            Log.d("ChatView", "Sending typing event")
             viewModel.sendEvent(contentType = ContentType.TYPING)
+            hasSentTypingEvent = true
+        }
+
+        // Reset the flag when the keyboard is hidden
+        if (!isKeyboardVisible) {
+            hasSentTypingEvent = false
         }
     }
+
 
     Column(
         modifier = Modifier

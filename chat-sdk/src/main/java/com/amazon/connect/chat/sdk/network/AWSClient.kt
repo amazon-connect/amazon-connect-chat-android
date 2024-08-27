@@ -2,6 +2,7 @@ package com.amazon.connect.chat.sdk.network
 
 import android.util.Log
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazonaws.regions.Region
@@ -11,6 +12,10 @@ import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadR
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import com.amazonaws.services.connectparticipant.model.SendEventRequest
+import com.amazonaws.services.connectparticipant.model.SendEventResult
+import com.amazonaws.services.connectparticipant.model.SendMessageRequest
+import com.amazonaws.services.connectparticipant.model.SendMessageResult
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +24,7 @@ import javax.inject.Inject
 
 interface AWSClient {
     fun configure(config: GlobalConfig)
+
     /**
      * Creates a participant connection for the given participant token.
      * @param participantToken The participant token.
@@ -32,6 +38,32 @@ interface AWSClient {
      * @return A Result containing the disconnect participant result if successful, or an exception if an error occurred.
      */
     suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult>
+
+    /**
+     * Sends a message using a connection token.
+     * @param connectionToken The connection token.
+     * @param contentType The content type of the message.
+     * @param message The message content.
+     * @return A Result containing the send message result if successful, or an exception if an error occurred.
+     */
+    suspend fun sendMessage(
+        connectionToken: String,
+        contentType: ContentType,
+        message: String
+    ): Result<SendMessageResult>
+
+    /**
+     * Sends an event using a connection token.
+     * @param connectionToken The connection token.
+     * @param contentType The content type of the event.
+     * @param content The event content.
+     * @return A Result containing the send event result if successful, or an exception if an error occurred.
+     */
+    suspend fun sendEvent(
+        connectionToken: String,
+        contentType: ContentType,
+        content: String
+    ): Result<SendEventResult>
 
     suspend fun startAttachmentUpload(connectionToken: String, request: StartAttachmentUploadRequest): Result<StartAttachmentUploadResult>
 
@@ -73,6 +105,44 @@ class AWSClientImpl @Inject constructor(
                 }
                 val response = connectParticipantClient.disconnectParticipant(request)
                 Log.d("AWSClientImpl", "disconnectParticipantConnection: $response")
+                response
+            }
+        }
+    }
+
+    override suspend fun sendMessage(
+        connectionToken: String,
+        contentType: ContentType,
+        message: String
+    ): Result<SendMessageResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val request = SendMessageRequest().apply {
+                    this.connectionToken = connectionToken
+                    this.contentType = contentType.type
+                    this.content = message
+                }
+                val response = connectParticipantClient.sendMessage(request)
+                Log.d("AWSClientImpl", "sendMessage: $response")
+                response
+            }
+        }
+    }
+
+    override suspend fun sendEvent(
+        connectionToken: String,
+        contentType: ContentType,
+        content: String
+    ): Result<SendEventResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val request = SendEventRequest().apply {
+                    this.connectionToken = connectionToken
+                    this.contentType = contentType.type
+                    this.content = content
+                }
+                val response = connectParticipantClient.sendEvent(request)
+                Log.d("AWSClientImpl", "sendEvent: $response")
                 response
             }
         }

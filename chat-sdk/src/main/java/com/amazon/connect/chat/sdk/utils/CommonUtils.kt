@@ -21,6 +21,13 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.amazonaws.services.connectparticipant.AmazonConnectParticipant
+import com.amazonaws.services.connectparticipant.model.ChatItemType
+import com.amazonaws.services.connectparticipant.model.ParticipantRole
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 class CommonUtils {
     companion object{
@@ -91,6 +98,13 @@ class CommonUtils {
             return rawMessage ?: "An unknown error occurred"
         }
 
+
+        fun getCurrentISOTime(): String {
+            val currentDate = Date()
+            val isoFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.getDefault())
+            isoFormatter.timeZone = TimeZone.getTimeZone("UTC")
+            return isoFormatter.format(currentDate)
+        }
     }
 
 
