@@ -26,11 +26,11 @@ open class TranscriptItem(
         get() = _timeStamp
 
     // Internal methods to update id and timeStamp if needed
-    protected fun updateId(newId: String) {
+    internal fun updateId(newId: String) {
         _id = newId
     }
 
-    protected fun updateTimeStamp(newTimeStamp: String) {
+    internal fun updateTimeStamp(newTimeStamp: String) {
         _timeStamp = newTimeStamp
     }
 }

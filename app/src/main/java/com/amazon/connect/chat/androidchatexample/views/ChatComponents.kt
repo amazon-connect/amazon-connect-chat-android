@@ -16,8 +16,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.ListPickerContent
 import com.amazon.connect.chat.sdk.model.Message
@@ -34,15 +36,11 @@ fun ChatMessageView(transcriptItem: TranscriptItem) {
             when (transcriptItem.messageDirection) {
                 MessageDirection.OUTGOING -> SenderChatBubble(transcriptItem)
                 MessageDirection.INCOMING -> {
-                    if (transcriptItem.text == "...") {
-                        TypingIndicator()
-                    } else {
-                        when (val content = transcriptItem.content) {
-                            is PlainTextContent -> ReceiverChatBubble(transcriptItem)
-                            is QuickReplyContent -> QuickReplyContentView(transcriptItem, content)
-                            is ListPickerContent -> ListPickerContentView(transcriptItem, content)
-                            else -> Text(text = "Unsupported message type")
-                        }
+                    when (val content = transcriptItem.content) {
+                        is PlainTextContent -> ReceiverChatBubble(transcriptItem)
+                        is QuickReplyContent -> QuickReplyContentView(transcriptItem, content)
+                        is ListPickerContent -> ListPickerContentView(transcriptItem, content)
+                        else -> Text(text = "Unsupported message type")
                     }
                 }
                 MessageDirection.COMMON -> CommonChatBubble(transcriptItem)
@@ -93,13 +91,13 @@ fun SenderChatBubble(message: Message) {
             }
         }
         // TODO : update receipts
-//        message.status?.let {
-//            Text(
-//                text = it,
-//                style = MaterialTheme.typography.bodySmall,
-//                color = Color.Gray
-//            )
-//        }
+        message.metadata?.status?.let {
+            Text(
+                text = it.status,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+        }
     }
 }
 
@@ -134,7 +132,9 @@ fun ReceiverChatBubble(message: Message) {
                         text = CommonUtils.formatTime(it),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White,
-                        modifier = Modifier.align(Alignment.End).alpha(0.7f)
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .alpha(0.7f)
                     )
                 }
             }
@@ -162,20 +162,40 @@ fun CommonChatBubble(message: Message) {
 
 @Composable
 fun EventView(event: Event) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        event.text?.let {
-            Text(
-                text = it,
-                color = Color.Blue,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
-            )
+
+    val isTypingEvent = event.contentType == ContentType.TYPING.type &&
+            event.eventDirection == MessageDirection.INCOMING
+    val padding: Dp
+    val alignment: Alignment
+
+    if (isTypingEvent){
+        alignment = Alignment.CenterStart
+        padding = 0.dp
+    }else {
+        alignment = Alignment.Center
+        padding = 8.dp
+    }
+
+    if (event.eventDirection != MessageDirection.OUTGOING) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(padding),
+            contentAlignment = alignment
+        ) {
+            if (isTypingEvent) {
+                TypingIndicator()
+            } else if (event.eventDirection == MessageDirection.COMMON) {
+                event.text?.let {
+                    Text(
+                        text = it,
+                        color = Color.Blue,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+                    )
+                }
+            }
         }
     }
 }

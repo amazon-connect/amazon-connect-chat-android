@@ -3,6 +3,7 @@ package com.amazon.connect.chat.sdk
 import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.repository.ChatService
@@ -28,6 +29,22 @@ interface ChatSession {
      * @return A Result indicating whether the disconnection was successful.
      */
     suspend fun disconnect(): Result<Unit>
+
+    /**
+     * Sends a message.
+     * @param message The message content.
+     * @param contentType The content type of the message.
+     * @return A Result indicating whether the message sending was successful.
+     */
+    suspend fun sendMessage(contentType: ContentType, message: String): Result<Unit>
+
+    /**
+     * Sends an event.
+     * @param event The event content.
+     * @param contentType The content type of the event.
+     * @return A Result indicating whether the event sending was successful.
+     */
+    suspend fun sendEvent(contentType: ContentType, event: String): Result<Unit>
 
     /**
      * Checks if a chat session is currently active.
@@ -136,6 +153,28 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             }
         }.also {
             cleanup()
+        }
+    }
+
+    override suspend fun sendMessage(contentType: ContentType, message: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                chatService.sendMessage(contentType, message)
+                Result.success(Unit)
+            }.getOrElse {
+                Result.failure(it)
+            }
+        }
+    }
+
+    override suspend fun sendEvent(contentType: ContentType, event: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                chatService.sendEvent(contentType, event)
+                Result.success(Unit)
+            }.getOrElse {
+                Result.failure(it)
+            }
         }
     }
 

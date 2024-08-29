@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk.network
 
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazonaws.regions.Region
 import com.amazonaws.regions.Regions
@@ -9,6 +10,10 @@ import com.amazonaws.services.connectparticipant.model.CreateParticipantConnecti
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionResult
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import com.amazonaws.services.connectparticipant.model.SendEventRequest
+import com.amazonaws.services.connectparticipant.model.SendEventResult
+import com.amazonaws.services.connectparticipant.model.SendMessageRequest
+import com.amazonaws.services.connectparticipant.model.SendMessageResult
 import com.amazonaws.services.connectparticipant.model.Websocket
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -109,4 +114,69 @@ class AWSClientImplTest {
             assertTrue("Expected network error message", e.message == "Network error")
         }
     }
+
+    @Test
+    fun test_sendMessage_success() = runTest {
+        val connectionToken = "token"
+        val contentType = ContentType.PLAIN_TEXT
+        val message = "Hello, world!"
+
+        val mockResponse = mock(SendMessageResult::class.java)
+        `when`(mockClient.sendMessage(any(SendMessageRequest::class.java))).thenReturn(mockResponse)
+
+        val result = awsClient.sendMessage(connectionToken, contentType, message)
+
+        assertTrue("Expected successful message sending", result.isSuccess)
+        verify(mockClient).sendMessage(any(SendMessageRequest::class.java))
+    }
+
+    @Test
+    fun test_sendMessage_failure() = runTest {
+        val connectionToken = "invalid_token"
+        val contentType = ContentType.PLAIN_TEXT
+        val message = "Hello, world!"
+
+        `when`(mockClient.sendMessage(any(SendMessageRequest::class.java)))
+            .thenThrow(RuntimeException("Network error"))
+
+        try {
+            awsClient.sendMessage(connectionToken, contentType, message)
+        } catch (e: Exception) {
+            assertTrue("Expected exception due to network error", e is RuntimeException)
+            assertTrue("Expected network error message", e.message == "Network error")
+        }
+    }
+
+    @Test
+    fun test_sendEvent_success() = runTest {
+        val connectionToken = "token"
+        val contentType = ContentType.PLAIN_TEXT
+        val event = "typing"
+
+        `when`(mockClient.sendEvent(any(SendEventRequest::class.java)))
+            .thenReturn(mock(SendEventResult::class.java))
+
+        val result = awsClient.sendEvent(connectionToken, contentType, event)
+
+        assertTrue("Expected successful event sending", result.isSuccess)
+        verify(mockClient).sendEvent(any(SendEventRequest::class.java))
+    }
+
+    @Test
+    fun test_sendEvent_failure() = runTest {
+        val connectionToken = "invalid_token"
+        val contentType = ContentType.PLAIN_TEXT
+        val event = "typing"
+
+        `when`(mockClient.sendEvent(any(SendEventRequest::class.java)))
+            .thenThrow(RuntimeException("Network error"))
+
+        try {
+            awsClient.sendEvent(connectionToken, contentType, event)
+        } catch (e: Exception) {
+            assertTrue("Expected exception due to network error", e is RuntimeException)
+            assertTrue("Expected network error message", e.message == "Network error")
+        }
+    }
+
 }

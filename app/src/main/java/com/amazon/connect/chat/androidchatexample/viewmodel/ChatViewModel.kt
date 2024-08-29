@@ -315,31 +315,27 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMessage(text: String) {
-        if (text.isNotEmpty()) {
-            createParticipantConnectionResult.value?.connectionCredentials?.let { credentials ->
-                viewModelScope.launch {
-                    val result = chatRepository.sendMessage(credentials.connectionToken, text)
-                    result.onSuccess {
-                        // Handle success - update UI or state as needed
-                    }.onFailure { exception ->
-                        // Handle failure - update UI or state, log error, etc.
-                        Log.e("ChatViewModel", "Error sending message: ${exception.message}")
-                    }
+        viewModelScope.launch {
+            if (text.isNotEmpty()) {
+                val result = chatSession.sendMessage(ContentType.RICH_TEXT, text)
+                result.onSuccess {
+                    // Handle success - update UI or state as needed
+                }.onFailure { exception ->
+                    // Handle failure - update UI or state, log error, etc.
+                    Log.e("ChatViewModel", "Error sending message: ${exception.message}")
                 }
             }
         }
     }
 
     fun sendEvent(content: String = "", contentType: ContentType) {
-        createParticipantConnectionResult.value?.connectionCredentials?.let { credentials ->
-            viewModelScope.launch {
-                val result = chatRepository.sendEvent(credentials.connectionToken, contentType,content)
-                result.onSuccess {
-                    // Handle success - update UI or state as needed
-                }.onFailure { exception ->
-                    // Handle failure - update UI or state, log error, etc.
-                    Log.e("ChatViewModel", "Error sending Event: ${exception.message}")
-                }
+        viewModelScope.launch {
+            val result = chatSession.sendEvent(contentType, content)
+            result.onSuccess {
+                // Handle success - update UI or state as needed
+            }.onFailure { exception ->
+                // Handle failure - update UI or state, log error, etc.
+                Log.e("ChatViewModel", "Error sending event: ${exception.message}")
             }
         }
     }
