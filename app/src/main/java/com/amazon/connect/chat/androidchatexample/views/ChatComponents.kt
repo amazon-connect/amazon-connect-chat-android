@@ -168,10 +168,10 @@ fun EventView(event: Event) {
     val padding: Dp
     val alignment: Alignment
 
-    if (isTypingEvent){
+    if (isTypingEvent) {
         alignment = Alignment.CenterStart
         padding = 0.dp
-    }else {
+    } else {
         alignment = Alignment.Center
         padding = 8.dp
     }

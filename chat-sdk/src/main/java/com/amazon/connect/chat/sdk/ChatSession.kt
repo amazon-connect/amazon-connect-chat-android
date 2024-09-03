@@ -6,7 +6,11 @@ import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.repository.ChatService
+import com.amazonaws.services.connectparticipant.model.ScanDirection
+import com.amazonaws.services.connectparticipant.model.SortKey
+import com.amazonaws.services.connectparticipant.model.StartPosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,6 +61,23 @@ interface ChatSession {
      * @return A Result indicating whether sending the attachment was successful.
      */
     suspend fun sendAttachment(fileUri: Uri): Result<Unit>
+
+    /**
+     * Gets the transcript.
+     * @param scanDirection The direction of the scan.
+     * @param sortKey The sort key.
+     * @param maxResults The maximum number of results.
+     * @param nextToken The next token.
+     * @param startPosition The start position.
+     * @return A Result containing the transcript response.
+     */
+    suspend fun getTranscript(
+        scanDirection: ScanDirection?,
+        sortKey: SortKey?,
+        maxResults: Int?,
+        nextToken: String?,
+        startPosition: String?
+    ): Result<TranscriptResponse>
 
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
@@ -196,6 +217,28 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             runCatching {
                 chatService.sendAttachment(fileUri)
                 Result.success(Unit)
+            }.getOrElse {
+                Result.failure(it)
+            }
+        }
+    }
+
+    override suspend fun getTranscript(
+        scanDirection: ScanDirection?,
+        sortKey: SortKey?,
+        maxResults: Int?,
+        nextToken: String?,
+        startPosition: String?
+    ): Result<TranscriptResponse> {
+        return withContext(Dispatchers.IO){
+            runCatching {
+                // Construct the start position if provided
+                val awsStartPosition = if (startPosition != null) {
+                    StartPosition().withId(startPosition)
+                } else {
+                    null
+                }
+                chatService.getTranscript(scanDirection, sortKey, maxResults, nextToken, awsStartPosition)
             }.getOrElse {
                 Result.failure(it)
             }

@@ -45,6 +45,7 @@ interface WebSocketManager {
     suspend fun connect(wsUrl: String, isReconnectFlow: Boolean = false)
     suspend fun disconnect()
     fun formatAndProcessTranscriptItems(transcriptItems: List<TranscriptItem>) : List<TranscriptItem>
+    suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem?
 }
 
 class WebSocketManagerImpl @Inject constructor(
@@ -228,12 +229,12 @@ class WebSocketManagerImpl @Inject constructor(
         when (topic) {
             "aws/ping" -> handlePing(json)
             "aws/heartbeat" -> handleHeartbeat()
-            "aws/chat" -> websocketDidReceiveMessage(json.optString("content"))
+            "aws/chat" -> handleWebsocketMessage(json.optString("content"))
             else -> Log.i("WebSocket", "Unhandled topic: $topic")
         }
     }
 
-    private suspend fun websocketDidReceiveMessage(content: String?) {
+    private suspend fun handleWebsocketMessage(content: String?) {
         content?.let {
             val transcriptItem = parseTranscriptItemFromJson(it)
             if (transcriptItem != null) {
@@ -246,7 +247,7 @@ class WebSocketManagerImpl @Inject constructor(
         }
     }
 
-    private suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem? {
+    override suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem? {
         val json = try {
             JSONObject(jsonString)
         } catch (e: JSONException) {
