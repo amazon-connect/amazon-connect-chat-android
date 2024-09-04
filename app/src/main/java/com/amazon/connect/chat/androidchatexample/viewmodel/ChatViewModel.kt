@@ -28,6 +28,8 @@ import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.parseErrorMessage
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionResult
+import com.amazonaws.services.connectparticipant.model.ScanDirection
+import com.amazonaws.services.connectparticipant.model.SortKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -59,7 +61,7 @@ class ChatViewModel @Inject constructor(
     private var participantToken: String?
         get() = liveParticipantToken.value
         set(value) {
-//            sharedPreferences.edit().putString("participantToken", value).apply()
+            sharedPreferences.edit().putString("participantToken", value).apply()
             _liveParticipantToken.value = value  // Reflect the new value in LiveData
         }
 
@@ -354,6 +356,20 @@ class ChatViewModel @Inject constructor(
 //            messagesList[index] = messagesList[index].copy(isRead = true)
 //            _messages.postValue(messagesList) // Safely post the updated list to the LiveData
 //        }
+    }
+
+
+    // Fetches transcripts
+    fun fetchTranscript(onCompletion: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            chatSession.getTranscript(ScanDirection.BACKWARD, SortKey.DESCENDING, 30, null, _messages.value?.get(0)?.id).onSuccess {
+                Log.d("ChatViewModel", "Transcript fetched successfully")
+                onCompletion(true)
+            }.onFailure {
+                Log.e("ChatViewModel", "Error fetching transcript: ${it.message}")
+                onCompletion(false)
+            }
+        }
     }
 
     fun endChat(){

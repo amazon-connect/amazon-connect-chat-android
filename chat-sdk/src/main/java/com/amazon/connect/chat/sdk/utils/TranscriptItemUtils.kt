@@ -3,12 +3,16 @@
 
 package com.amazon.connect.chat.sdk.utils
 
+import android.util.Log
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
+import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazonaws.services.connectparticipant.model.Item
+import org.json.JSONObject
 import java.util.UUID
 
 object TranscriptItemUtils {
@@ -61,4 +65,48 @@ object TranscriptItemUtils {
             )
         )
     }
+
+    fun serializeTranscriptItem(item: Item): String? {
+        return try {
+            // Convert participant role to string
+            val participantRole = item.participantRole
+
+            // Process attachments
+            val attachmentsArray = item.attachments?.map { attachment ->
+                mapOf(
+                    "AttachmentId" to (attachment.attachmentId ?: ""),
+                    "AttachmentName" to (attachment.attachmentName ?: ""),
+                    "ContentType" to (attachment.contentType ?: ""),
+                    "Status" to attachment.status
+                )
+            } ?: emptyList()
+
+            val messageContentDict = mapOf(
+                "Id" to (item.id ?: ""),
+                "ParticipantRole" to participantRole,
+                "AbsoluteTime" to (item.absoluteTime ?: ""),
+                "ContentType" to (item.contentType ?: ""),
+                "Content" to (item.content ?: ""),
+                "Type" to item.type,
+                "DisplayName" to (item.displayName ?: ""),
+                "Attachments" to attachmentsArray
+            )
+
+            // Serialize the dictionary to JSON string
+            val messageContentString = JSONObject(messageContentDict).toString()
+
+            // Wrap the JSON string
+            val wrappedMessageString =
+                "{\"content\":\"${messageContentString.replace("\"", "\\\"")}\"}"
+
+            // Deserialize back to JSON object
+            val json = JSONObject(wrappedMessageString)
+
+            json.optString("content")
+        } catch (e: Exception) {
+            Log.e("TranscriptItemUtils", "Failed to process transcript item: ${e.message}")
+            null
+        }
+    }
+
 }

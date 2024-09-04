@@ -12,12 +12,17 @@ import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.TranscriptItemUtils
+import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
+import com.amazonaws.services.connectparticipant.model.ScanDirection
+import com.amazonaws.services.connectparticipant.model.SortKey
+import com.amazonaws.services.connectparticipant.model.StartPosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -67,9 +72,26 @@ interface ChatService {
      */
     suspend fun sendAttachment(fileUri: Uri): Result<Boolean>
 
+    /**
+     * Gets the transcript.
+     * @param scanDirection The direction of the scan.
+     * @param sortKey The sort key.
+     * @param maxResults The maximum number of results.
+     * @param nextToken The next token.
+     * @param startPosition The start position.
+     * @return A Result containing the transcript response.
+     */
+    suspend fun getTranscript(
+        scanDirection: ScanDirection?,
+        sortKey: SortKey?,
+        maxResults: Int?,
+        nextToken: String?,
+        startPosition: StartPosition?
+    ): Result<TranscriptResponse>
+
     val eventPublisher: SharedFlow<ChatEvent>
     val transcriptPublisher: SharedFlow<TranscriptItem>
-    val transcriptListPublisher : SharedFlow<List<TranscriptItem>>
+    val transcriptListPublisher: SharedFlow<List<TranscriptItem>>
     val chatSessionStatePublisher: SharedFlow<Boolean>
 }
 
@@ -83,7 +105,7 @@ class ChatServiceImpl @Inject constructor(
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
-    private val _eventPublisher= MutableSharedFlow<ChatEvent>()
+    private val _eventPublisher = MutableSharedFlow<ChatEvent>()
     override val eventPublisher: SharedFlow<ChatEvent> get() = _eventPublisher
     private var eventCollectionJob: Job? = null
 
@@ -118,14 +140,19 @@ class ChatServiceImpl @Inject constructor(
         setupEventSubscriptions()
         return runCatching {
             connectionDetailsProvider.updateChatDetails(chatDetails)
-            val connectionDetails = awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
+            val connectionDetails =
+                awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
             metricsManager.addCountMetric(MetricName.CreateParticipantConnection);
             connectionDetailsProvider.updateConnectionDetails(connectionDetails)
             setupWebSocket(connectionDetails.websocketUrl)
             Log.d("ChatServiceImpl", "Participant Connected")
             true
         }.onFailure { exception ->
-            Log.e("ChatServiceImpl", "Failed to create chat session: ${exception.message}", exception)
+            Log.e(
+                "ChatServiceImpl",
+                "Failed to create chat session: ${exception.message}",
+                exception
+            )
         }
     }
 
@@ -145,10 +172,17 @@ class ChatServiceImpl @Inject constructor(
                     ChatEvent.ConnectionEstablished -> {
                         connectionDetailsProvider.setChatSessionState(true)
                         Log.d("ChatServiceImpl", "Connection Established")
+                        getTranscript(startPosition = null,
+                            scanDirection = ScanDirection.BACKWARD,
+                            sortKey = SortKey.ASCENDING,
+                            maxResults = 30,
+                            nextToken = null)
                     }
 
                     ChatEvent.ConnectionReEstablished -> {
                         Log.d("ChatServiceImpl", "Connection Re-Established")
+                        connectionDetailsProvider.setChatSessionState(true)
+                        fetchReconnectedTranscript(internalTranscript)
                     }
 
                     ChatEvent.ChatEnded -> {
@@ -176,7 +210,7 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private fun updateTranscriptDict(item: TranscriptItem) {
-        when(item) {
+        when (item) {
             is MessageMetadata -> {
                 // Associate metadata with message based on its ID
                 val messageItem = transcriptDict[item.id] as? Message
@@ -185,6 +219,7 @@ class ChatServiceImpl @Inject constructor(
                     transcriptDict[item.id] = it
                 }
             }
+
             is Message -> {
                 // Remove typing indicators when a new message from the agent is received
                 if (item.participant == Constants.AGENT) {
@@ -195,6 +230,7 @@ class ChatServiceImpl @Inject constructor(
 
                 transcriptDict[item.id] = item
             }
+
             is Event -> {
                 handleEvent(item, transcriptDict)
             }
@@ -275,7 +311,7 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    private fun sendSingleUpdateToClient(message : Message){
+    private fun sendSingleUpdateToClient(message: Message) {
         transcriptDict[message.id] = message
         handleTranscriptItemUpdate(message)
     }
@@ -307,13 +343,18 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            awsClient.disconnectParticipantConnection(connectionDetails.connectionToken).getOrThrow()
+            awsClient.disconnectParticipantConnection(connectionDetails.connectionToken)
+                .getOrThrow()
             Log.d("ChatServiceImpl", "Participant Disconnected")
             connectionDetailsProvider.setChatSessionState(false)
             clearSubscriptionsAndPublishers()
             true
         }.onFailure { exception ->
-            Log.e("ChatServiceImpl", "Failed to disconnect participant: ${exception.message}", exception)
+            Log.e(
+                "ChatServiceImpl",
+                "Failed to disconnect participant: ${exception.message}",
+                exception
+            )
         }
     }
 
@@ -381,7 +422,7 @@ class ChatServiceImpl @Inject constructor(
     private fun registerNotificationListeners() {
         Log.d("ChatServiceImpl", "registerNotificationListeners")
         coroutineScope.launch {
-            webSocketManager.requestNewWsUrlFlow.collect{
+            webSocketManager.requestNewWsUrlFlow.collect {
                 handleNewWsUrlRequest()
             }
         }
@@ -440,6 +481,83 @@ class ChatServiceImpl @Inject constructor(
             true
         }.onFailure { exception ->
             Log.e("ChatServiceImpl", "Failed to send attachment: ${exception.message}", exception)
+        }
+    }
+
+    private suspend fun fetchReconnectedTranscript(internalTranscript: List<TranscriptItem>) {
+        val lastItem = internalTranscript.lastOrNull { (it as? Message)?.metadata?.status != MessageStatus.Failed }
+            ?: return
+
+        // Construct the start position from the last item
+        val startPosition = StartPosition().apply {
+            id = lastItem.id
+        }
+
+        // Fetch the transcript starting from the last item
+        fetchTranscriptWith(startPosition)
+    }
+
+    private suspend fun fetchTranscriptWith(startPosition: StartPosition?) {
+        getTranscript(startPosition = startPosition,
+            scanDirection = ScanDirection.FORWARD,
+            sortKey = SortKey.ASCENDING,
+            maxResults = 30,
+            nextToken = null).onSuccess { transcriptResponse ->
+            if (transcriptResponse.nextToken?.isNotEmpty() == true) {
+                val newStartPosition = transcriptResponse.transcript.lastOrNull()?.let {
+                    StartPosition().apply {
+                        id = it.id
+                    }
+                }
+                fetchTranscriptWith(startPosition = newStartPosition)
+            }
+        }.onFailure { error ->
+            // Handle error (e.g., log or show an error message)
+            println("Error fetching transcript with startPosition $startPosition: ${error.localizedMessage}")
+        }
+    }
+
+    override suspend fun getTranscript(
+        scanDirection: ScanDirection?,
+        sortKey: SortKey?,
+        maxResults: Int?,
+        nextToken: String?,
+        startPosition: StartPosition?
+    ): Result<TranscriptResponse> {
+
+        val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+            ?: throw Exception("No connection details available")
+
+        val request = GetTranscriptRequest().apply {
+            connectionToken = connectionDetails.connectionToken
+            this.scanDirection = (scanDirection ?: ScanDirection.BACKWARD).toString()
+            this.sortOrder = (sortKey ?: SortKey.ASCENDING).toString()
+            this.maxResults = maxResults ?: 30
+            this.startPosition = startPosition
+            if (!nextToken.isNullOrEmpty()) {
+                this.nextToken = nextToken
+            }
+        }
+
+        return runCatching {
+            val response = awsClient.getTranscript(request).getOrThrow()
+            val transcriptItems = response.transcript
+            // Format and process transcript items
+            val formattedItems = transcriptItems.mapNotNull { transcriptItem ->
+                TranscriptItemUtils.serializeTranscriptItem(transcriptItem)?.let { serializedItem ->
+                    webSocketManager.parseTranscriptItemFromJson(serializedItem)?.also { parsedItem ->
+                        updateTranscriptDict(parsedItem)
+                    }
+                }
+            }
+            // Create and return the TranscriptResponse
+            TranscriptResponse(
+                initialContactId = response.initialContactId.orEmpty(),
+                nextToken = response.nextToken.orEmpty(),
+                transcript = formattedItems
+            )
+        }.onFailure { exception ->
+            Log.e("ChatServiceImpl", "Failed to get transcript: ${exception.message}", exception)
         }
     }
 }

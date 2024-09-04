@@ -36,12 +36,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -247,6 +250,7 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatView(viewModel: ChatViewModel) {
     val messages by viewModel.messages.observeAsState(listOf())
@@ -256,6 +260,21 @@ fun ChatView(viewModel: ChatViewModel) {
     var isChatEnded by remember { mutableStateOf(false) }
     // Track if the typing event has been sent
     var hasSentTypingEvent by remember { mutableStateOf(false) }
+
+    var isRefreshing by remember { mutableStateOf(false) }
+    val state = rememberPullToRefreshState()
+    val coroutineScope = rememberCoroutineScope()
+    val onRefresh: () -> Unit = {
+        isRefreshing = true
+        viewModel.fetchTranscript { success ->
+            isRefreshing = false
+            if (success) {
+                Log.d("ChatView", "Transcript fetched successfully")
+            } else {
+                Log.e("ChatView", "Failed to fetch transcript")
+            }
+        }
+    }
 
     LaunchedEffect(messages, isKeyboardVisible) {
         if (messages.isNotEmpty()) {
@@ -275,54 +294,63 @@ fun ChatView(viewModel: ChatViewModel) {
         }
     }
 
-
-    Column(
+    PullToRefreshBox(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
+            .imePadding(),
+        state = state,
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh
     ) {
-        // Display the chat messages
-        LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
-            itemsIndexed(messages) { index, message ->
-                ChatMessage(message)
-                LaunchedEffect(key1 = message, key2 = index) {
-                    if (message.contentType == ContentType.ENDED.type) {
-                        isChatEnded = true
-                        viewModel.clearParticipantToken()
-                    }else{
-                        isChatEnded = false
-                    }
-                    // Logic to determine if the message is visible.
-                    // For simplicity, let's say it's visible if it's one of the last three messages.
-                    // TODO: Update here to send read receipts from SDK
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
+            // Display the chat messages
+            LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
+                itemsIndexed(messages) { index, message ->
+                    ChatMessage(message)
+                    LaunchedEffect(key1 = message, key2 = index) {
+                        if (message.contentType == ContentType.ENDED.type) {
+                            isChatEnded = true
+                            viewModel.clearParticipantToken()
+                        } else {
+                            isChatEnded = false
+                        }
+                        // Logic to determine if the message is visible.
+                        // For simplicity, let's say it's visible if it's one of the last three messages.
+                        // TODO: Update here to send read receipts from SDK
 //                    if (index >= messages.size - 3 && message.messageDirection == MessageDirection.INCOMING) {
 //                        viewModel.sendReadEventOnAppear(message)
 //                    }
+                    }
                 }
             }
-        }
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .padding(bottom = 8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextField(
-                value = textInput,
-                onValueChange = { textInput = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Type a message") },
-                enabled = !isChatEnded
-            )
-            IconButton(onClick = {
-                viewModel.sendMessage(textInput)
-                textInput = ""
-            },
-                enabled = !isChatEnded,
-                modifier = if (isChatEnded) Modifier.blur(2.dp) else Modifier
+            Row(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .padding(bottom = 8.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Send, contentDescription = "Send")
+                TextField(
+                    value = textInput,
+                    onValueChange = { textInput = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Type a message") },
+                    enabled = !isChatEnded
+                )
+                IconButton(
+                    onClick = {
+                        viewModel.sendMessage(textInput)
+                        textInput = ""
+                    },
+                    enabled = !isChatEnded,
+                    modifier = if (isChatEnded) Modifier.blur(2.dp) else Modifier
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = "Send")
+                }
             }
         }
     }

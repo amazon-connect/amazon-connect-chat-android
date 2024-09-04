@@ -105,6 +105,9 @@ dependencies {
     // Image loading
     implementation(libs.coilCompose)
 
+    // Pull to refresh
+    implementation(libs.accompanist.swiperefresh)
+
     // Chat SDK
     implementation(project(":chat-sdk"))
 }

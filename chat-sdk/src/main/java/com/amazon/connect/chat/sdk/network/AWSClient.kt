@@ -12,6 +12,8 @@ import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadR
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
+import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
 import com.amazonaws.services.connectparticipant.model.SendEventRequest
 import com.amazonaws.services.connectparticipant.model.SendEventResult
 import com.amazonaws.services.connectparticipant.model.SendMessageRequest
@@ -65,9 +67,29 @@ interface AWSClient {
         content: String
     ): Result<SendEventResult>
 
+    /**
+     * Starts an attachment upload using a connection token.
+     * @param connectionToken The connection token.
+     * @param request The start attachment upload request.
+     * @return A Result containing the start attachment upload result if successful, or an exception if an error occurred.
+     */
     suspend fun startAttachmentUpload(connectionToken: String, request: StartAttachmentUploadRequest): Result<StartAttachmentUploadResult>
 
+    /**
+     * Completes an attachment upload using a connection token.
+     * @param connectionToken The connection token.
+     * @param request The complete attachment upload request.
+     * @return A Result containing the complete attachment upload result if successful, or an exception if an error occurred.
+     */
     suspend fun completeAttachmentUpload(connectionToken: String, request: CompleteAttachmentUploadRequest): Result<CompleteAttachmentUploadResult>
+
+    /**
+     * Retrieves a transcript using a get transcript request.
+     * @param request The get transcript request.
+     * @return A Result containing the get transcript result if successful, or an exception if an error occurred.
+     */
+    suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult>
+
 }
 
 class AWSClientImpl @Inject constructor(
@@ -163,6 +185,16 @@ class AWSClientImpl @Inject constructor(
             runCatching {
                 val response = connectParticipantClient.completeAttachmentUpload(request)
                 Log.d("AWSClientImpl", "completeAttachmentUpload: $response")
+                response
+            }
+        }
+    }
+
+    override suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val response = connectParticipantClient.getTranscript(request)
+                Log.d("AWSClientImpl", "getTranscript: $response")
                 response
             }
         }
