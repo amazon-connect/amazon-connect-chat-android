@@ -24,7 +24,7 @@ class Message(
     override var displayName: String? = null,
     override var messageDirection: MessageDirection? = null,
     timeStamp: String,
-    private var attachmentId: String? = null,
+    var attachmentId: String? = null,
     id: String,
     override var metadata: MessageMetadataProtocol? = null,
     serializedContent: Map<String, Any>? = null
