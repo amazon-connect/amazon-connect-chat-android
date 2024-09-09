@@ -1,10 +1,15 @@
 package com.amazon.connect.chat.sdk
 
 import android.net.Uri
+import android.util.Log
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.MessageDirection
+import com.amazon.connect.chat.sdk.model.MessageReceiptType
+import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.repository.ChatService
@@ -78,6 +83,13 @@ interface ChatSession {
         nextToken: String?,
         startPosition: String?
     ): Result<TranscriptResponse>
+
+    /**
+     * Sends a message receipt.
+     * @param transcriptItem The transcript item.
+     * @param receiptType The type of the receipt.
+     */
+    suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType)
 
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
@@ -188,10 +200,10 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         }
     }
 
-    override suspend fun sendEvent(contentType: ContentType, event: String): Result<Unit> {
+    override suspend fun sendEvent(contentType: ContentType, content: String): Result<Unit> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                chatService.sendEvent(contentType, event)
+                chatService.sendEvent(contentType, content)
                 Result.success(Unit)
             }.getOrElse {
                 Result.failure(it)
@@ -244,4 +256,41 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             }
         }
     }
+
+    override suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType) {
+        withContext(Dispatchers.IO) {
+            val messageItem = transcriptItem as? Message
+
+            // Check if the transcript item is a plain text message, is not empty, and is incoming
+            if (messageItem == null || messageItem.text.isEmpty() || messageItem.messageDirection != MessageDirection.INCOMING) {
+                Log.e("ChatSessionImpl", "Could not send ${receiptType.type} receipt for ${messageItem?.text ?: "null"}")
+                return@withContext
+            }
+
+            // Check if the item already has the read status when sending a read receipt
+            if (receiptType == MessageReceiptType.MESSAGE_READ && messageItem.metadata?.status == MessageStatus.Read) {
+                return@withContext
+            }
+
+            val result = sendReceipt(event = receiptType, messageId = messageItem.id)
+            if (result.isSuccess) {
+                Log.d("ChatSessionImpl", "Sent ${receiptType.type} receipt for ${messageItem.text}")
+            } else {
+                Log.e("ChatSessionImpl", "Error sending ${receiptType.type} receipt: ${result.exceptionOrNull()?.localizedMessage}")
+            }
+        }
+    }
+
+
+    private suspend fun sendReceipt(event: MessageReceiptType, messageId: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                chatService.sendMessageReceipt(event, messageId)
+                Result.success(Unit)
+            }.getOrElse {
+                Result.failure(it)
+            }
+        }
+    }
+
 }

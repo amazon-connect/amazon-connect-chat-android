@@ -320,10 +320,9 @@ fun ChatView(viewModel: ChatViewModel) {
                         }
                         // Logic to determine if the message is visible.
                         // For simplicity, let's say it's visible if it's one of the last three messages.
-                        // TODO: Update here to send read receipts from SDK
-//                    if (index >= messages.size - 3 && message.messageDirection == MessageDirection.INCOMING) {
-//                        viewModel.sendReadEventOnAppear(message)
-//                    }
+                        if (index >= messages.size - 3 && message is Message) {
+                            viewModel.sendReadEventOnAppear(message)
+                        }
                     }
                 }
             }

@@ -8,7 +8,7 @@ enum class WebSocketMessageType(val type: String) {
 
     companion object {
         fun fromType(type: String): WebSocketMessageType? {
-            return values().find { it.type.equals(type, ignoreCase = true) }
+            return entries.find { it.type.equals(type, ignoreCase = true) }
         }
     }
 }

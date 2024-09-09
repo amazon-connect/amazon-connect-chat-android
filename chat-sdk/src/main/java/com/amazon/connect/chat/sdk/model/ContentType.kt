@@ -15,7 +15,19 @@ enum class ContentType(val type: String){
 
     companion object {
         fun fromType(type: String): ContentType? {
-            return values().find { it.type.equals(type, ignoreCase = true) }
+            return entries.find { it.type.equals(type, ignoreCase = true) }
+        }
+    }
+}
+
+enum class MessageReceiptType(val type: String){
+    MESSAGE_DELIVERED("application/vnd.amazonaws.connect.event.message.delivered"),
+    MESSAGE_READ("application/vnd.amazonaws.connect.event.message.read");
+
+    fun toContentType(): ContentType {
+        return when (this) {
+            MESSAGE_DELIVERED -> ContentType.MESSAGE_DELIVERED
+            MESSAGE_READ -> ContentType.MESSAGE_READ
         }
     }
 }

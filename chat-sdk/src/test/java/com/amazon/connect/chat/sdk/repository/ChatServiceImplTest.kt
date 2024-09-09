@@ -1,7 +1,5 @@
 package com.amazon.connect.chat.sdk.repository
 
-import android.os.Looper
-import androidx.compose.animation.fadeIn
 import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
@@ -17,17 +15,12 @@ import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
 import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
@@ -37,7 +30,6 @@ import org.mockito.Mockito.*
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.anyOrNull
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
@@ -61,6 +53,9 @@ class ChatServiceImplTest {
     @Mock
     private lateinit var attachmentsManager: AttachmentsManager
 
+    @Mock
+    private lateinit var messageReceiptsManager: MessageReceiptsManager
+
     private lateinit var chatService: ChatService
     private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
     private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
@@ -83,7 +78,13 @@ class ChatServiceImplTest {
         `when`(webSocketManager.transcriptPublisher).thenReturn(transcriptSharedFlow)
         `when`(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
 
-        chatService = ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager)
+        chatService = ChatServiceImpl(
+            awsClient,
+            connectionDetailsProvider,
+            webSocketManager,
+            metricsManager,
+            attachmentsManager
+        )
     }
 
     @Test

@@ -9,6 +9,7 @@ import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageMetadata
+import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
@@ -88,6 +89,14 @@ interface ChatService {
         nextToken: String?,
         startPosition: StartPosition?
     ): Result<TranscriptResponse>
+
+    /**
+     * Sends a message receipt.
+     * @param messageReceiptType The type of the message receipt.
+     * @param messageId The ID of the message.
+     * @return A Result indicating whether the message receipt sending was successful.
+     */
+    suspend fun sendMessageReceipt(messageReceiptType: MessageReceiptType, messageId: String) : Result<Boolean>
 
     val eventPublisher: SharedFlow<ChatEvent>
     val transcriptPublisher: SharedFlow<TranscriptItem>
@@ -391,7 +400,7 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    override suspend fun sendEvent(contentType: ContentType, event: String): Result<Boolean> {
+    override suspend fun sendEvent(contentType: ContentType, content: String): Result<Boolean> {
         // Check if it's a typing event and throttle if necessary
         if (contentType == ContentType.TYPING && throttleTypingEvent) {
             // Skip sending if throttled
@@ -411,7 +420,7 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            awsClient.sendEvent(connectionDetails.connectionToken, contentType, event).getOrThrow()
+            awsClient.sendEvent(connectionDetails.connectionToken, contentType, content).getOrThrow()
             Log.d("ChatServiceImpl", "Event sent")
             true
         }.onFailure { exception ->
@@ -558,6 +567,19 @@ class ChatServiceImpl @Inject constructor(
             )
         }.onFailure { exception ->
             Log.e("ChatServiceImpl", "Failed to get transcript: ${exception.message}", exception)
+        }
+    }
+
+    override suspend fun sendMessageReceipt(
+        messageReceiptType: MessageReceiptType,
+        messageId: String,
+    ): Result<Boolean> {
+        return runCatching {
+            val content = "{\"messageId\":\"$messageId\"}"
+            sendEvent(contentType = messageReceiptType.toContentType(), content = content)
+            true
+        }.onFailure {
+            Log.e("ChatServiceImpl", "Failed to send message receipt: ${it.message}", it)
         }
     }
 }
