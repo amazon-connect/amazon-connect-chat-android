@@ -44,7 +44,6 @@ interface WebSocketManager {
     val requestNewWsUrlFlow: MutableSharedFlow<Unit>
     suspend fun connect(wsUrl: String, isReconnectFlow: Boolean = false)
     suspend fun disconnect()
-    fun formatAndProcessTranscriptItems(transcriptItems: List<TranscriptItem>) : List<TranscriptItem>
     suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem?
 }
 
@@ -274,7 +273,7 @@ class WebSocketManagerImpl @Inject constructor(
                         }
                     }
                 }
-                // TODO-  WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject)
+                WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject)
                 WebSocketMessageType.MESSAGE_METADATA -> handleMetadata(jsonObject)
                 else -> {
                     Log.w("WebSocket", "Unknown websocket message type: $type")
@@ -448,32 +447,42 @@ class WebSocketManagerImpl @Inject constructor(
         return metadata
     }
 
-    override fun formatAndProcessTranscriptItems(transcriptItems: List<TranscriptItem>): List<TranscriptItem> {
-        // TODO: Need to be updated with latest transcript items format
-//        transcriptItems.forEach { item ->
-//            val participantRole = item.participantRole
-//
-//            // Create the message content in JSON format
-//            val messageContentJson = JSONObject().apply {
-//                put("Id", item.id ?: "")
-//                put("ParticipantRole", participantRole)
-//                put("AbsoluteTime", item.absoluteTime ?: "")
-//                put("ContentType", item.contentType ?: "")
-//                put("Content", item.content ?: "")
-//                put("Type", item.type)
-//                put("DisplayName", item.displayName ?: "")
-//            }
-//
-//            // Convert JSON object to String format
-//            val messageContentString = messageContentJson.toString()
-//
-//            // Prepare the message in the format expected by WebSocket
-//            val wrappedMessageString = "{\"content\":\"${messageContentString.replace("\"", "\\\"")}\"}"
-//
-//            // Send the formatted message string via WebSocket
-//            websocketDidReceiveMessage(wrappedMessageString)
-//        }
-        return emptyList()
+    private fun handleAttachment(innerJson: JSONObject): TranscriptItem? {
+        val participantRole = innerJson.getString("ParticipantRole")
+        val time = innerJson.getString("AbsoluteTime")
+        val displayName = innerJson.getString("DisplayName")
+        val messageId = innerJson.getString("Id")
+
+        // Access the attachments array using getJSONArray and safely convert it to a list of JSONObjects
+        val attachmentsArray = innerJson.optJSONArray("Attachments") ?: return null
+        if (attachmentsArray.length() == 0) {
+            println("No attachments found")
+            return null
+        }
+
+        // Access the first attachment
+        val firstAttachment = attachmentsArray.optJSONObject(0) ?: return null
+
+        // Extract details from the first attachment
+        val attachmentName = firstAttachment.optString("AttachmentName")
+        val contentType = firstAttachment.optString("ContentType")
+        val attachmentId = firstAttachment.optString("AttachmentId")
+
+        // Check if any required fields are missing
+        if (attachmentName == null || contentType == null || attachmentId == null) {
+            println("Failed to access attachments")
+            return null
+        }
+
+        return Message(
+            participant = participantRole,
+            text = attachmentName,
+            contentType = contentType,
+            timeStamp = time,
+            attachmentId = attachmentId,
+            id = messageId,
+            displayName = displayName
+        )
     }
 
 }

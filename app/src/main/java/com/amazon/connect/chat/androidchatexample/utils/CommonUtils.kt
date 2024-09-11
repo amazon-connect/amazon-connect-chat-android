@@ -1,10 +1,11 @@
 package com.amazon.connect.chat.androidchatexample.utils
 
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
+import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.model.ContentType
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -77,6 +78,18 @@ object CommonUtils {
             else -> {
                 // No customization needed for other content types
             }
+        }
+    }
+
+
+    fun customMessageStatus(status: MessageStatus?): String {
+        return when (status) {
+            MessageStatus.Delivered -> "Delivered"
+            MessageStatus.Read -> "Read"
+            MessageStatus.Sending -> "Sending"
+            MessageStatus.Failed -> "Failed to send"
+            MessageStatus.Sent -> "Sent"
+            else -> ""  // Returning empty string for unknown or null status
         }
     }
 }

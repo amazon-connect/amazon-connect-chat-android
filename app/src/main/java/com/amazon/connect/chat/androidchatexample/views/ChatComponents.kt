@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.androidchatexample.views
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
+import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.ListPickerContent
@@ -28,16 +30,34 @@ import com.amazon.connect.chat.sdk.model.PlainTextContent
 import com.amazon.connect.chat.sdk.model.QuickReplyContent
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.MarkdownText
+import java.net.URL
 
 @Composable
-fun ChatMessageView(transcriptItem: TranscriptItem) {
+fun ChatMessageView(
+    transcriptItem: TranscriptItem,
+    viewModel: ChatViewModel,
+    recentOutgoingMessageID: String?,
+    onPreviewAttachment: (URL, String) -> Unit
+) {
     when (transcriptItem) {
         is Message -> {
             when (transcriptItem.messageDirection) {
-                MessageDirection.OUTGOING -> SenderChatBubble(transcriptItem)
+                MessageDirection.OUTGOING -> {
+                    if (transcriptItem.attachmentId != null) {
+                        AttachmentMessageView(transcriptItem, viewModel, recentOutgoingMessageID, onPreviewAttachment)
+                    } else {
+                        SenderChatBubble(transcriptItem)
+                    }
+                }
                 MessageDirection.INCOMING -> {
                     when (val content = transcriptItem.content) {
-                        is PlainTextContent -> ReceiverChatBubble(transcriptItem)
+                        is PlainTextContent -> {
+                            if (transcriptItem.attachmentId != null) {
+                                AttachmentMessageView(transcriptItem, viewModel, recentOutgoingMessageID, onPreviewAttachment)
+                            } else {
+                                ReceiverChatBubble(transcriptItem)
+                            }
+                        }
                         is QuickReplyContent -> QuickReplyContentView(transcriptItem, content)
                         is ListPickerContent -> ListPickerContentView(transcriptItem, content)
                         else -> Text(text = "Unsupported message type")

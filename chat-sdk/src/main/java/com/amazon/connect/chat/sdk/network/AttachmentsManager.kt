@@ -12,11 +12,14 @@ import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequ
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class AttachmentsManager @Inject constructor(
     private val context: Context,
@@ -93,6 +96,62 @@ class AttachmentsManager @Inject constructor(
             this.attachmentSizeInBytes = attachmentSize
         }
         return request
+    }
+
+    suspend fun downloadAttachment(
+        attachmentId: String,
+        fileName: String,
+        connectionToken: String
+    ): Result<URL> {
+        return getAttachmentDownloadUrl(connectionToken, attachmentId).mapCatching { url ->
+            downloadFile(url, fileName).getOrThrow()
+        }.onFailure {
+            Log.e("AttachmentsManager", "Error occurred during downloadAttachment: ${it.message}")
+        }
+    }
+
+    private suspend fun getAttachmentDownloadUrl(connectionToken: String, attachmentId: String): Result<URL> {
+        return runCatching {
+            val response = awsClient.getAttachment(connectionToken, attachmentId)
+            URL(response.getOrNull()?.url ?: throw IOException("Invalid URL"))
+        }.onFailure {
+            Log.e("AttachmentsManager", "Error occurred during getAttachmentDownloadUrl: ${it.message}")
+        }
+    }
+
+    private suspend fun downloadFile(url: URL, fileName: String): Result<URL> = withContext(Dispatchers.IO) {
+        runCatching {
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connect()
+
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IOException("Failed to download file: HTTP response code ${connection.responseCode}")
+            }
+
+            val tempDirectory = File.createTempFile("temp", null).parentFile
+            if (!tempDirectory.exists()) {
+                tempDirectory.mkdirs()
+            }
+
+            val tempFilePath = File(tempDirectory, fileName)
+
+            connection.inputStream.use { input ->
+                tempFilePath.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            if (!tempFilePath.exists()) {
+                throw IOException("File was not created: ${tempFilePath.absolutePath}")
+            }
+
+            tempFilePath.also {
+                Log.d("AttachmentsManager", "File successfully downloaded to: ${it.absolutePath}")
+            }.toURI().toURL()
+        }.onFailure {
+            Log.e("AttachmentsManager", "Error occurred during downloadFile: ${it.message}")
+        }
     }
 
     fun fileFromContentUri(contentUri: Uri, fileExtension: String?): File {

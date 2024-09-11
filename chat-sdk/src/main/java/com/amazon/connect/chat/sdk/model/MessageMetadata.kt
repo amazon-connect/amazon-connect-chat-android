@@ -1,7 +1,5 @@
 package com.amazon.connect.chat.sdk.model
 
-import java.util.UUID
-
 enum class MessageStatus(val status: String) {
     Delivered("Delivered"),
     Read("Read"),

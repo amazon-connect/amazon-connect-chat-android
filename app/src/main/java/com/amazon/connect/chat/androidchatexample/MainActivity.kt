@@ -15,13 +15,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,7 +34,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -48,7 +47,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,8 +58,12 @@ import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
 import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme
+import com.amazon.connect.chat.androidchatexample.utils.FileUtils.getOriginalFileName
+import com.amazon.connect.chat.androidchatexample.utils.FileUtils.previewFileFromCacheOrDownload
+import com.amazon.connect.chat.androidchatexample.views.AttachmentTextView
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import dagger.hilt.android.AndroidEntryPoint
+import java.net.URL
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -70,7 +72,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        chatViewModel = ViewModelProvider(this).get(ChatViewModel::class.java)
+        chatViewModel = ViewModelProvider(this)[ChatViewModel::class.java]
         setContent {
             androidconnectchatandroidTheme {
                 // A surface container using the 'background' color from the theme
@@ -89,7 +91,7 @@ class MainActivity : ComponentActivity() {
 
         if (requestCode == 2 && resultCode == Activity.RESULT_OK) {
             data?.data?.let { fileUri ->
-                chatViewModel.uploadAttachment(fileUri)
+                chatViewModel.selectedFileUri.value = fileUri
             }
         }
     }
@@ -243,7 +245,7 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
                             }
                         }
                     )
-                    ChatView(viewModel = viewModel) // Your chat view composable
+                    ChatView(activity = activity, viewModel = viewModel) // Your chat view composable
                 }
             }
         }
@@ -252,7 +254,7 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatView(viewModel: ChatViewModel) {
+fun ChatView(viewModel: ChatViewModel, activity: Activity) {
     val messages by viewModel.messages.observeAsState(listOf())
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -260,10 +262,16 @@ fun ChatView(viewModel: ChatViewModel) {
     var isChatEnded by remember { mutableStateOf(false) }
     // Track if the typing event has been sent
     var hasSentTypingEvent by remember { mutableStateOf(false) }
-
     var isRefreshing by remember { mutableStateOf(false) }
     val state = rememberPullToRefreshState()
     val coroutineScope = rememberCoroutineScope()
+
+    val onPreviewAttachment: (URL, String) -> Unit = { uri, fileName->
+        previewFileFromCacheOrDownload(activity, uri, fileName)
+    }
+
+    val selectedFileName by viewModel.selectedFileUri.observeAsState()
+
     val onRefresh: () -> Unit = {
         isRefreshing = true
         viewModel.fetchTranscript { success ->
@@ -310,7 +318,12 @@ fun ChatView(viewModel: ChatViewModel) {
             // Display the chat messages
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
                 itemsIndexed(messages) { index, message ->
-                    ChatMessage(message)
+                    ChatMessage(
+                        transcriptItem = message,
+                        viewModel = viewModel,
+                        onPreviewAttachment = onPreviewAttachment,
+                        recentOutgoingMessageID = messages.getOrNull(index)?.id // TODO; Needs to be updated
+                    )
                     LaunchedEffect(key1 = message, key2 = index) {
                         if (message.contentType == ContentType.ENDED.type) {
                             isChatEnded = true
@@ -328,37 +341,63 @@ fun ChatView(viewModel: ChatViewModel) {
             }
             Row(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(8.dp)
                     .padding(bottom = 8.dp)
                     .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Bottom
             ) {
-                TextField(
-                    value = textInput,
-                    onValueChange = { textInput = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message") },
-                    enabled = !isChatEnded
+                AttachmentTextView(
+                    text = textInput,
+                    selectedFileUri = selectedFileName?.getOriginalFileName(activity),
+                    onTextChange = { text ->
+                        textInput = text
+                    },
+                    onRemoveAttachment = {
+                        viewModel.selectedFileUri.value = null
+                    },
+                    modifier = Modifier.weight(1f)
                 )
+
                 IconButton(
                     onClick = {
-                        viewModel.sendMessage(textInput)
+                        if(!selectedFileName?.lastPathSegment.isNullOrEmpty()) {
+                            selectedFileName?.let { viewModel.uploadAttachment(it) }
+                        }
+                        if (textInput.isNotEmpty()) {
+                            viewModel.sendMessage(textInput)
+                        }
                         textInput = ""
+                        viewModel.selectedFileUri.value = null
                     },
                     enabled = !isChatEnded,
-                    modifier = if (isChatEnded) Modifier.blur(2.dp) else Modifier
+                    modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "Send")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                }
+
+                IconButton(
+                    onClick = {
+                        viewModel.openFile(activity = activity )
+                    },
+                    enabled = !isChatEnded,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.AttachFile, contentDescription = "Attach")
                 }
             }
+
         }
     }
 }
 
 @Composable
-fun ChatMessage(transcriptItem: TranscriptItem) {
-    // Customize this composable to display each message
-    ChatMessageView(transcriptItem = transcriptItem)
+fun ChatMessage(
+    transcriptItem: TranscriptItem,
+    viewModel: ChatViewModel,
+    recentOutgoingMessageID: String?,
+    onPreviewAttachment: (URL, String) -> Unit
+) {
+    ChatMessageView(transcriptItem = transcriptItem, viewModel = viewModel, onPreviewAttachment = onPreviewAttachment, recentOutgoingMessageID = recentOutgoingMessageID)
 }
 
 @Composable
@@ -366,28 +405,16 @@ fun ParticipantTokenSection(activity: Activity, viewModel: ChatViewModel) {
     val participantToken by viewModel.liveParticipantToken.observeAsState()
 
     Column {
-        Text(text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}", color = if (participantToken != null) Color.Blue else Color.Red)
+        Text(
+            text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}",
+            color = if (participantToken != null) Color.Blue else Color.Red
+        )
         Button(onClick = viewModel::clearParticipantToken) {
             Text("Clear Participant Token")
         }
         Button(onClick = { viewModel.openFile(activity) }) {
             Text(text = "Upload Attachment")
         }
-    }
-}
-
-
-// Temporary composable for preview purposes
-@Composable
-fun ChatViewPreview(messages: List<Message>) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(messages) { message ->
-                ChatMessage(message)
-            }
-        }
-        // Rest of the ChatView layout
-        // ...
     }
 }
 
@@ -463,5 +490,5 @@ fun ChatViewPreview() {
 //        )
 //    )
 //
-//    ChatViewPreview(messages = sampleMessages)
+//    ChatView()
 }
