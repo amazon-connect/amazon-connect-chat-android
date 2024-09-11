@@ -5,6 +5,7 @@ import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
+import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
@@ -40,9 +41,10 @@ object ChatModule {
         connectionDetailsProvider: ConnectionDetailsProvider,
         webSocketManager: WebSocketManager,
         metricsManager: MetricsManager,
-        attachmentsManager: AttachmentsManager
+        attachmentsManager: AttachmentsManager,
+        messageReceiptsManager: MessageReceiptsManager,
     ): ChatService {
-        return ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager)
+        return ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager, messageReceiptsManager)
     }
 
     /**

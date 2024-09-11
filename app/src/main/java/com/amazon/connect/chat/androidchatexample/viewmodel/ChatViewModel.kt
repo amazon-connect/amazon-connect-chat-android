@@ -22,6 +22,7 @@ import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazonaws.services.connectparticipant.model.ScanDirection
@@ -45,6 +46,7 @@ class ChatViewModel @Inject constructor(
 
     private val _messages = MutableLiveData<List<TranscriptItem>>()
     val messages: LiveData<List<TranscriptItem>> = _messages
+    private val messageIdSet = mutableSetOf<String>()
 
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
@@ -86,11 +88,15 @@ class ChatViewModel @Inject constructor(
             // Handle received message
             if (transcriptItem is Message) {
                 Log.d("ChatViewModel", "Message received: $transcriptItem")
-                // Send delivered receipt
-//                    chatSession.sendMessageReceipt(
-//                        transcriptItem,
-//                        MessageReceiptType.MESSAGE_DELIVERED
-//                    )
+                if (!messageIdSet.contains(transcriptItem.id)) {
+                    messageIdSet.add(transcriptItem.id)
+                    viewModelScope.launch {
+                        chatSession.sendMessageReceipt(
+                            transcriptItem = transcriptItem,
+                            receiptType = MessageReceiptType.MESSAGE_DELIVERED
+                        )
+                    }
+                }
             }
         }
 

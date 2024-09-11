@@ -10,6 +10,8 @@ import com.amazon.connect.chat.sdk.network.MetricsInterface
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
+import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
+import com.amazon.connect.chat.sdk.network.MessageReceiptsManagerImpl
 import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
@@ -146,6 +148,17 @@ object NetworkModule {
     @Singleton
     fun provideNetworkConnectionManager(context: Context): NetworkConnectionManager {
         return NetworkConnectionManager.getInstance(context)
+    }
+
+    /**
+     * Provides a singleton instance of MessageReceiptsManager.
+     *
+     * @return An instance of MessageReceiptsManager.
+     */
+    @Provides
+    @Singleton
+    fun provideMessageReceiptsManager(): MessageReceiptsManager {
+        return MessageReceiptsManagerImpl()
     }
 
     /**
