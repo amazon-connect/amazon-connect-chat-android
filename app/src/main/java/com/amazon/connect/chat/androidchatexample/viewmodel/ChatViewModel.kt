@@ -45,7 +45,6 @@ class ChatViewModel @Inject constructor(
 
     private val _messages = MutableLiveData<List<TranscriptItem>>()
     val messages: LiveData<List<TranscriptItem>> = _messages
-    private val messageIdSet = mutableSetOf<String>()
 
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
@@ -87,14 +86,11 @@ class ChatViewModel @Inject constructor(
             // Handle received message
             if (transcriptItem is Message) {
                 Log.d("ChatViewModel", "Message received: $transcriptItem")
-                if (!messageIdSet.contains(transcriptItem.id)) {
-                    messageIdSet.add(transcriptItem.id)
-                    viewModelScope.launch {
-                        chatSession.sendMessageReceipt(
-                            transcriptItem = transcriptItem,
-                            receiptType = MessageReceiptType.MESSAGE_DELIVERED
-                        )
-                    }
+                viewModelScope.launch {
+                    chatSession.sendMessageReceipt(
+                        transcriptItem = transcriptItem,
+                        receiptType = MessageReceiptType.MESSAGE_DELIVERED
+                    )
                 }
             }
         }
