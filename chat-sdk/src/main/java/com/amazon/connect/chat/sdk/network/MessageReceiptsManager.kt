@@ -48,7 +48,7 @@ data class PendingMessageReceipts(
 class MessageReceiptsManagerImpl : MessageReceiptsManager {
     override var timer: Timer? = null
     override var throttleTime: Double = MessageReceipts.defaultReceipts.throttleTime
-    override var deliveredThrottleTime: Double = 3.0
+    override var deliveredThrottleTime: Double = MessageReceipts.defaultReceipts.deliveredThrottleTime
     override var shouldSendMessageReceipts: Boolean = true
 
     private var readReceiptSet = mutableSetOf<String>()

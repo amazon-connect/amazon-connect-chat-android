@@ -13,6 +13,7 @@ object Constants {
     const val ATTACHMENT = "ATTACHMENT"
     const val EVENT = "EVENT"
     const val MESSAGE_RECEIPT_THROTTLE_TIME = 5.0
+    const val MESSAGE_RECEIPT_DELIVERED_THROTTLE_TIME = 3.0
     val DEFAULT_REGION: Regions = Regions.US_WEST_2
     const val QUICK_REPLY = "QuickReply"
     const val LIST_PICKER = "ListPicker"
