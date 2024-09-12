@@ -83,16 +83,7 @@ class ChatViewModel @Inject constructor(
         }
 
         chatSession.onMessageReceived = { transcriptItem ->
-            // Handle received message
-            if (transcriptItem is Message) {
-                Log.d("ChatViewModel", "Message received: $transcriptItem")
-                viewModelScope.launch {
-                    chatSession.sendMessageReceipt(
-                        transcriptItem = transcriptItem,
-                        receiptType = MessageReceiptType.MESSAGE_DELIVERED
-                    )
-                }
-            }
+            // Handle received websocket message
         }
 
         chatSession.onTranscriptUpdated = { transcriptList ->
