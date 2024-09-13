@@ -39,7 +39,7 @@ jobs:
         run: ./gradlew assemble
 
       - name: Save Build Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: app-build
           path: app/build/outputs/apk/

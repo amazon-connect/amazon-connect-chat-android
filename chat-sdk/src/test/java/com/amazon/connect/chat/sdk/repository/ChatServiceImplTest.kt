@@ -10,6 +10,7 @@ import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.network.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
+import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazonaws.regions.Regions
@@ -83,7 +84,8 @@ class ChatServiceImplTest {
             connectionDetailsProvider,
             webSocketManager,
             metricsManager,
-            attachmentsManager
+            attachmentsManager,
+            messageReceiptsManager
         )
     }
 

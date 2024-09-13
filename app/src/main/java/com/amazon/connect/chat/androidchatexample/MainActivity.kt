@@ -320,7 +320,7 @@ fun ChatView(viewModel: ChatViewModel) {
                         }
                         // Logic to determine if the message is visible.
                         // For simplicity, let's say it's visible if it's one of the last three messages.
-                        if (index >= messages.size - 3 && message is Message) {
+                        if (index == messages.size - 1 && message is Message) {
                             viewModel.sendReadEventOnAppear(message)
                         }
                     }

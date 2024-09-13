@@ -26,7 +26,8 @@ data class Features(
 
 data class MessageReceipts(
     var shouldSendMessageReceipts: Boolean = true,
-    var throttleTime: Double = Constants.MESSAGE_RECEIPT_THROTTLE_TIME
+    var throttleTime: Double = Constants.MESSAGE_RECEIPT_THROTTLE_TIME,
+    var deliveredThrottleTime: Double = Constants.MESSAGE_RECEIPT_DELIVERED_THROTTLE_TIME
 ) {
     companion object {
         val defaultReceipts: MessageReceipts

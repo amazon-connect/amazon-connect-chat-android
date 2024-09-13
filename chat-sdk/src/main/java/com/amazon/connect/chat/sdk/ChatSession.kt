@@ -262,7 +262,7 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             val messageItem = transcriptItem as? Message
 
             // Check if the transcript item is a plain text message, is not empty, and is incoming
-            if (messageItem == null || messageItem.text.isEmpty() || messageItem.messageDirection != MessageDirection.INCOMING) {
+            if (messageItem == null || messageItem.text.isEmpty() || messageItem.participant == "CUSTOMER") {
                 Log.e("ChatSessionImpl", "Could not send ${receiptType.type} receipt for ${messageItem?.text ?: "null"}")
                 return@withContext
             }

@@ -16,7 +16,9 @@ import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
+import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.network.PendingMessageReceipts
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.TranscriptItemUtils
@@ -27,6 +29,8 @@ import com.amazonaws.services.connectparticipant.model.StartPosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -96,7 +100,7 @@ interface ChatService {
      * @param messageId The ID of the message.
      * @return A Result indicating whether the message receipt sending was successful.
      */
-    suspend fun sendMessageReceipt(messageReceiptType: MessageReceiptType, messageId: String) : Result<Boolean>
+    suspend fun sendMessageReceipt(messageReceiptType: MessageReceiptType, messageId: String) : Result<Unit>
 
     val eventPublisher: SharedFlow<ChatEvent>
     val transcriptPublisher: SharedFlow<TranscriptItem>
@@ -109,7 +113,8 @@ class ChatServiceImpl @Inject constructor(
     private val connectionDetailsProvider: ConnectionDetailsProvider,
     private val webSocketManager: WebSocketManager,
     private val metricsManager: MetricsManager,
-    private val attachmentsManager: AttachmentsManager
+    private val attachmentsManager: AttachmentsManager,
+    private val messageReceiptsManager: MessageReceiptsManager
 ) : ChatService {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -233,6 +238,9 @@ class ChatServiceImpl @Inject constructor(
                 // Remove typing indicators when a new message from the agent is received
                 if (item.participant == Constants.AGENT) {
                     removeTypingIndicators()
+                    coroutineScope.launch {
+                        sendMessageReceipt(MessageReceiptType.MESSAGE_DELIVERED, item.id)
+                    }
                 }
 
                 // TODO ; Handle temporary attachment here
@@ -573,13 +581,72 @@ class ChatServiceImpl @Inject constructor(
     override suspend fun sendMessageReceipt(
         messageReceiptType: MessageReceiptType,
         messageId: String,
-    ): Result<Boolean> {
-        return runCatching {
-            val content = "{\"messageId\":\"$messageId\"}"
-            sendEvent(contentType = messageReceiptType.toContentType(), content = content)
-            true
-        }.onFailure {
-            Log.e("ChatServiceImpl", "Failed to send message receipt: ${it.message}", it)
+    ): Result<Unit> {
+        return try {
+            val receiptResult = messageReceiptsManager.throttleAndSendMessageReceipt(messageReceiptType, messageId)
+            receiptResult.fold(
+                onSuccess = { pendingMessageReceipts ->
+                    val sendResult = sendPendingMessageReceipts(pendingMessageReceipts)
+                    sendResult.onSuccess {
+                        Log.d("MessageReceiptsManager", "Pending message receipts sent successfully")
+                        // messageReceiptsManager.clearPendingMessageReceipts()
+                    }.onFailure { error ->
+                        Log.e("MessageReceiptsManager", "Error sending pending message receipts: ${error.message}")
+                    }
+                    sendResult
+                },
+                onFailure = { error ->
+                    Log.e("MessageReceiptsManager", "Error fetching pending message receipts: ${error.message}")
+                    Result.failure(error)
+                }
+            )
+        } catch (e: Exception) {
+            Log.e("MessageReceiptsManager", "Error in sendMessageReceipt: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun sendPendingMessageReceipts(
+        pendingMessageReceipts: PendingMessageReceipts,
+    ): Result<Unit> = coroutineScope {
+        var lastError: Throwable? = null
+        val readId = pendingMessageReceipts.readReceiptMessageId
+        val deliveredId = pendingMessageReceipts.deliveredReceiptMessageId
+        messageReceiptsManager.clearPendingMessageReceipts()
+        val readJob = readId?.let { messageId ->
+            async {
+                val content = "{\"messageId\":\"$messageId\"}"
+                val result = sendEvent(contentType = MessageReceiptType.MESSAGE_READ.toContentType(), content = content)
+                if (result.isSuccess) {
+                    Log.d("MessageReceiptsManager", "Message read receipt sent successfully with messageId: $messageId")
+                } else {
+                    val error = result.exceptionOrNull()
+                    Log.e("MessageReceiptsManager", "Failed to send message read receipt: ${error?.message}, messageId: $messageId")
+                    lastError = error ?: Exception("Unknown error sending read receipt")
+                }
+            }
+        }
+        val deliveredJob = deliveredId?.let { messageId ->
+            async {
+                val content = "{\"messageId\":\"$messageId\"}"
+                val result = sendEvent(contentType = MessageReceiptType.MESSAGE_DELIVERED.toContentType(), content = content)
+                if (result.isSuccess) {
+                    Log.d("MessageReceiptsManager", "Message delivered receipt sent successfully with messageId: $messageId")
+                } else {
+                    val error = result.exceptionOrNull()
+                    Log.e("MessageReceiptsManager", "Failed to send message delivered receipt: ${error?.message}, messageId: $messageId")
+                    lastError = error ?: Exception("Unknown error sending delivered receipt")
+                }
+            }
+        }
+        // Await all async tasks
+        readJob?.await()
+        deliveredJob?.await()
+        // Return success or the last encountered error
+        return@coroutineScope if (lastError != null) {
+            Result.failure(lastError!!)
+        } else {
+            Result.success(Unit)
         }
     }
 }
