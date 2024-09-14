@@ -28,6 +28,7 @@ import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import java.net.URL
 import javax.inject.Inject
 
 @HiltViewModel
@@ -42,6 +43,9 @@ class ChatViewModel @Inject constructor(
 
     private val _isChatActive = MutableLiveData(false)
     val isChatActive: MutableLiveData<Boolean> = _isChatActive
+
+    private val _selectedFileUri = MutableLiveData(Uri.EMPTY)
+    val selectedFileUri: MutableLiveData<Uri> = _selectedFileUri
 
     private val _messages = MutableLiveData<List<TranscriptItem>>()
     val messages: LiveData<List<TranscriptItem>> = _messages
@@ -269,5 +273,9 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatSession.sendAttachment(fileUri)
         }
+    }
+
+    suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL> {
+        return chatSession.downloadAttachment(attachmentId, fileName)
     }
 }

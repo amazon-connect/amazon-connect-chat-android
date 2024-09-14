@@ -65,7 +65,7 @@ dependencies {
     implementation(libs.composeUiGraphics)
     implementation(libs.composeUiToolingPreview)
     implementation(libs.material3)
-    implementation("com.google.android.gms:play-services-basement:18.2.0")
+    implementation(libs.play.services.basement)
     implementation(libs.runtimeLivedata) // Add this dependency in libs.versions.toml if necessary
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidxJunit)
@@ -74,6 +74,8 @@ dependencies {
     androidTestImplementation(libs.composeUiTestJunit4)
     debugImplementation(libs.composeUiTooling)
     debugImplementation(libs.composeUiTestManifest)
+    implementation(libs.material.icons.extended)
+
 
     // Lifecycle livedata
     implementation(libs.lifecycleLivedataKtx)

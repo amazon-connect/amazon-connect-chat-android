@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -66,6 +67,14 @@ interface ChatSession {
      * @return A Result indicating whether sending the attachment was successful.
      */
     suspend fun sendAttachment(fileUri: Uri): Result<Unit>
+
+    /**
+     * Downloads an attachment.
+     * @param attachmentId The ID of the attachment to download.
+     * @param filename The name of the file to save the attachment as.
+     * @return A Result containing the URL of the downloaded attachment.
+     */
+    suspend fun downloadAttachment(attachmentId: String, filename: String): Result<URL>
 
     /**
      * Gets the transcript.
@@ -231,6 +240,14 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                 Result.success(Unit)
             }.getOrElse {
                 Result.failure(it)
+            }
+        }
+    }
+
+    override suspend fun downloadAttachment(attachmentId: String, filename: String): Result<URL> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                chatService.downloadAttachment(attachmentId, filename).getOrThrow()
             }
         }
     }

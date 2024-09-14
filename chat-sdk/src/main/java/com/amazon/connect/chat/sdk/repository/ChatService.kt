@@ -34,6 +34,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import java.net.URL
 import java.util.Timer
 import javax.inject.Inject
 import kotlin.concurrent.schedule
@@ -76,6 +77,14 @@ interface ChatService {
      * @return A Result indicating whether sending the attachment was successful.
      */
     suspend fun sendAttachment(fileUri: Uri): Result<Boolean>
+
+    /**
+     * Downloads an attachment.
+     * @param attachmentId The ID of the attachment.
+     * @param fileName The name of the file.
+     * @return A Result containing the URI of the downloaded attachment.
+     */
+    suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL>
 
     /**
      * Gets the transcript.
@@ -141,6 +150,8 @@ class ChatServiceImpl @Inject constructor(
     private var throttleTypingEventTimer: Timer? = null
     private var throttleTypingEvent: Boolean = false
 
+    // Dictionary to map attachment IDs to temporary message IDs
+    private val attachmentIdToTempMessageId = mutableMapOf<String, String>()
 
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
@@ -233,7 +244,6 @@ class ChatServiceImpl @Inject constructor(
                     transcriptDict[item.id] = it
                 }
             }
-
             is Message -> {
                 // Remove typing indicators when a new message from the agent is received
                 if (item.participant == Constants.AGENT) {
@@ -243,11 +253,17 @@ class ChatServiceImpl @Inject constructor(
                     }
                 }
 
-                // TODO ; Handle temporary attachment here
-
-                transcriptDict[item.id] = item
+                val tempMessageId = attachmentIdToTempMessageId[item.attachmentId]
+                if (tempMessageId != null) {
+                    val tempMessage = transcriptDict[tempMessageId] as? Message
+                    if (tempMessage != null) {
+                        updateTemporaryMessageForAttachments(tempMessage, item, transcriptDict)
+                    }
+                    attachmentIdToTempMessageId.remove(item.attachmentId)
+                }else {
+                    transcriptDict[item.id] = item
+                }
             }
-
             is Event -> {
                 handleEvent(item, transcriptDict)
             }
@@ -356,6 +372,20 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
+    private fun updateTemporaryMessageForAttachments(tempMessage: Message,
+                                                     message: Message,
+                                                     currentDict: MutableMap<String, TranscriptItem>){
+        tempMessage.updateId(message.id)
+        tempMessage.updateTimeStamp(message.timeStamp)
+        tempMessage.text = message.text
+        tempMessage.contentType = message.contentType
+        tempMessage.attachmentId = message.attachmentId
+        currentDict.remove(tempMessage.id)
+        currentDict[message.id] = tempMessage
+        handleTranscriptItemUpdate(tempMessage)
+    }
+
+
     override suspend fun disconnectChatSession(): Result<Boolean> {
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
@@ -390,7 +420,7 @@ class ChatServiceImpl @Inject constructor(
 
         return runCatching {
             val response = awsClient.sendMessage(
-                connectionToken = connectionDetails.connectionToken!!,
+                connectionToken = connectionDetails.connectionToken,
                 contentType = contentType,
                 message = message
             ).getOrThrow()
@@ -494,10 +524,32 @@ class ChatServiceImpl @Inject constructor(
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
 
+
+            // TODO : Needs to adjust send attachment in Attachments manager to return results
+//            val recentlySentAttachmentMessage = TranscriptItemUtils.createDummyMessage(
+//                content = fileUri.getOriginalFileName(context) ?: "Attachment",
+//                contentType = getMimeType(fileUri.toString()),
+//                status = MessageStatus.Sending,
+//                attachmentId = UUID.randomUUID().toString(),
+//                displayName = getRecentDisplayName()
+//            )
+//
+//            sendSingleUpdateToClient(recentlySentAttachmentMessage)
+
             attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
             true
         }.onFailure { exception ->
             Log.e("ChatServiceImpl", "Failed to send attachment: ${exception.message}", exception)
+        }
+    }
+
+    override suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL> {
+        return runCatching {
+            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+                ?: throw Exception("No connection details available")
+            attachmentsManager.downloadAttachment(attachmentId, fileName, connectionDetails.connectionToken).getOrThrow()
+        }.onFailure { exception ->
+            Log.e("ChatServiceImpl", "Failed to download attachment: ${exception.message}", exception)
         }
     }
 

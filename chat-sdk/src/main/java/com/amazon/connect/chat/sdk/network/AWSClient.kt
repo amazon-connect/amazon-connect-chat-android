@@ -12,6 +12,8 @@ import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadR
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import com.amazonaws.services.connectparticipant.model.GetAttachmentRequest
+import com.amazonaws.services.connectparticipant.model.GetAttachmentResult
 import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
 import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
 import com.amazonaws.services.connectparticipant.model.SendEventRequest
@@ -82,6 +84,14 @@ interface AWSClient {
      * @return A Result containing the complete attachment upload result if successful, or an exception if an error occurred.
      */
     suspend fun completeAttachmentUpload(connectionToken: String, request: CompleteAttachmentUploadRequest): Result<CompleteAttachmentUploadResult>
+
+    /**
+     * Retrieves an attachment using a connection token and attachment ID.
+     * @param connectionToken The connection token.
+     * @param attachmentId The attachment ID.
+     * @return A Result containing the get attachment result if successful, or an exception if an error occurred.
+     */
+    suspend fun getAttachment(connectionToken: String, attachmentId: String): Result<GetAttachmentResult>
 
     /**
      * Retrieves a transcript using a get transcript request.
@@ -185,6 +195,23 @@ class AWSClientImpl @Inject constructor(
             runCatching {
                 val response = connectParticipantClient.completeAttachmentUpload(request)
                 Log.d("AWSClientImpl", "completeAttachmentUpload: $response")
+                response
+            }
+        }
+    }
+
+    override suspend fun getAttachment(
+        connectionToken: String,
+        attachmentId: String
+    ): Result<GetAttachmentResult> {
+        return withContext(Dispatchers.IO){
+            runCatching {
+                val request = GetAttachmentRequest().apply {
+                    this.connectionToken = connectionToken
+                    this.attachmentId = attachmentId
+                }
+                val response = connectParticipantClient.getAttachment(request)
+                Log.d("AWSClientImpl", "getAttachment: $response")
                 response
             }
         }
