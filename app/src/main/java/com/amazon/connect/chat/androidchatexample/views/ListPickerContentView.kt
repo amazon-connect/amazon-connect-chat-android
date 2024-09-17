@@ -72,7 +72,6 @@ fun ListPickerContentView(
                         .data(content.imageUrl)
                         .crossfade(true)
                         .build(),
-                    placeholder = painterResource(R.drawable.placeholder),
                     contentDescription = "Content Description",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -152,7 +151,6 @@ fun ListPickerOption(
                         .data(imageUrl)
                         .crossfade(true)
                         .build(),
-                    placeholder = painterResource(R.drawable.placeholder),
                     contentDescription = "Content Description",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
