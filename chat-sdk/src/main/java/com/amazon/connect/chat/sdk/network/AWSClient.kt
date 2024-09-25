@@ -123,7 +123,6 @@ class AWSClientImpl @Inject constructor(
                     connectionToken = response.connectionCredentials.connectionToken,
                     expiry = response.websocket.connectionExpiry
                 )
-                Log.d("AWSClientImpl", "createParticipantConnection: $connectionDetails")
                 connectionDetails // Ensure this is the last expression
             }
         }

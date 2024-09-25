@@ -13,6 +13,7 @@ import com.amazon.connect.chat.androidchatexample.Config
 import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
 import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
 import com.amazon.connect.chat.androidchatexample.models.StartChatResponse
+import com.amazon.connect.chat.androidchatexample.network.ChatConfigProvider
 import com.amazon.connect.chat.androidchatexample.network.Resource
 import com.amazon.connect.chat.androidchatexample.repository.ChatRepository
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
@@ -36,8 +37,8 @@ class ChatViewModel @Inject constructor(
     private val chatSession: ChatSession, // Injected ChatSession
     private val chatRepository: ChatRepository,
     private val sharedPreferences: SharedPreferences,
+    private val chatConfigProvider: ChatConfigProvider
 ) : ViewModel() {
-    private val chatConfiguration = Config
     private val _isLoading = MutableLiveData(false)
     val isLoading: MutableLiveData<Boolean> = _isLoading
 
@@ -56,10 +57,24 @@ class ChatViewModel @Inject constructor(
     private val _liveParticipantToken = MutableLiveData<String?>(sharedPreferences.getString("participantToken", null))
     val liveParticipantToken: LiveData<String?> = _liveParticipantToken
 
+    // LiveData to track the selected configuration
+    private val _selectedConfigIndex = MutableLiveData(0)
+    val selectedConfigIndex: LiveData<Int> = _selectedConfigIndex
+
+    // Update configurations based on the selected index
+    val chatConfiguration: Config.ChatConfig
+        get() = Config.configurations[_selectedConfigIndex.value ?: 0]
+
+    fun setSelectedConfig(index: Int) {
+        _selectedConfigIndex.value = index
+        chatConfigProvider.updateConfig(index) // Update the current configuration
+    }
+
+
     private var participantToken: String?
         get() = liveParticipantToken.value
         set(value) {
-            sharedPreferences.edit().putString("participantToken", value).apply()
+//            sharedPreferences.edit().putString("participantToken", value).apply()
             _liveParticipantToken.value = value  // Reflect the new value in LiveData
         }
 
@@ -121,14 +136,15 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _messages.postValue(emptyList()) // Clear existing messages
-            if (participantToken != null) {
-                participantToken?.let {
-                    val chatDetails = ChatDetails(participantToken = it)
-                    createParticipantConnection(chatDetails)
-                }
-            } else {
-                startChat() // Start a fresh chat if no tokens are present
-            }
+//            if (participantToken != null) {
+//                participantToken?.let {
+//                    val chatDetails = ChatDetails(participantToken = it)
+//                    createParticipantConnection(chatDetails)
+//                }
+//            } else {
+//                startChat() // Start a fresh chat if no tokens are present
+//            }
+            startChat() // Start a fresh chat if no tokens are present
         }
     }
 
@@ -141,7 +157,7 @@ class ChatViewModel @Inject constructor(
                 contactFlowId = chatConfiguration.contactFlowId,
                 participantDetails = participantDetails
             )
-            when (val response = chatRepository.startChat(startChatRequest = request)) {
+            when (val response = chatRepository.startChat(endpoint = chatConfiguration.startChatEndpoint,startChatRequest = request)) {
                 is Resource.Success -> {
                     response.data?.data?.startChatResult?.let { result ->
                         this@ChatViewModel.participantToken = result.participantToken
@@ -196,7 +212,7 @@ class ChatViewModel @Inject constructor(
                 CommonUtils.getMessageDirection(transcriptItem)
                 transcriptItem
             }
-            _messages.value = updatedMessages
+            _messages.postValue(updatedMessages)
             Log.d("ChatViewModel", "Transcript updated: ${_messages.value}")
         }
     }
