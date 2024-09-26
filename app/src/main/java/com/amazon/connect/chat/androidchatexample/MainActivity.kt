@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -61,6 +62,7 @@ import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatand
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.getOriginalFileName
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.previewFileFromCacheOrDownload
 import com.amazon.connect.chat.androidchatexample.views.AttachmentTextView
+import com.amazon.connect.chat.androidchatexample.views.ConfigPicker
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import dagger.hilt.android.AndroidEntryPoint
 import java.net.URL
@@ -71,6 +73,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Disable screenshots
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
 
         chatViewModel = ViewModelProvider(this)[ChatViewModel::class.java]
         setContent {
@@ -209,7 +217,12 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
             }
         }
 
-        ParticipantTokenSection(activity, viewModel)
+
+        Column {
+            ConfigPicker(viewModel) // Include the configuration picker here
+//            ParticipantTokenSection(activity, viewModel)
+        }
+//        ParticipantTokenSection(activity, viewModel)
 
         AnimatedVisibility(
             visible = showCustomSheet,
@@ -317,12 +330,12 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
         ) {
             // Display the chat messages
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
-                itemsIndexed(messages) { index, message ->
+                itemsIndexed(messages, key = { index, message -> message.id }) { index, message ->
                     ChatMessage(
                         transcriptItem = message,
                         viewModel = viewModel,
                         onPreviewAttachment = onPreviewAttachment,
-                        recentOutgoingMessageID = messages.getOrNull(index)?.id // TODO; Needs to be updated
+                        recentOutgoingMessageID = messages.getOrNull(index)?.id
                     )
                     LaunchedEffect(key1 = message, key2 = index) {
                         if (message.contentType == ContentType.ENDED.type) {

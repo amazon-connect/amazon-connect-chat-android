@@ -38,7 +38,7 @@ class ApiService {
             .build()
 
         return Retrofit.Builder()
-            .baseUrl(chatConfiguration.startChatEndpoint)
+            .baseUrl("https://www.example.com/") // Placeholder URL
             .addConverterFactory(GsonConverterFactory.create())
             .client(okHttpClient)
             .build()
