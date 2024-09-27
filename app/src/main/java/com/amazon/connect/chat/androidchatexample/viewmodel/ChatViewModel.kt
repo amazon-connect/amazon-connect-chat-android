@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -48,8 +49,8 @@ class ChatViewModel @Inject constructor(
     private val _selectedFileUri = MutableLiveData(Uri.EMPTY)
     val selectedFileUri: MutableLiveData<Uri> = _selectedFileUri
 
-    private val _messages = MutableLiveData<List<TranscriptItem>>()
-    val messages: LiveData<List<TranscriptItem>> = _messages
+    var messages = mutableStateListOf<TranscriptItem>()
+        private set
 
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
@@ -74,7 +75,7 @@ class ChatViewModel @Inject constructor(
     private var participantToken: String?
         get() = liveParticipantToken.value
         set(value) {
-//            sharedPreferences.edit().putString("participantToken", value).apply()
+            sharedPreferences.edit().putString("participantToken", value).apply()
             _liveParticipantToken.value = value  // Reflect the new value in LiveData
         }
 
@@ -135,16 +136,16 @@ class ChatViewModel @Inject constructor(
     fun initiateChat() {
         viewModelScope.launch {
             _isLoading.value = true
-            _messages.postValue(emptyList()) // Clear existing messages
-//            if (participantToken != null) {
-//                participantToken?.let {
-//                    val chatDetails = ChatDetails(participantToken = it)
-//                    createParticipantConnection(chatDetails)
-//                }
-//            } else {
-//                startChat() // Start a fresh chat if no tokens are present
-//            }
-            startChat() // Start a fresh chat if no tokens are present
+            messages = mutableStateListOf() // Clear existing messages.postValue(emptyList()) // Clear existing messages
+            if (participantToken != null) {
+                participantToken?.let {
+                    val chatDetails = ChatDetails(participantToken = it)
+                    createParticipantConnection(chatDetails)
+                }
+            } else {
+                startChat() // Start a fresh chat if no tokens are present
+            }
+//            startChat() // Start a fresh chat if no tokens are present
         }
     }
 
@@ -203,6 +204,7 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun onUpdateTranscript(transcriptList: List<TranscriptItem>) {
+        messages.clear()
         viewModelScope.launch {
             val tempTranscriptList = transcriptList.toList()
             val updatedMessages = tempTranscriptList.map { transcriptItem ->
@@ -212,8 +214,8 @@ class ChatViewModel @Inject constructor(
                 CommonUtils.getMessageDirection(transcriptItem)
                 transcriptItem
             }
-            _messages.postValue(updatedMessages)
-            Log.d("ChatViewModel", "Transcript updated: ${_messages.value}")
+            messages.addAll(updatedMessages)
+            Log.d("ChatViewModel", "Transcript updated: $messages")
         }
     }
 
@@ -251,7 +253,7 @@ class ChatViewModel @Inject constructor(
     // Fetches transcripts
     fun fetchTranscript(onCompletion: (Boolean) -> Unit) {
         viewModelScope.launch {
-            chatSession.getTranscript(ScanDirection.BACKWARD, SortKey.DESCENDING, 30, null, _messages.value?.get(0)?.id).onSuccess {
+            chatSession.getTranscript(ScanDirection.BACKWARD, SortKey.DESCENDING, 30, null, messages?.get(0)?.id).onSuccess {
                 Log.d("ChatViewModel", "Transcript fetched successfully")
                 onCompletion(true)
             }.onFailure {
@@ -273,7 +275,7 @@ class ChatViewModel @Inject constructor(
     }
 
     // Request code for selecting a PDF document.
-    val PICK_PDF_FILE = 2
+    private val PICK_PDF_FILE = 2
 
     fun openFile(activity: Activity) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {

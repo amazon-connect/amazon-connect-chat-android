@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk.repository
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import com.amazon.connect.chat.sdk.model.ChatDetails
@@ -20,6 +21,8 @@ import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.PendingMessageReceipts
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getMimeType
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getOriginalFileName
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.TranscriptItemUtils
 import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
@@ -36,6 +39,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import java.net.URL
 import java.util.Timer
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.concurrent.schedule
 
@@ -118,6 +122,7 @@ interface ChatService {
 }
 
 class ChatServiceImpl @Inject constructor(
+    private val context: Context,
     private val awsClient: AWSClient,
     private val connectionDetailsProvider: ConnectionDetailsProvider,
     private val webSocketManager: WebSocketManager,
@@ -361,7 +366,7 @@ class ChatServiceImpl @Inject constructor(
                 }
             } else {
                 // Update the placeholder message's ID to the new ID
-                placeholderMessage.updateId(newId)
+                (placeholderMessage as TranscriptItem).updateId(newId)
                 placeholderMessage.metadata?.status = MessageStatus.Sent
                 transcriptDict.remove(oldId)
                 transcriptDict[newId] = placeholderMessage
@@ -519,29 +524,90 @@ class ChatServiceImpl @Inject constructor(
         throttleTypingEventTimer?.cancel()
     }
 
-    override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
-        return runCatching {
-            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
-                ?: throw Exception("No connection details available")
-
-
-            // TODO : Needs to adjust send attachment in Attachments manager to return results
-//            val recentlySentAttachmentMessage = TranscriptItemUtils.createDummyMessage(
+//    override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
+//        var recentlySentAttachmentMessage: Message? = null
+//
+//        return runCatching {
+//            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+//                ?: throw Exception("No connection details available")
+//
+//            // Create the dummy message and send it to the client UI
+//            recentlySentAttachmentMessage = TranscriptItemUtils.createDummyMessage(
 //                content = fileUri.getOriginalFileName(context) ?: "Attachment",
 //                contentType = getMimeType(fileUri.toString()),
 //                status = MessageStatus.Sending,
-//                attachmentId = UUID.randomUUID().toString(),
+//                attachmentId = UUID.randomUUID().toString(),  // Temporary attachmentId
 //                displayName = getRecentDisplayName()
 //            )
 //
-//            sendSingleUpdateToClient(recentlySentAttachmentMessage)
+//            sendSingleUpdateToClient(recentlySentAttachmentMessage!!)
+//
+//            // Get the attachmentId by starting the upload
+//            val attachmentIdResult = attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
+//
+//            // Get the attachmentId immediately
+//            val attachmentId = attachmentIdResult.getOrThrow()
+//
+//            attachmentIdToTempMessageId[attachmentId] = recentlySentAttachmentMessage!!.id
+//
+//            true
+//        }.onFailure { exception ->
+//            // Update the recentlySentAttachmentMessage with a failure status if the message was created
+//            recentlySentAttachmentMessage?.let {
+//                it.metadata?.status = MessageStatus.Failed
+//                sendSingleUpdateToClient(it)
+//            }
+//            Log.e("ChatServiceImpl", "Failed to send attachment: ${exception.message}", exception)
+//        }
+//    }
 
-            attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
+    override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
+        var recentlySentAttachmentMessage: Message? = null
+
+        return runCatching {
+            Log.d("sendAttachment", "Starting attachment process for URI: $fileUri")
+
+            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+                ?: throw Exception("No connection details available")
+
+            Log.d("sendAttachment", "Connection details fetched: $connectionDetails")
+
+            // Create the dummy message and send it to the client UI
+            recentlySentAttachmentMessage = TranscriptItemUtils.createDummyMessage(
+                content = fileUri.getOriginalFileName(context) ?: "Attachment",
+                contentType = getMimeType(fileUri.toString()),
+                status = MessageStatus.Sending,
+                attachmentId = UUID.randomUUID().toString(),  // Temporary attachmentId
+                displayName = getRecentDisplayName()
+            )
+
+            Log.d("sendAttachment", "Dummy message created: $recentlySentAttachmentMessage")
+            sendSingleUpdateToClient(recentlySentAttachmentMessage!!)
+
+            // Get the attachmentId by starting the upload
+            val attachmentIdResult = attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
+
+            // Log the result of the attachment upload
+            Log.d("sendAttachment", "Attachment upload result: ${attachmentIdResult.getOrNull()}")
+
+            // Get the attachmentId immediately
+            val attachmentId = attachmentIdResult.getOrThrow()
+            Log.d("sendAttachment", "Attachment ID received: $attachmentId")
+
+            attachmentIdToTempMessageId[attachmentId] = recentlySentAttachmentMessage!!.id
+
             true
         }.onFailure { exception ->
-            Log.e("ChatServiceImpl", "Failed to send attachment: ${exception.message}", exception)
+            // Update the recentlySentAttachmentMessage with a failure status if the message was created
+            Log.e("sendAttachment", "Failed to send attachment: ${exception.message}", exception)
+            recentlySentAttachmentMessage?.let {
+                it.metadata?.status = MessageStatus.Failed
+                sendSingleUpdateToClient(it)
+                Log.e("sendAttachment", "Message status updated to Failed: $it")
+            }
         }
     }
+
 
     override suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL> {
         return runCatching {

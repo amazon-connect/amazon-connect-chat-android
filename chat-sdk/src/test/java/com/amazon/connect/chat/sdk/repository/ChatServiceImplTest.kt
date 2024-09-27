@@ -1,5 +1,8 @@
 package com.amazon.connect.chat.sdk.repository
 
+import android.content.ContentResolver
+import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
@@ -13,6 +16,7 @@ import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getOriginalFileName
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
 import junit.framework.TestCase.assertEquals
@@ -43,6 +47,9 @@ class ChatServiceImplTest {
     private lateinit var awsClient: AWSClient
 
     @Mock
+    private lateinit var context: Context
+
+    @Mock
     private lateinit var connectionDetailsProvider: ConnectionDetailsProvider
 
     @Mock
@@ -64,7 +71,7 @@ class ChatServiceImplTest {
     private lateinit var transcriptListSharedFlow: MutableSharedFlow<List<TranscriptItem>>
 
 
-    private val mockUri: Uri = Uri.parse("https://example.com/dummy")
+    private val mockUri: Uri = Uri.parse("https://example.com/dummy.pdf")
 
     @Before
     fun setUp() {
@@ -80,6 +87,7 @@ class ChatServiceImplTest {
         `when`(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
 
         chatService = ChatServiceImpl(
+            context,
             awsClient,
             connectionDetailsProvider,
             webSocketManager,
@@ -162,21 +170,39 @@ class ChatServiceImplTest {
 
     @Test
     fun test_sendAttachment_success() = runTest {
-        val mockConnectionDetails = createMockConnectionDetails("valid_token")
-        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
-        `when`(attachmentsManager.sendAttachment(mockConnectionDetails.connectionToken, mockUri)).thenReturn(Unit)
+        // Mock Context and ContentResolver
+        val mockContentResolver = mock(ContentResolver::class.java)
 
+        // Mock URI and file name retrieval
+        `when`(context.contentResolver).thenReturn(mockContentResolver)
+
+        // Mock connection details and attachment manager
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        val mockAttachmentId = "attachment123"
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(attachmentsManager.sendAttachment(mockConnectionDetails.connectionToken, mockUri)).thenReturn(Result.success(mockAttachmentId))
+
+        // Call the sendAttachment method
         val result = chatService.sendAttachment(mockUri)
 
+        // Verify the result
         assertTrue(result.isSuccess)
         verify(connectionDetailsProvider).getConnectionDetails()
         verify(attachmentsManager).sendAttachment(mockConnectionDetails.connectionToken, mockUri)
     }
 
+
     @Test
     fun test_sendAttachment_failure() = runTest {
+        // Mock Context and ContentResolver
+        val mockContentResolver = mock(ContentResolver::class.java)
+
+        // Mock URI and file name retrieval
+        `when`(context.contentResolver).thenReturn(mockContentResolver)
+
         val mockConnectionDetails = createMockConnectionDetails("invalid_token")
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+
         `when`(attachmentsManager.sendAttachment(mockConnectionDetails.connectionToken, mockUri)).thenThrow(RuntimeException("Network error"))
 
         val result = chatService.sendAttachment(mockUri)

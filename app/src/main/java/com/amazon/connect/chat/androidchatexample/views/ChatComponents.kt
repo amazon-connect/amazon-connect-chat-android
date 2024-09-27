@@ -1,6 +1,7 @@
 package com.amazon.connect.chat.androidchatexample.views
 
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,7 +47,7 @@ fun ChatMessageView(
                     if (transcriptItem.attachmentId != null) {
                         AttachmentMessageView(transcriptItem, viewModel, recentOutgoingMessageID, onPreviewAttachment)
                     } else {
-                        SenderChatBubble(transcriptItem)
+                        SenderChatBubble(transcriptItem, recentOutgoingMessageID)
                     }
                 }
                 MessageDirection.INCOMING -> {
@@ -77,7 +78,10 @@ fun ChatMessageView(
 
 
 @Composable
-fun SenderChatBubble(message: Message) {
+fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null) {
+
+    Log.d("Rending message Temp Message", message.toString())
+
     Column(
         horizontalAlignment = Alignment.End,
         modifier = Modifier
@@ -110,13 +114,15 @@ fun SenderChatBubble(message: Message) {
                 }
             }
         }
-        // TODO : update receipts
+
         message.metadata?.status?.let {
-            Text(
-                text = it.status,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
+            if (message.id == recentOutgoingMessageID) {
+                Text(
+                    text = it.status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
         }
     }
 }

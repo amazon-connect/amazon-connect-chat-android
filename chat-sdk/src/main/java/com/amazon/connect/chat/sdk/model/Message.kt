@@ -17,23 +17,18 @@ interface MessageProtocol : TranscriptItemProtocol {
     var metadata: MessageMetadataProtocol?
 }
 
-class Message(
+data class Message(
+    override var id: String,
+    override var timeStamp: String,
+    override var contentType: String,
+    override var serializedContent: Map<String, Any>? = null,
     override var participant: String,
     override var text: String,
-    contentType: String,
     override var displayName: String? = null,
     override var messageDirection: MessageDirection? = null,
-    timeStamp: String,
     var attachmentId: String? = null,
-    id: String,
-    override var metadata: MessageMetadataProtocol? = null,
-    serializedContent: Map<String, Any>? = null
-) : TranscriptItem(
-    id = id,
-    timeStamp = timeStamp,
-    contentType = contentType,
-    serializedContent = serializedContent
-), MessageProtocol {
+    override var metadata: MessageMetadataProtocol? = null
+) : TranscriptItem(id, timeStamp, contentType, serializedContent), MessageProtocol {
 
     val content: MessageContent?
         get() = when (contentType) {

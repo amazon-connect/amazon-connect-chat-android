@@ -37,6 +37,7 @@ object ChatModule {
     @Provides
     @Singleton
     fun provideChatService(
+        context: Context,
         awsClient: AWSClient,
         connectionDetailsProvider: ConnectionDetailsProvider,
         webSocketManager: WebSocketManager,
@@ -44,7 +45,7 @@ object ChatModule {
         attachmentsManager: AttachmentsManager,
         messageReceiptsManager: MessageReceiptsManager,
     ): ChatService {
-        return ChatServiceImpl(awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager, messageReceiptsManager)
+        return ChatServiceImpl(context, awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager, messageReceiptsManager)
     }
 
     /**

@@ -27,32 +27,43 @@ class AttachmentsManager @Inject constructor(
     private var apiClient: APIClient
 ) {
 
-    suspend fun sendAttachment(connectionToken: String, fileUri: Uri) {
-        val startAttachmentUploadRequest = createStartAttachmentUploadRequest(connectionToken, fileUri)
-        val fileExtension = getFileExtension(startAttachmentUploadRequest.attachmentName)
-        if (!Constants.attachmentTypeMap.containsKey(fileExtension)) {
-            Log.d("AttachmentsManager", "Unsupported file type: $fileExtension")
-            return
-        }
-        val startAttachmentResult = awsClient.startAttachmentUpload(connectionToken, startAttachmentUploadRequest)
-        val startAttachmentResponse = startAttachmentResult.getOrNull()
-        if (startAttachmentResponse == null) {
-            val exception = startAttachmentResult.exceptionOrNull()
-            println("Error occurred: ${exception?.message}")
-            return
-        }
-        val attachmentId = startAttachmentResponse.attachmentId
-        val file = fileFromContentUri(fileUri, fileExtension)
-        apiClient.uploadAttachment(startAttachmentResponse.uploadMetadata.url, startAttachmentResponse.uploadMetadata.headersToInclude, file) { response ->
-            CoroutineScope(Dispatchers.IO).launch {
-                if (response != null && response.isSuccessful) {
-                    completeAttachmentUpload(connectionToken, attachmentId)
-                } else {
-                    val exception = response?.message()
-                    println("Error occurred: $exception")
-                }
-                file.deleteRecursively()
+    suspend fun sendAttachment(connectionToken: String, fileUri: Uri) : Result<String> {
+        return runCatching {
+            val startAttachmentUploadRequest =
+                createStartAttachmentUploadRequest(connectionToken, fileUri)
+            val fileExtension = getFileExtension(startAttachmentUploadRequest.attachmentName)
+            if (!Constants.attachmentTypeMap.containsKey(fileExtension)) {
+                Log.d("AttachmentsManager", "Unsupported file type: $fileExtension")
+                throw Exception("Unsupported file type")
             }
+
+            val startAttachmentResult =
+                awsClient.startAttachmentUpload(connectionToken, startAttachmentUploadRequest)
+
+            val startAttachmentResponse = startAttachmentResult.getOrNull()
+                ?: throw startAttachmentResult.exceptionOrNull() ?: Exception("Error starting attachment upload")
+
+            val attachmentId = startAttachmentResponse.attachmentId
+
+            val file = fileFromContentUri(fileUri, fileExtension)
+
+            apiClient.uploadAttachment(
+                startAttachmentResponse.uploadMetadata.url,
+                startAttachmentResponse.uploadMetadata.headersToInclude,
+                file
+            ) { response ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    if (response != null && response.isSuccessful) {
+                        completeAttachmentUpload(connectionToken, attachmentId)
+                    } else {
+                        val exception = response?.message()
+                        println("Error occurred: $exception")
+                    }
+                    file.deleteRecursively()
+                }
+            }
+
+            attachmentId
         }
     }
 
