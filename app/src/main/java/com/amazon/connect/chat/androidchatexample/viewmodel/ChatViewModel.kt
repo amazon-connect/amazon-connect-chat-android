@@ -136,7 +136,7 @@ class ChatViewModel @Inject constructor(
     fun initiateChat() {
         viewModelScope.launch {
             _isLoading.value = true
-            messages = mutableStateListOf() // Clear existing messages.postValue(emptyList()) // Clear existing messages
+            messages = mutableStateListOf() // Clear existing messages
             if (participantToken != null) {
                 participantToken?.let {
                     val chatDetails = ChatDetails(participantToken = it)
@@ -145,7 +145,6 @@ class ChatViewModel @Inject constructor(
             } else {
                 startChat() // Start a fresh chat if no tokens are present
             }
-//            startChat() // Start a fresh chat if no tokens are present
         }
     }
 
@@ -274,8 +273,8 @@ class ChatViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
-    // Request code for selecting a PDF document.
-    private val PICK_PDF_FILE = 2
+    // Request code for selecting an attachment
+    private val PICK_ATTACHMENT = 2
 
     fun openFile(activity: Activity) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -283,7 +282,7 @@ class ChatViewModel @Inject constructor(
             type = "*/*"
         }
 
-        activity.startActivityForResult(intent, PICK_PDF_FILE)
+        activity.startActivityForResult(intent, PICK_ATTACHMENT)
     }
 
 

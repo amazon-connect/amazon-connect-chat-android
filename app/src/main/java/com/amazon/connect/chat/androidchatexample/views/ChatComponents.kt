@@ -79,9 +79,6 @@ fun ChatMessageView(
 
 @Composable
 fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null) {
-
-    Log.d("Rending message Temp Message", message.toString())
-
     Column(
         horizontalAlignment = Alignment.End,
         modifier = Modifier

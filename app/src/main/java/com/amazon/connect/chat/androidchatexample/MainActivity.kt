@@ -421,7 +421,6 @@ fun ChatMessage(
     recentOutgoingMessageID: String?,
     onPreviewAttachment: (URL, String) -> Unit
 ) {
-    Log.d("ChatMessage Temp message", "transcriptItem rendering: $transcriptItem")
     ChatMessageView(transcriptItem = transcriptItem, viewModel = viewModel, onPreviewAttachment = onPreviewAttachment, recentOutgoingMessageID = recentOutgoingMessageID)
 }
 
