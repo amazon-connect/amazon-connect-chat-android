@@ -7,18 +7,13 @@ interface EventProtocol : TranscriptItemProtocol {
     var eventDirection: MessageDirection?
 }
 
-class Event(
+data class Event(
     override var participant: String? = null,
     override var text: String? = null,
     override var displayName: String? = null,
     override var eventDirection: MessageDirection? = MessageDirection.COMMON,
-    timeStamp: String,
-    contentType: String,
-    id: String,
-    serializedContent: Map<String, Any>? = null
-) : TranscriptItem(
-    id = id,
-    timeStamp = timeStamp,
-    contentType = contentType,
-    serializedContent = serializedContent
-), EventProtocol {}
+    override var timeStamp: String,
+    override var contentType: String,
+    override var id: String,
+    override var serializedContent: Map<String, Any>? = null
+) : TranscriptItem(id, timeStamp, contentType, serializedContent), EventProtocol

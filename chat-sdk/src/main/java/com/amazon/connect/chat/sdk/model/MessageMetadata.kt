@@ -14,16 +14,11 @@ interface MessageMetadataProtocol : TranscriptItemProtocol {
     var eventDirection: MessageDirection?
 }
 
-class MessageMetadata(
+data class MessageMetadata(
     override var status: MessageStatus? = null,
     override var eventDirection: MessageDirection? = MessageDirection.COMMON,
-    timeStamp: String,
-    contentType: String,
-    id: String,
-    serializedContent: Map<String, Any>? = null
-) : TranscriptItem(
-    id = id,
-    timeStamp = timeStamp,
-    contentType = contentType,
-    serializedContent = serializedContent
-), MessageMetadataProtocol {}
+    override var timeStamp: String,
+    override var contentType: String,
+    override var id: String,
+    override var serializedContent: Map<String, Any>? = null
+) : TranscriptItem(id, timeStamp, contentType, serializedContent), MessageMetadataProtocol

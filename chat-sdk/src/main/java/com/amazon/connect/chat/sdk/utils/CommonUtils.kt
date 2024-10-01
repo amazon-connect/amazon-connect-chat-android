@@ -1,6 +1,10 @@
 package com.amazon.connect.chat.sdk.utils
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.view.ViewTreeObserver
+import android.webkit.MimeTypeMap
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,9 +25,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.amazonaws.services.connectparticipant.AmazonConnectParticipant
-import com.amazonaws.services.connectparticipant.model.ChatItemType
-import com.amazonaws.services.connectparticipant.model.ParticipantRole
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -104,6 +105,19 @@ class CommonUtils {
             val isoFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.getDefault())
             isoFormatter.timeZone = TimeZone.getTimeZone("UTC")
             return isoFormatter.format(currentDate)
+        }
+
+        fun Uri.getOriginalFileName(context: Context): String? {
+            return context.contentResolver.query(this, null, null, null, null)?.use {
+                val nameColumnIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                it.moveToFirst()
+                it.getString(nameColumnIndex)
+            }
+        }
+
+        fun getMimeType(fileName: String): String {
+            val extension = fileName.substringAfterLast('.', "")
+            return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
         }
     }
 

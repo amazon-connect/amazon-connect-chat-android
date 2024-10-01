@@ -2,6 +2,7 @@ package com.amazon.connect.chat.androidchatexample.views
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -144,21 +145,20 @@ fun AttachmentMessageView(
                 }
             }
 
-            // TODO
-//            if (message.messageDirection == MessageDirection.OUTGOING) {
-//                Row(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(top = 4.dp),
-//                    horizontalArrangement = Arrangement.End
-//                ) {
-//                    Text(
-//                        text = CommonUtils.customMessageStatus(message.metadata?.status),
-//                        fontSize = 10.sp,
-//                        color = Color.Gray
-//                    )
-//                }
-//            }
+            if (message.messageDirection == MessageDirection.OUTGOING && message.id == recentOutgoingMessageID) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = CommonUtils.customMessageStatus(message.metadata?.status),
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
         }
     }
 }

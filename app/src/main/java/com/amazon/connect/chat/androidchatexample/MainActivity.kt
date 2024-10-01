@@ -63,6 +63,7 @@ import com.amazon.connect.chat.androidchatexample.utils.FileUtils.getOriginalFil
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.previewFileFromCacheOrDownload
 import com.amazon.connect.chat.androidchatexample.views.AttachmentTextView
 import com.amazon.connect.chat.androidchatexample.views.ConfigPicker
+import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import dagger.hilt.android.AndroidEntryPoint
 import java.net.URL
@@ -219,8 +220,8 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
 
 
         Column {
+            ParticipantTokenSection(activity, viewModel)
             ConfigPicker(viewModel) // Include the configuration picker here
-//            ParticipantTokenSection(activity, viewModel)
         }
 //        ParticipantTokenSection(activity, viewModel)
 
@@ -268,7 +269,7 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatView(viewModel: ChatViewModel, activity: Activity) {
-    val messages by viewModel.messages.observeAsState(listOf())
+    val messages = viewModel.messages
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     var isKeyboardVisible = keyboardAsState().value
@@ -278,6 +279,7 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
     var isRefreshing by remember { mutableStateOf(false) }
     val state = rememberPullToRefreshState()
     val coroutineScope = rememberCoroutineScope()
+    var recentOutgoingMessageID by remember { mutableStateOf<String?>(null) }
 
     val onPreviewAttachment: (URL, String) -> Unit = { uri, fileName->
         previewFileFromCacheOrDownload(activity, uri, fileName)
@@ -297,11 +299,20 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
         }
     }
 
-    LaunchedEffect(messages, isKeyboardVisible) {
+    // Scroll to the last message when messages change
+    LaunchedEffect(messages.lastOrNull()?.hashCode()) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
 
+        // Find last outgoing message and set recentOutgoingMessageID
+        recentOutgoingMessageID = messages.lastOrNull {
+            it is Message &&
+                    it.messageDirection == MessageDirection.OUTGOING
+        }?.id
+    }
+
+    LaunchedEffect(isKeyboardVisible) {
         // Send typing event only once when the keyboard is visible and there's input
         if (isKeyboardVisible && !hasSentTypingEvent) {
             Log.d("ChatView", "Sending typing event")
@@ -335,7 +346,7 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
                         transcriptItem = message,
                         viewModel = viewModel,
                         onPreviewAttachment = onPreviewAttachment,
-                        recentOutgoingMessageID = messages.getOrNull(index)?.id
+                        recentOutgoingMessageID = recentOutgoingMessageID
                     )
                     LaunchedEffect(key1 = message, key2 = index) {
                         if (message.contentType == ContentType.ENDED.type) {

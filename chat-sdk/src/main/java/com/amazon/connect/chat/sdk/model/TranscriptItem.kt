@@ -1,7 +1,5 @@
 package com.amazon.connect.chat.sdk.model
 
-import java.util.UUID
-
 interface TranscriptItemProtocol {
     val id: String
     val timeStamp: String
@@ -10,27 +8,36 @@ interface TranscriptItemProtocol {
 }
 
 open class TranscriptItem(
-    id: String = "",
-    timeStamp: String,
+    override var id: String,
+    override var timeStamp: String,
     override var contentType: String,
     override var serializedContent: Map<String, Any>? = null
 ) : TranscriptItemProtocol {
 
-    private var _id: String = id
-    private var _timeStamp: String = timeStamp
-
-    override val id: String
-        get() = _id
-
-    override val timeStamp: String
-        get() = _timeStamp
-
-    // Internal methods to update id and timeStamp if needed
     internal fun updateId(newId: String) {
-        _id = newId
+        this.id = newId
     }
 
     internal fun updateTimeStamp(newTimeStamp: String) {
-        _timeStamp = newTimeStamp
+        this.timeStamp = newTimeStamp
+    }
+
+    // Methods needed for comparison on item changes
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TranscriptItem) return false
+        return id == other.id &&
+                timeStamp == other.timeStamp &&
+                contentType == other.contentType &&
+                serializedContent == other.serializedContent
+    }
+
+    override fun hashCode(): Int {
+        var result = id.hashCode()
+        result = 31 * result + timeStamp.hashCode()
+        result = 31 * result + contentType.hashCode()
+        result = 31 * result + (serializedContent?.hashCode() ?: 0)
+        return result
     }
 }
+
