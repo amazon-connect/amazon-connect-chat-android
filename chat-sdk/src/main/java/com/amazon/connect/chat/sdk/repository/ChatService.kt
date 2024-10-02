@@ -25,6 +25,7 @@ import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getMimeType
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getOriginalFileName
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.TranscriptItemUtils
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
@@ -175,14 +176,10 @@ class ChatServiceImpl @Inject constructor(
             metricsManager.addCountMetric(MetricName.CreateParticipantConnection);
             connectionDetailsProvider.updateConnectionDetails(connectionDetails)
             setupWebSocket(connectionDetails.websocketUrl)
-            Log.d("ChatServiceImpl", "Participant Connected")
+            SDKLogger.logger.logDebug { "Participant Connected" }
             true
         }.onFailure { exception ->
-            Log.e(
-                "ChatServiceImpl",
-                "Failed to create chat session: ${exception.message}",
-                exception
-            )
+            SDKLogger.logger.logError { "Failed to create chat session: ${exception.message}" }
         }
     }
 
@@ -201,7 +198,7 @@ class ChatServiceImpl @Inject constructor(
                 when (event) {
                     ChatEvent.ConnectionEstablished -> {
                         connectionDetailsProvider.setChatSessionState(true)
-                        Log.d("ChatServiceImpl", "Connection Established")
+                        SDKLogger.logger.logDebug { "Connection Established" }
                         getTranscript(startPosition = null,
                             scanDirection = ScanDirection.BACKWARD,
                             sortKey = SortKey.ASCENDING,
@@ -210,17 +207,17 @@ class ChatServiceImpl @Inject constructor(
                     }
 
                     ChatEvent.ConnectionReEstablished -> {
-                        Log.d("ChatServiceImpl", "Connection Re-Established")
+                        SDKLogger.logger.logDebug { "Connection Re-Established" }
                         connectionDetailsProvider.setChatSessionState(true)
                         fetchReconnectedTranscript(internalTranscript)
                     }
 
                     ChatEvent.ChatEnded -> {
-                        Log.d("ChatServiceImpl", "Chat Ended")
+                        SDKLogger.logger.logDebug { "Chat Ended" }
                         connectionDetailsProvider.setChatSessionState(false)
                     }
 
-                    ChatEvent.ConnectionBroken -> Log.d("ChatServiceImpl", "Connection Broken")
+                    ChatEvent.ConnectionBroken -> SDKLogger.logger.logDebug { "Connection Broken" }
                 }
                 _eventPublisher.emit(event)
             }
@@ -341,7 +338,6 @@ class ChatServiceImpl @Inject constructor(
                 internalTranscript.add(item)
             }
         }
-        Log.d("ChatServiceImpl", "Updated transcript: $internalTranscript")
 
         // Send the updated transcript list to subscribers
         coroutineScope.launch {
@@ -397,16 +393,12 @@ class ChatServiceImpl @Inject constructor(
                 ?: throw Exception("No connection details available")
             awsClient.disconnectParticipantConnection(connectionDetails.connectionToken)
                 .getOrThrow()
-            Log.d("ChatServiceImpl", "Participant Disconnected")
+            SDKLogger.logger.logDebug { "Participant Disconnected" }
             connectionDetailsProvider.setChatSessionState(false)
             clearSubscriptionsAndPublishers()
             true
         }.onFailure { exception ->
-            Log.e(
-                "ChatServiceImpl",
-                "Failed to disconnect participant: ${exception.message}",
-                exception
-            )
+            SDKLogger.logger.logError { "Failed to disconnect participant: ${exception.message}" }
         }
     }
 
@@ -439,7 +431,7 @@ class ChatServiceImpl @Inject constructor(
         }.onFailure { exception ->
             recentlySentMessage.metadata?.status = MessageStatus.Failed
             sendSingleUpdateToClient(recentlySentMessage)
-            Log.e("ChatServiceImpl", "Failed to send message: ${exception.message}", exception)
+            SDKLogger.logger.logError { "Failed to send message: ${exception.message}" }
         }
     }
 
@@ -464,15 +456,13 @@ class ChatServiceImpl @Inject constructor(
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
             awsClient.sendEvent(connectionDetails.connectionToken, contentType, content).getOrThrow()
-            Log.d("ChatServiceImpl", "Event sent")
             true
         }.onFailure { exception ->
-            Log.e("ChatServiceImpl", "Failed to send event: ${exception.message}", exception)
+            SDKLogger.logger.logError { "Failed to send event: ${exception.message}" }
         }
     }
 
     private fun registerNotificationListeners() {
-        Log.d("ChatServiceImpl", "registerNotificationListeners")
         coroutineScope.launch {
             webSocketManager.requestNewWsUrlFlow.collect {
                 handleNewWsUrlRequest()
@@ -503,7 +493,7 @@ class ChatServiceImpl @Inject constructor(
                     updateTranscriptDict(endedEvent)
                     _eventPublisher.emit(ChatEvent.ChatEnded)
                 }
-                Log.e("ChatServiceImpl", "CreateParticipantConnection failed: $error")
+                SDKLogger.logger.logError { "CreateParticipantConnection failed: $error" }
             }
         }
     }
@@ -547,18 +537,17 @@ class ChatServiceImpl @Inject constructor(
 
             // Get the attachmentId immediately
             val attachmentId = attachmentIdResult.getOrThrow()
-            Log.d("sendAttachment", "Attachment ID received: $attachmentId")
 
             attachmentIdToTempMessageId[attachmentId] = recentlySentAttachmentMessage!!.id
 
             true
         }.onFailure { exception ->
             // Update the recentlySentAttachmentMessage with a failure status if the message was created
-            Log.e("sendAttachment", "Failed to send attachment: ${exception.message}", exception)
+            SDKLogger.logger.logError { "Failed to send attachment: ${exception.message}" }
             recentlySentAttachmentMessage?.let {
                 it.metadata?.status = MessageStatus.Failed
                 sendSingleUpdateToClient(it)
-                Log.e("sendAttachment", "Message status updated to Failed: $it")
+                SDKLogger.logger.logError { "Message status updated to Failed: $it" }
             }
         }
     }
@@ -570,7 +559,7 @@ class ChatServiceImpl @Inject constructor(
                 ?: throw Exception("No connection details available")
             attachmentsManager.downloadAttachment(attachmentId, fileName, connectionDetails.connectionToken).getOrThrow()
         }.onFailure { exception ->
-            Log.e("ChatServiceImpl", "Failed to download attachment: ${exception.message}", exception)
+            SDKLogger.logger.logError { "Failed to download attachment: ${exception.message}" }
         }
     }
 
@@ -602,8 +591,7 @@ class ChatServiceImpl @Inject constructor(
                 fetchTranscriptWith(startPosition = newStartPosition)
             }
         }.onFailure { error ->
-            // Handle error (e.g., log or show an error message)
-            println("Error fetching transcript with startPosition $startPosition: ${error.localizedMessage}")
+            SDKLogger.logger.logError { "Error fetching transcript with startPosition $startPosition: ${error.localizedMessage}" }
         }
     }
 
@@ -647,7 +635,7 @@ class ChatServiceImpl @Inject constructor(
                 transcript = formattedItems
             )
         }.onFailure { exception ->
-            Log.e("ChatServiceImpl", "Failed to get transcript: ${exception.message}", exception)
+            SDKLogger.logger.logError { "Failed to get transcript: ${exception.message}" }
         }
     }
 
@@ -659,22 +647,14 @@ class ChatServiceImpl @Inject constructor(
             val receiptResult = messageReceiptsManager.throttleAndSendMessageReceipt(messageReceiptType, messageId)
             receiptResult.fold(
                 onSuccess = { pendingMessageReceipts ->
-                    val sendResult = sendPendingMessageReceipts(pendingMessageReceipts)
-                    sendResult.onSuccess {
-                        Log.d("MessageReceiptsManager", "Pending message receipts sent successfully")
-                        // messageReceiptsManager.clearPendingMessageReceipts()
-                    }.onFailure { error ->
-                        Log.e("MessageReceiptsManager", "Error sending pending message receipts: ${error.message}")
-                    }
-                    sendResult
+                    sendPendingMessageReceipts(pendingMessageReceipts)
                 },
                 onFailure = { error ->
-                    Log.e("MessageReceiptsManager", "Error fetching pending message receipts: ${error.message}")
                     Result.failure(error)
                 }
             )
         } catch (e: Exception) {
-            Log.e("MessageReceiptsManager", "Error in sendMessageReceipt: ${e.message}")
+            SDKLogger.logger.logError { "Error in sendMessageReceipt: ${e.message}" }
             Result.failure(e)
         }
     }
@@ -690,11 +670,9 @@ class ChatServiceImpl @Inject constructor(
             async {
                 val content = "{\"messageId\":\"$messageId\"}"
                 val result = sendEvent(contentType = MessageReceiptType.MESSAGE_READ.toContentType(), content = content)
-                if (result.isSuccess) {
-                    Log.d("MessageReceiptsManager", "Message read receipt sent successfully with messageId: $messageId")
-                } else {
+                if (!result.isSuccess) {
                     val error = result.exceptionOrNull()
-                    Log.e("MessageReceiptsManager", "Failed to send message read receipt: ${error?.message}, messageId: $messageId")
+                    SDKLogger.logger.logError { "Failed to send message read receipt: ${error?.message}, messageId: $messageId" }
                     lastError = error ?: Exception("Unknown error sending read receipt")
                 }
             }
@@ -703,11 +681,9 @@ class ChatServiceImpl @Inject constructor(
             async {
                 val content = "{\"messageId\":\"$messageId\"}"
                 val result = sendEvent(contentType = MessageReceiptType.MESSAGE_DELIVERED.toContentType(), content = content)
-                if (result.isSuccess) {
-                    Log.d("MessageReceiptsManager", "Message delivered receipt sent successfully with messageId: $messageId")
-                } else {
+                if (!result.isSuccess) {
                     val error = result.exceptionOrNull()
-                    Log.e("MessageReceiptsManager", "Failed to send message delivered receipt: ${error?.message}, messageId: $messageId")
+                    SDKLogger.logger.logError { "Failed to send message delivered receipt: ${error?.message}, messageId: $messageId" }
                     lastError = error ?: Exception("Unknown error sending delivered receipt")
                 }
             }

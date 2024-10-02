@@ -13,6 +13,7 @@ import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.repository.ChatService
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import com.amazonaws.services.connectparticipant.model.StartPosition
@@ -280,7 +281,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
 
             // Check if the transcript item is a plain text message, is not empty, and is incoming
             if (messageItem == null || messageItem.text.isEmpty() || messageItem.participant == "CUSTOMER") {
-                Log.e("ChatSessionImpl", "Could not send ${receiptType.type} receipt for ${messageItem?.text ?: "null"}")
                 return@withContext
             }
 
@@ -289,12 +289,7 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                 return@withContext
             }
 
-            val result = sendReceipt(event = receiptType, messageId = messageItem.id)
-            if (result.isSuccess) {
-                Log.d("ChatSessionImpl", "Sent ${receiptType.type} receipt for ${messageItem.text}")
-            } else {
-                Log.e("ChatSessionImpl", "Error sending ${receiptType.type} receipt: ${result.exceptionOrNull()?.localizedMessage}")
-            }
+            sendReceipt(event = receiptType, messageId = messageItem.id)
         }
     }
 
