@@ -321,26 +321,23 @@ class ChatServiceImpl @Inject constructor(
         // Send out the individual transcript item to subscribers
         coroutineScope.launch {
             _transcriptPublisher.emit(item)
-        }
 
-        // Update the internal transcript list with the new or updated item
-        val existingIndex = internalTranscript.indexOfFirst { it.id == item.id }
-        if (existingIndex != -1) {
-            // If the item already exists in the internal transcript list, update it
-            internalTranscript[existingIndex] = item
-        } else {
-            // If the item is new, determine where to insert it in the list based on its timestamp
-            if (internalTranscript.isEmpty() || item.timeStamp < internalTranscript.first().timeStamp) {
-                // If the list is empty or the new item is older than the first item, add it to the beginning
-                internalTranscript.add(0, item)
+            // Update the internal transcript list with the new or updated item
+            val existingIndex = internalTranscript.indexOfFirst { it.id == item.id }
+            if (existingIndex != -1) {
+                // If the item already exists in the internal transcript list, update it
+                internalTranscript[existingIndex] = item
             } else {
-                // Otherwise, add it to the end of the list
-                internalTranscript.add(item)
+                // If the item is new, determine where to insert it in the list based on its timestamp
+                if (internalTranscript.isEmpty() || item.timeStamp < internalTranscript.first().timeStamp) {
+                    // If the list is empty or the new item is older than the first item, add it to the beginning
+                    internalTranscript.add(0, item)
+                } else {
+                    // Otherwise, add it to the end of the list
+                    internalTranscript.add(item)
+                }
             }
-        }
 
-        // Send the updated transcript list to subscribers
-        coroutineScope.launch {
             _transcriptListPublisher.emit(internalTranscript)
         }
     }

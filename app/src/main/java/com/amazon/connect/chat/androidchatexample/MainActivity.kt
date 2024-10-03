@@ -14,7 +14,15 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,22 +57,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
-import com.amazon.connect.chat.sdk.model.ContentType
-import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
-import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
 import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.getOriginalFileName
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.previewFileFromCacheOrDownload
+import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.AttachmentTextView
+import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
 import com.amazon.connect.chat.androidchatexample.views.ConfigPicker
+import com.amazon.connect.chat.sdk.model.ContentType
+import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
 import dagger.hilt.android.AndroidEntryPoint
 import java.net.URL
 
@@ -255,7 +262,7 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
                             TextButton(onClick = {
                                 showDialog = true
                             }) {
-                                Text("End Chat")
+                                Text("End Chat", color = Color.Red)
                             }
                         }
                     )
@@ -337,7 +344,7 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
+                .padding(start = 8.dp, end = 8.dp)
         ) {
             // Display the chat messages
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
@@ -440,79 +447,4 @@ fun ParticipantTokenSection(activity: Activity, viewModel: ChatViewModel) {
             Text(text = "Upload Attachment")
         }
     }
-}
-
-// Preview annotation
-@Preview(showBackground = true)
-@Composable
-fun ChatViewPreview() {
-//    val sampleMessages = listOf(
-//        Message(
-//            participant = "CUSTOMER",
-//            text = "Hello asdfioahsdfoas idfuoasdfihjasdlfihjsoadfjopasoaisdfhjoasidjf ",
-//            contentType = "text/plain",
-//            messageDirection = MessageDirection.OUTGOING,
-//            timeStamp = "06=51",
-//            status = "Delivered"
-//        ),
-//        Message(
-//            participant = "SYSTEM",
-//            text = "{\"templateType\":\"ListPicker\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"Which department do you want to select?\",\"subtitle\":\"Tap to select option\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/company.jpg\",\"elements\":[{\"title\":\"Billing\",\"subtitle\":\"Request billing information\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/billing.jpg\"},{\"title\":\"New Service\",\"subtitle\":\"Set up a new service\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/new_service.jpg\"},{\"title\":\"Cancellation\",\"subtitle\":\"Request a cancellation\",\"imageType\":\"URL\",\"imageData\":\"https://amazon-connect-interactive-message-blog-assets.s3-us-west-2.amazonaws.com/interactive-images/cancel.jpg\"}]}}}",
-//            contentType = "application/vnd.amazonaws.connect.message.interactive",
-//            messageDirection = MessageDirection.INCOMING,
-//            timeStamp = "14:18",
-//            messageID = "f905d16e-12a0-4854-9079-d5b34476c3ba",
-//            status = null,
-//            isRead = false
-//        ),
-//        Message(
-//            participant = "AGENT",
-//            text = "...",
-//            contentType = "text/plain",
-//            messageDirection = MessageDirection.INCOMING,
-//            timeStamp = "06:51",
-//            isRead = true
-//        ),
-//        Message(
-//            participant = "AGENT",
-//            text = "Hello, **this** is a agent \n\n speaking.Hello, this is a agent speaking.",
-//            contentType = "text/plain",
-//            messageDirection = MessageDirection.INCOMING,
-//            timeStamp = "06:51",
-//            isRead = true
-//        ),
-//
-//        Message(
-//            participant = "SYSTEM",
-//            text = "{\"templateType\":\"QuickReply\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"How was your experience?\",\"elements\":[{\"title\":\"Very unsatisfied\"},{\"title\":\"Unsatisfied\"},{\"title\":\"Neutral\"},{\"title\":\"Satisfied\"},{\"title\":\"Very Satisfied\"}]}}}",
-//            contentType = "application/vnd.amazonaws.connect.message.interactive",
-//            messageDirection = MessageDirection.INCOMING,
-//            timeStamp = "06:20",
-//            messageID = "8f76a266-6654-434f-94ea-87ec111ee341",
-//            status = null,
-//            isRead = false
-//        ),
-//
-//        Message(
-//            participant = "SYSTEM",
-//            text = "{\"templateType\":\"ListPicker\",\"version\":\"1.0\",\"data\":{\"content\":{\"title\":\"Which department would you like?\",\"subtitle\":\"Tap to select option\",\"elements\":[{\"title\":\"Billing\",\"subtitle\":\"For billing issues\"},{\"title\":\"New Service\",\"subtitle\":\"For new service\"},{\"title\":\"Cancellation\",\"subtitle\":\"For new service requests\"}]}}}",
-//            contentType = "application/vnd.amazonaws.connect.message.interactive",
-//            messageDirection = MessageDirection.INCOMING,
-//            timeStamp = "14:18",
-//            messageID = "f905d16e-12a0-4854-9079-d5b34476c3ba",
-//            status = null,
-//            isRead = false
-//        ),
-//
-//        Message(
-//            participant = "SYSTEM",
-//            text = "Someone joined the chat.Someone joined the chat.Someone joined the chat.",
-//            contentType = "text/plain",
-//            messageDirection = MessageDirection.COMMON,
-//            timeStamp = "06:51",
-//            isRead = true
-//        )
-//    )
-//
-//    ChatView()
 }

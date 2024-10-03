@@ -57,7 +57,7 @@ fun AttachmentTextView(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Remove attachment",
-                            tint = Color.Black)
+                            tint = Color.Red)
                     }
                 }
             }

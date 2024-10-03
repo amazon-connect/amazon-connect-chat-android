@@ -1,23 +1,22 @@
 package com.amazon.connect.chat.androidchatexample.views
 
-import android.net.Uri
-import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
@@ -30,7 +29,6 @@ import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.PlainTextContent
 import com.amazon.connect.chat.sdk.model.QuickReplyContent
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.MarkdownText
 import java.net.URL
 
 @Composable
@@ -79,46 +77,78 @@ fun ChatMessageView(
 
 @Composable
 fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null) {
-    Column(
-        horizontalAlignment = Alignment.End,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(top = 6.dp),
+        contentAlignment = Alignment.CenterEnd,
     ) {
-        message.participant?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Surface(
-            color = Color(0xFF4D74DA),
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+        Column(
+            modifier = Modifier
+                .padding(8.dp)
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .fillMaxWidth(0.80f),
+            horizontalAlignment = Alignment.End,
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                MarkdownText(
-                    text = message.text,
-                    color = Color.White
-                )
-                message.timeStamp?.let {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                message.displayName?.let {
                     Text(
-                        text = CommonUtils.formatTime(it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFB0BEC5),
-                        modifier = Modifier.align(Alignment.End)
+                        text = it.ifEmpty { message.participant },
+                        color = Color.Black,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 4.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
-        }
-
-        message.metadata?.status?.let {
-            if (message.id == recentOutgoingMessageID) {
                 Text(
-                    text = it.status,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    text = CommonUtils.formatTime(message.timeStamp) ?: "",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall
                 )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color(0xFFABCDEF),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = message.text,
+                        color = Color.Black,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                    )
+                }
+
+            }
+
+            message.metadata?.status?.let {
+                if (message.id == recentOutgoingMessageID) {
+                    Text(
+                        text = it.status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
             }
         }
     }
@@ -126,40 +156,69 @@ fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null) 
 
 @Composable
 fun ReceiverChatBubble(message: Message) {
-    Column(
-        horizontalAlignment = Alignment.Start,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(top = 6.dp),
+        contentAlignment = Alignment.CenterStart,
     ) {
-        message.participant?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .padding(bottom = 4.dp)
-            )
-        }
-        Surface(
-            color = Color(0xFF8BC34A),
-            shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+        Column(
+            modifier = Modifier
+                .padding(8.dp)
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .fillMaxWidth(0.80f),
+            horizontalAlignment = Alignment.End,
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                MarkdownText(
-                    text = message.text,
-                    color = Color.White
-                )
-                message.timeStamp?.let {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                message.displayName?.let {
                     Text(
-                        text = CommonUtils.formatTime(it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White,
+                        text = it.ifEmpty { message.participant },
+                        color = Color.Black,
+                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier
-                            .align(Alignment.End)
-                            .alpha(0.7f)
+                            .weight(1f)
+                            .padding(end = 4.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                Text(
+                    text = CommonUtils.formatTime(message.timeStamp) ?: "",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Color(0xFFEDEDED),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = message.text,
+                        color = Color.Black,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
             }
         }
     }
@@ -203,7 +262,8 @@ fun EventView(event: Event) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(padding),
+                .padding(padding)
+                .padding(top = 6.dp),
             contentAlignment = alignment
         ) {
             if (isTypingEvent) {
@@ -211,8 +271,9 @@ fun EventView(event: Event) {
             } else if (event.eventDirection == MessageDirection.COMMON) {
                 event.text?.let {
                     Text(
+                        style = MaterialTheme.typography.bodyLarge,
                         text = it,
-                        color = Color.Blue,
+                        color = Color.Black,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
