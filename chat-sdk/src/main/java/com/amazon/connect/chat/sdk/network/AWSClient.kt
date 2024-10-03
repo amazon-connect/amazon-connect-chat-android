@@ -135,7 +135,6 @@ class AWSClientImpl @Inject constructor(
                     this.connectionToken = connectionToken
                 }
                 val response = connectParticipantClient.disconnectParticipant(request)
-                Log.d("AWSClientImpl", "disconnectParticipantConnection: $response")
                 response
             }
         }
@@ -154,7 +153,6 @@ class AWSClientImpl @Inject constructor(
                     this.content = message
                 }
                 val response = connectParticipantClient.sendMessage(request)
-                Log.d("AWSClientImpl", "sendMessage: $response")
                 response
             }
         }
@@ -173,7 +171,6 @@ class AWSClientImpl @Inject constructor(
                     this.content = content
                 }
                 val response = connectParticipantClient.sendEvent(request)
-                Log.d("AWSClientImpl", "sendEvent: $response")
                 response
             }
         }
@@ -183,7 +180,6 @@ class AWSClientImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             runCatching {
                 val response = connectParticipantClient.startAttachmentUpload(request)
-                Log.d("AWSClientImpl", "startAttachmentUpload: $response")
                 response
             }
         }
@@ -193,7 +189,6 @@ class AWSClientImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             runCatching {
                 val response = connectParticipantClient.completeAttachmentUpload(request)
-                Log.d("AWSClientImpl", "completeAttachmentUpload: $response")
                 response
             }
         }
@@ -210,7 +205,6 @@ class AWSClientImpl @Inject constructor(
                     this.attachmentId = attachmentId
                 }
                 val response = connectParticipantClient.getAttachment(request)
-                Log.d("AWSClientImpl", "getAttachment: $response")
                 response
             }
         }
@@ -220,7 +214,6 @@ class AWSClientImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             runCatching {
                 val response = connectParticipantClient.getTranscript(request)
-                Log.d("AWSClientImpl", "getTranscript: $response")
                 response
             }
         }
