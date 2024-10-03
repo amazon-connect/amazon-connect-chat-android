@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,7 +55,7 @@ fun AttachmentMessageView(
             modifier = Modifier
                 .padding(8.dp)
                 .background(Color.White, RoundedCornerShape(8.dp))
-                .fillMaxWidth(0.75f),
+                .fillMaxWidth(0.80f),
             horizontalAlignment = Alignment.End
         ) {
             Row(
@@ -67,18 +67,17 @@ fun AttachmentMessageView(
                 message.displayName?.let {
                     Text(
                         text = it.ifEmpty { message.participant },
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Gray,
-                        modifier = Modifier.weight(1f),
+                        color = Color.Black,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).padding(end = 4.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
                 Text(
                     text = CommonUtils.formatTime(message.timeStamp) ?: "",
-                    fontSize = 10.sp,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
@@ -117,7 +116,7 @@ fun AttachmentMessageView(
                 ) {
                     Text(
                         text = message.text,
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = Color(0xFF0056b3),
                         modifier = Modifier
                             .weight(1f)
@@ -148,8 +147,7 @@ fun AttachmentMessageView(
             if (message.messageDirection == MessageDirection.OUTGOING && message.id == recentOutgoingMessageID) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
+                        .fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
                     Text(

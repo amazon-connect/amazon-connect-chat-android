@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun TypingIndicator() {
-    val ballSize = 8.dp
+    val ballSize = 6.dp
     val animationDuration = 300
     val numberOfBalls = 3
 
@@ -48,11 +48,11 @@ fun TypingIndicator() {
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .padding(10.dp)
-            .background(Color.LightGray, RoundedCornerShape(24.dp))
-            .padding( start = 10.dp)
-            .padding( end = 5.dp)
-            .padding( top = 10.dp)
-            .padding( bottom = 10.dp)
+            .background(Color(0xFFEDEDED), RoundedCornerShape(8.dp))
+            .padding( start = 15.dp)
+            .padding( end = 10.dp)
+            .padding( top = 15.dp)
+            .padding( bottom = 15.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ballAnimations.forEach { anim ->
