@@ -21,7 +21,7 @@ data class Message(
     override var id: String,
     override var timeStamp: String,
     override var contentType: String,
-    override var serializedContent: Map<String, Any>? = null,
+    override var serializedContent: String? = null,
     override var participant: String,
     override var text: String,
     override var displayName: String? = null,

@@ -15,5 +15,5 @@ data class Event(
     override var timeStamp: String,
     override var contentType: String,
     override var id: String,
-    override var serializedContent: Map<String, Any>? = null
+    override var serializedContent: String? = null
 ) : TranscriptItem(id, timeStamp, contentType, serializedContent), EventProtocol

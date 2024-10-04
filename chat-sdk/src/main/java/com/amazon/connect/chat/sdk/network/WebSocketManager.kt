@@ -259,22 +259,22 @@ class WebSocketManagerImpl @Inject constructor(
             val type = WebSocketMessageType.fromType(typeString)
 
             return when (type) {
-                WebSocketMessageType.MESSAGE -> handleMessage(jsonObject)
+                WebSocketMessageType.MESSAGE -> handleMessage(jsonObject, jsonString)
                 WebSocketMessageType.EVENT -> {
                     val eventTypeString = jsonObject.optString("ContentType")
                     when (val eventType = ContentType.fromType(eventTypeString)) {
-                        ContentType.JOINED -> handleParticipantEvent(jsonObject)
-                        ContentType.LEFT -> handleParticipantEvent(jsonObject)
-                        ContentType.TYPING -> handleTyping(jsonObject)
-                        ContentType.ENDED -> handleChatEnded(jsonObject)
+                        ContentType.JOINED -> handleParticipantEvent(jsonObject, jsonString)
+                        ContentType.LEFT -> handleParticipantEvent(jsonObject, jsonString)
+                        ContentType.TYPING -> handleTyping(jsonObject, jsonString)
+                        ContentType.ENDED -> handleChatEnded(jsonObject, jsonString)
                         else -> {
                             Log.w("WebSocket", "Unknown event: $eventType")
                             null
                         }
                     }
                 }
-                WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject)
-                WebSocketMessageType.MESSAGE_METADATA -> handleMetadata(jsonObject)
+                WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject, jsonString)
+                WebSocketMessageType.MESSAGE_METADATA -> handleMetadata(jsonObject, jsonString)
                 else -> {
                     Log.w("WebSocket", "Unknown websocket message type: $type")
                     null
@@ -354,7 +354,7 @@ class WebSocketManagerImpl @Inject constructor(
 
     // --- Helper Methods for websocket data ---
 
-    private fun handleMessage(innerJson: JSONObject): TranscriptItem {
+    private fun handleMessage(innerJson: JSONObject, rawData: String): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val messageId = innerJson.getString("Id")
         val messageText = innerJson.getString("Content")
@@ -368,12 +368,13 @@ class WebSocketManagerImpl @Inject constructor(
             contentType = innerJson.getString("ContentType"),
             timeStamp = time,
             id = messageId,
-            displayName = displayName
+            displayName = displayName,
+            serializedContent = rawData
         )
         return message
     }
 
-    private fun handleParticipantEvent(innerJson: JSONObject): TranscriptItem {
+    private fun handleParticipantEvent(innerJson: JSONObject, rawData: String): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val displayName = innerJson.getString("DisplayName")
         val time = innerJson.getString("AbsoluteTime")
@@ -387,11 +388,12 @@ class WebSocketManagerImpl @Inject constructor(
             text = innerJson.getString("ContentType"), // TODO: Need to be removed and replaced in UI once callbacks are hooked
             contentType = innerJson.getString("ContentType"),
             eventDirection = MessageDirection.COMMON,
+            serializedContent = rawData
         )
         return event
     }
 
-    private fun handleTyping(innerJson: JSONObject): TranscriptItem {
+    private fun handleTyping(innerJson: JSONObject, rawData: String): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val time = innerJson.getString("AbsoluteTime")
         val displayName = innerJson.getString("DisplayName")
@@ -402,12 +404,13 @@ class WebSocketManagerImpl @Inject constructor(
             contentType =  innerJson.getString("ContentType"),
             id = eventId,
             displayName = displayName,
-            participant = participantRole
+            participant = participantRole,
+            serializedContent = rawData,
         )
         return event
     }
 
-    private suspend fun handleChatEnded(innerJson: JSONObject): TranscriptItem {
+    private suspend fun handleChatEnded(innerJson: JSONObject, rawData: String): TranscriptItem {
         closeWebSocket("Chat Ended");
         isChatActive = false;
         this._eventPublisher.emit(ChatEvent.ChatEnded)
@@ -417,12 +420,13 @@ class WebSocketManagerImpl @Inject constructor(
             timeStamp = time,
             contentType =  innerJson.getString("ContentType"),
             id = eventId,
-            eventDirection = MessageDirection.COMMON
+            eventDirection = MessageDirection.COMMON,
+            serializedContent = rawData
         )
         return event
     }
 
-    private fun handleMetadata(innerJson: JSONObject): TranscriptItem {
+    private fun handleMetadata(innerJson: JSONObject, rawData: String): TranscriptItem {
         val messageMetadata = innerJson.getJSONObject("MessageMetadata")
         val messageId = messageMetadata.getString("MessageId")
         val receipts = messageMetadata.optJSONArray("Receipts")
@@ -442,12 +446,13 @@ class WebSocketManagerImpl @Inject constructor(
             eventDirection = MessageDirection.OUTGOING,
             timeStamp = time,
             id = messageId,
-            status = status
+            status = status,
+            serializedContent = rawData
         )
         return metadata
     }
 
-    private fun handleAttachment(innerJson: JSONObject): TranscriptItem? {
+    private fun handleAttachment(innerJson: JSONObject, rawData: String): TranscriptItem? {
         val participantRole = innerJson.getString("ParticipantRole")
         val time = innerJson.getString("AbsoluteTime")
         val displayName = innerJson.getString("DisplayName")
@@ -481,7 +486,8 @@ class WebSocketManagerImpl @Inject constructor(
             timeStamp = time,
             attachmentId = attachmentId,
             id = messageId,
-            displayName = displayName
+            displayName = displayName,
+            serializedContent = rawData
         )
     }
 

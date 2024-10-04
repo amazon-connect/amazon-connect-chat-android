@@ -10,7 +10,6 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
-import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazonaws.services.connectparticipant.model.Item
 import org.json.JSONObject
 import java.util.UUID
@@ -20,11 +19,7 @@ object TranscriptItemUtils {
     fun createDummyEndedEvent(): Event {
         val isoTime = CommonUtils.getCurrentISOTime()
 
-        val serializedContent = mapOf(
-            "content" to "{\"AbsoluteTime\":\"$isoTime\",\"ContentType\":\"application/vnd.amazonaws.connect.event.chat.ended\",\"Id\":\"chat-ended-event\",\"Type\":\"EVENT\",\"InitialContactId\":\"chat-ended-event-id\"}",
-            "topic" to "aws/chat",
-            "contentType" to "application/json"
-        )
+        val serializedContent = "{\"AbsoluteTime\":\"$isoTime\",\"ContentType\":\"application/vnd.amazonaws.connect.event.chat.ended\",\"Id\":\"chat-ended-event\",\"Type\":\"EVENT\",\"InitialContactId\":\"chat-ended-event-id\"}"
 
         return Event(
             text = null,
@@ -54,14 +49,14 @@ object TranscriptItemUtils {
             attachmentId = attachmentId,
             id = randomId,
             displayName = displayName,
-            serializedContent = emptyMap(),
+            serializedContent = "",
             metadata = MessageMetadata(
                 id = randomId,
                 status = status,
                 timeStamp = isoTime,
                 contentType = contentType,
                 eventDirection = MessageDirection.OUTGOING,
-                serializedContent = emptyMap()
+                serializedContent = ""
             )
         )
     }
