@@ -3,6 +3,7 @@ package com.amazon.connect.chat.sdk.network
 import android.util.Log
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageReceipts
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -32,14 +33,12 @@ data class PendingMessageReceipts(
     var readReceiptMessageId: String? = null
 ) {
     fun clear() {
-        Log.d("PendingMessageReceipts", "Clearing pending message receipts.")
         deliveredReceiptMessageId = null
         readReceiptMessageId = null
     }
 
     fun checkAndRemoveDuplicateReceipt() {
         if (deliveredReceiptMessageId == readReceiptMessageId) {
-            Log.d("PendingMessageReceipts", "Duplicate receipt found. Removing delivered receipt for messageId: $deliveredReceiptMessageId")
             deliveredReceiptMessageId = null
         }
     }
@@ -64,10 +63,8 @@ class MessageReceiptsManagerImpl : MessageReceiptsManager {
         messageId: String
     ): Result<PendingMessageReceipts> = suspendCancellableCoroutine { continuation ->
 
-        Log.d("MessageReceiptsManager", "Attempting to send message receipt for messageId: $messageId with event: $event")
-
         if (!shouldSendMessageReceipts) {
-            Log.d("MessageReceiptsManager", "Sending message receipts is disabled.")
+            SDKLogger.logger.logDebug { "Sending message receipts is disabled." }
             continuation.resume(Result.failure(Exception("Sending message receipts is disabled")))
             return@suspendCancellableCoroutine
         }
@@ -76,7 +73,6 @@ class MessageReceiptsManagerImpl : MessageReceiptsManager {
 
         // Cancel the previous job if it's still active
         throttleJob?.cancel()
-        Log.d("MessageReceiptsManager", "Cancelled existing throttle job.")
 
         if (pendingMessageReceipts.readReceiptMessageId == null && pendingMessageReceipts.deliveredReceiptMessageId == null && numPendingDeliveredReceipts == 0) {
             return@suspendCancellableCoroutine
@@ -86,43 +82,35 @@ class MessageReceiptsManagerImpl : MessageReceiptsManager {
         throttleJob = CoroutineScope(Dispatchers.Default).launch {
             delay((throttleTime * 1000).toLong())
             try {
-                Log.d("MessageReceiptsManager", "Throttling with interval: ${throttleTime * 1000}ms")
                 pendingMessageReceipts.checkAndRemoveDuplicateReceipt()
-                Log.d("MessageReceiptsManager", "Resuming continuation with pending receipts.")
                 continuation.resume(Result.success(pendingMessageReceipts))
             } catch (e: Exception) {
-                Log.e("MessageReceiptsManager", "Error during throttling: ${e.message}", e)
+                SDKLogger.logger.logError { "Error during throttling: ${e.message}" }
                 continuation.resumeWithException(e)
             }
         }
     }
 
     override fun invalidateTimer() {
-        Log.d("MessageReceiptsManager", "Invalidating timer.")
         timer?.cancel()
         timer = null
     }
 
     override fun handleMessageReceipt(event: MessageReceiptType, messageId: String) {
-        Log.d("MessageReceiptsManager", "Handling message receipt for messageId: $messageId with event: $event")
 
         when (event) {
             MessageReceiptType.MESSAGE_DELIVERED -> {
                 if (deliveredReceiptSet.contains(messageId) || readReceiptSet.contains(messageId)) {
-                    Log.d("MessageReceiptsManager", "Receipt already handled for messageId: $messageId")
                     return
                 }
                 deliveredReceiptSet.add(messageId)
-                Log.d("MessageReceiptsManager", "Added messageId: $messageId to deliveredReceiptSet")
 
                 CoroutineScope(Dispatchers.Default).launch {
-                    Log.d("MessageReceiptsManager", "Scheduling delivery throttle for messageId: $messageId with interval: ${deliveredThrottleTime * 1000}ms")
                     numPendingDeliveredReceipts++
                     delay((deliveredThrottleTime * 1000).toLong())
                     if (readReceiptSet.contains(messageId)) {
-                        Log.d("MessageReceiptsManager", "Read receipt already sent for messageId: $messageId")
+                        SDKLogger.logger.logDebug { "Read receipt already sent for messageId: $messageId" }
                     } else {
-                        Log.d("MessageReceiptsManager", "Setting delivered receipt to pending for messageId: $messageId")
                         pendingMessageReceipts.deliveredReceiptMessageId = messageId
                     }
                     numPendingDeliveredReceipts--
@@ -130,10 +118,8 @@ class MessageReceiptsManagerImpl : MessageReceiptsManager {
             }
             MessageReceiptType.MESSAGE_READ -> {
                 if (readReceiptSet.contains(messageId)) {
-                    Log.d("MessageReceiptsManager", "Read receipt already sent for messageId: $messageId")
                     return
                 }
-                Log.d("MessageReceiptsManager", "Adding messageId: $messageId to readReceiptSet")
                 readReceiptSet.add(messageId)
                 pendingMessageReceipts.readReceiptMessageId = messageId
             }

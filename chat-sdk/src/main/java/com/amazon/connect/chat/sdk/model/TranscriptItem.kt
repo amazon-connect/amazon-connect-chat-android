@@ -4,14 +4,14 @@ interface TranscriptItemProtocol {
     val id: String
     val timeStamp: String
     var contentType: String
-    var serializedContent: Map<String, Any>?
+    var serializedContent: String?
 }
 
 open class TranscriptItem(
     override var id: String,
     override var timeStamp: String,
     override var contentType: String,
-    override var serializedContent: Map<String, Any>? = null
+    override var serializedContent: String? = null
 ) : TranscriptItemProtocol {
 
     internal fun updateId(newId: String) {
