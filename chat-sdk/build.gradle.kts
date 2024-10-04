@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.serialization)
     id("com.spotify.ruler")
-    id("kotlin-kapt") // Add this for kapt
+    id("kotlin-kapt")
 }
 
 android {
@@ -51,6 +51,13 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    publishing {
+        singleVariant("release") {
+            withJavadocJar()
+            withSourcesJar()
         }
     }
 }
@@ -117,24 +124,6 @@ dependencies {
     testImplementation(libs.robolectric)
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = "com.amazon.connect.chat"
-            artifactId = "library"
-            version = "1.0.0"
-
-            // Specify the AAR artifact
-            artifact("$buildDir/outputs/aar/${project.name}-release.aar")
-        }
-    }
-    repositories {
-        maven {
-            url = uri("$rootDir/repo")
-        }
-    }
-}
-
 // Ensure the AAR file is built before publishing
 tasks.withType<AbstractPublishToMaven>().configureEach {
     dependsOn(tasks.named("assembleRelease"))
@@ -142,3 +131,6 @@ tasks.withType<AbstractPublishToMaven>().configureEach {
 
 // Test summary gradle file
 apply(from = "test-summary.gradle.kts")
+
+// release file
+apply(from = "release.gradle.kts")
