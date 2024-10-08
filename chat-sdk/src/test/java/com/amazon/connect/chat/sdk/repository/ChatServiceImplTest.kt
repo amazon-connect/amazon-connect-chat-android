@@ -2,23 +2,30 @@ package com.amazon.connect.chat.sdk.repository
 
 import android.content.ContentResolver
 import android.content.Context
-import android.database.Cursor
 import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
+import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
+import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.network.APIClient
+import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AttachmentsManager
 import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.network.PendingMessageReceipts
 import com.amazon.connect.chat.sdk.network.WebSocketManager
-import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getOriginalFileName
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
+import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
+import com.amazonaws.services.connectparticipant.model.ScanDirection
+import com.amazonaws.services.connectparticipant.model.SendEventResult
+import com.amazonaws.services.connectparticipant.model.SendMessageResult
+import com.amazonaws.services.connectparticipant.model.SortKey
+import com.amazonaws.services.connectparticipant.model.StartPosition
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,17 +38,20 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
-import org.mockito.Mockito.*
+import org.mockito.Mockito.anyString
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.`when`
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.mock
 import org.robolectric.RobolectricTestRunner
+import java.net.URL
 
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
 class ChatServiceImplTest {
-
-    @Mock
-    private lateinit var apiClient: APIClient
 
     @Mock
     private lateinit var awsClient: AWSClient
@@ -169,6 +179,93 @@ class ChatServiceImplTest {
     }
 
     @Test
+    fun test_sendMessages_success() = runTest {
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        val mockMessage = "Hello"
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        val contentType = ContentType.PLAIN_TEXT
+
+        `when`(awsClient.sendMessage(mockConnectionDetails.connectionToken, contentType, mockMessage))
+            .thenReturn(Result.success(SendMessageResult()))
+
+        val result = chatService.sendMessage(contentType, mockMessage)
+
+        assertTrue(result.isSuccess)
+        verify(connectionDetailsProvider).getConnectionDetails()
+        verify(awsClient).sendMessage(mockConnectionDetails.connectionToken, contentType, mockMessage)
+    }
+
+    @Test
+    fun test_sendMessages_failure() = runTest {
+        val mockConnectionDetails = createMockConnectionDetails("invalid_token")
+        val mockMessage = "Hello"
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+
+        `when`(awsClient.sendMessage(mockConnectionDetails.connectionToken, ContentType.PLAIN_TEXT, mockMessage))
+            .thenThrow(RuntimeException("Network error"))
+
+        val result = chatService.sendMessage(ContentType.PLAIN_TEXT, mockMessage)
+
+        assertTrue(result.isFailure)
+        verify(connectionDetailsProvider).getConnectionDetails()
+    }
+
+    @Test
+    fun test_sendMessages_noConnectionDetails() = runTest {
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(null)
+        val result = chatService.sendMessage(ContentType.PLAIN_TEXT, "Hello")
+        assertTrue(result.isFailure)
+        verify(connectionDetailsProvider).getConnectionDetails()
+    }
+
+    @Test
+    fun test_sendEvent_success() = runTest {
+        val contentType = ContentType.TYPING
+        val eventContent = "Typing event"
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(awsClient.sendEvent(mockConnectionDetails.connectionToken, contentType, eventContent))
+            .thenReturn(Result.success(
+            SendEventResult()
+        ))
+
+        val result = chatService.sendEvent(contentType, eventContent)
+
+        assertTrue(result.isSuccess)
+        verify(awsClient).sendEvent(mockConnectionDetails.connectionToken, contentType, eventContent)
+    }
+
+    @Test
+    fun test_sendEvent_failure() = runTest {
+        val contentType = ContentType.TYPING
+        val eventContent = "Typing event"
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(awsClient.sendEvent(mockConnectionDetails.connectionToken, contentType, eventContent)).thenThrow(RuntimeException("Event error"))
+
+        val result = chatService.sendEvent(contentType, eventContent)
+
+        assertTrue(result.isFailure)
+        verify(awsClient).sendEvent(mockConnectionDetails.connectionToken, contentType, eventContent)
+    }
+
+    @Test
+    fun test_sendEvent_noConnectionDetails() = runTest {
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(null)
+        val result = chatService.sendEvent(ContentType.TYPING, "Typing event")
+        assertTrue(result.isFailure)
+        verify(connectionDetailsProvider).getConnectionDetails()
+    }
+
+    @Test
+    fun test_sendAttachment_noUri() = runTest {
+        val result = chatService.sendAttachment(Uri.EMPTY)
+        assertTrue(result.isFailure)
+    }
+
+    @Test
     fun test_sendAttachment_success() = runTest {
         // Mock Context and ContentResolver
         val mockContentResolver = mock(ContentResolver::class.java)
@@ -221,12 +318,132 @@ class ChatServiceImplTest {
         verify(attachmentsManager, never()).sendAttachment(anyString(), anyOrNull())
     }
 
-    private fun createMockConnectionDetails(token : String): ConnectionDetails {
-        return ConnectionDetails(
-            connectionToken = token,
-            websocketUrl = "mockedWebsocketUrl",
-            expiry = "mockedExpiryTime"
-        )
+    @Test
+    fun test_downloadAttachment_success() = runTest {
+        val attachmentId = "attachment123"
+        val fileName = "file.pdf"
+        val mockUrl = URL("https://example.com/file")
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(attachmentsManager.downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)).thenReturn(Result.success(mockUrl))
+
+        val result = chatService.downloadAttachment(attachmentId, fileName)
+
+        assertTrue(result.isSuccess)
+        assertEquals(mockUrl, result.getOrNull())
+        verify(attachmentsManager).downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)
+    }
+
+    @Test
+    fun test_downloadAttachment_failure() = runTest {
+        val attachmentId = "attachment123"
+        val fileName = "file.pdf"
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(attachmentsManager.downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)).thenThrow(RuntimeException("Download error"))
+
+        val result = chatService.downloadAttachment(attachmentId, fileName)
+
+        assertTrue(result.isFailure)
+        verify(attachmentsManager).downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)
+    }
+
+    @Test
+    fun test_downloadAttachment_noConnectionDetails() = runTest {
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(null)
+        val result = chatService.downloadAttachment("attachment123", "file.pdf")
+        assertTrue(result.isFailure)
+        verify(connectionDetailsProvider).getConnectionDetails()
+    }
+
+    @Test
+    fun test_downloadAttachment_noFileName() = runTest {
+        val result = chatService.downloadAttachment("attachment123", "")
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun test_downloadAttachment_noAttachmentId() = runTest {
+        val result = chatService.downloadAttachment("", "file.pdf")
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun test_getTranscript_success() = runTest {
+        val scanDirection = ScanDirection.BACKWARD
+        val sortKey = SortKey.ASCENDING
+        val maxResults = 10
+        val nextToken = "nextToken123"
+        val startPosition = StartPosition().apply { id = "startId" }
+        val mockTranscriptResponse = TranscriptResponse("", nextToken, listOf())
+
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+
+        // Create a mock GetTranscriptResult and configure it to return expected values
+        val mockGetTranscriptResult = mock<GetTranscriptResult>()
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
+        `when`(mockGetTranscriptResult.initialContactId).thenReturn("")
+        `when`(mockGetTranscriptResult.nextToken).thenReturn(nextToken)
+
+        `when`(awsClient.getTranscript(anyOrNull())).thenReturn(Result.success(mockGetTranscriptResult))
+
+        val result = chatService.getTranscript(scanDirection, sortKey, maxResults, nextToken, startPosition)
+
+        assertTrue(result.isSuccess)
+        assertEquals(mockTranscriptResponse, result.getOrNull())
+        verify(awsClient).getTranscript(anyOrNull())
+    }
+
+    @Test
+    fun test_getTranscript_failure() = runTest {
+        val scanDirection = ScanDirection.BACKWARD
+        val sortKey = SortKey.ASCENDING
+        val maxResults = 10
+        val nextToken = "nextToken123"
+        val startPosition = StartPosition().apply { id = "startId" }
+
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+
+        `when`(awsClient.getTranscript(anyOrNull())).thenThrow(RuntimeException("Transcript error"))
+
+        val result = chatService.getTranscript(scanDirection, sortKey, maxResults, nextToken, startPosition)
+
+        assertTrue(result.isFailure)
+        assertEquals("Transcript error", result.exceptionOrNull()?.message)
+
+        verify(awsClient).getTranscript(anyOrNull())
+    }
+
+    @Test
+    fun test_sendMessageReceipt_success() = runTest {
+        val messageId = "messageId123"
+        val receiptType = MessageReceiptType.MESSAGE_READ
+
+        `when`(messageReceiptsManager.throttleAndSendMessageReceipt(receiptType, messageId)).thenReturn(Result.success(
+            PendingMessageReceipts()
+        ))
+
+        val result = chatService.sendMessageReceipt(receiptType, messageId)
+
+        assertTrue(result.isSuccess)
+        verify(messageReceiptsManager).throttleAndSendMessageReceipt(receiptType, messageId)
+    }
+
+    @Test
+    fun test_sendMessageReceipt_failure() = runTest {
+        val messageId = "messageId123"
+        val receiptType = MessageReceiptType.MESSAGE_READ
+
+        `when`(messageReceiptsManager.throttleAndSendMessageReceipt(receiptType, messageId)).thenReturn(Result.failure(Exception("Receipt error")))
+
+        val result = chatService.sendMessageReceipt(receiptType, messageId)
+
+        assertTrue(result.isFailure)
+        verify(messageReceiptsManager).throttleAndSendMessageReceipt(receiptType, messageId)
     }
 
     @Test
@@ -299,6 +516,14 @@ class ChatServiceImplTest {
 
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
+    }
+
+    private fun createMockConnectionDetails(token : String): ConnectionDetails {
+        return ConnectionDetails(
+            connectionToken = token,
+            websocketUrl = "mockedWebsocketUrl",
+            expiry = "mockedExpiryTime"
+        )
     }
 
 }
