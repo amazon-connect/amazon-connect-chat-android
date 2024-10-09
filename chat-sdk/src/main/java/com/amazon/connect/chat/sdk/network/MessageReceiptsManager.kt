@@ -85,7 +85,6 @@ class MessageReceiptsManagerImpl : MessageReceiptsManager {
                 pendingMessageReceipts.checkAndRemoveDuplicateReceipt()
                 continuation.resume(Result.success(pendingMessageReceipts))
             } catch (e: Exception) {
-                SDKLogger.logger.logError { "Error during throttling: ${e.message}" }
                 continuation.resumeWithException(e)
             }
         }
@@ -108,9 +107,7 @@ class MessageReceiptsManagerImpl : MessageReceiptsManager {
                 CoroutineScope(Dispatchers.Default).launch {
                     numPendingDeliveredReceipts++
                     delay((deliveredThrottleTime * 1000).toLong())
-                    if (readReceiptSet.contains(messageId)) {
-                        SDKLogger.logger.logDebug { "Read receipt already sent for messageId: $messageId" }
-                    } else {
+                    if (!readReceiptSet.contains(messageId)) {
                         pendingMessageReceipts.deliveredReceiptMessageId = messageId
                     }
                     numPendingDeliveredReceipts--

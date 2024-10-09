@@ -1,6 +1,8 @@
 package com.amazon.connect.chat.sdk.model
 
+import com.amazon.connect.chat.sdk.utils.Constants
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 interface MessageContent {
@@ -52,7 +54,7 @@ data class QuickReplyContent(
     val options: List<String>
 ) : InteractiveContent {
     companion object {
-        const val templateType = "QuickReply"
+        const val TEMPLATE_TYPE = Constants.QUICK_REPLY
         fun decode(text: String): InteractiveContent? {
             return try {
                 val quickReply = Json.decodeFromString<QuickReplyTemplate>(text)
@@ -102,7 +104,7 @@ data class ListPickerContent(
     val options: List<ListPickerElement>
 ) : InteractiveContent {
     companion object {
-        const val templateType = "ListPicker"
+        const val TEMPLATE_TYPE = Constants.LIST_PICKER
         fun decode(text: String): InteractiveContent? {
             return try {
                 val listPicker = Json.decodeFromString<ListPickerTemplate>(text)
@@ -113,6 +115,190 @@ data class ListPickerContent(
                 ListPickerContent(title, subtitle, imageUrl, options)
             } catch (e: Exception) {
                 println("Error decoding ListPickerContent: ${e.message}")
+                null
+            }
+        }
+    }
+}
+
+
+// Time Picker
+@Serializable
+data class TimeSlot(
+    val date: String,
+    val duration: Int
+)
+
+@Serializable
+data class Location(
+    val latitude: Double,
+    val longitude: Double,
+    val title: String,
+    val radius: Int? = null
+)
+
+@Serializable
+data class TimePickerContentData(
+    val title: String,
+    val subtitle: String? = null,
+    val timeZoneOffset: Int? = null,
+    val location: Location? = null,
+    val timeslots: List<TimeSlot>
+)
+
+@Serializable
+data class TimePickerReplyMessage(
+    val title: String? = null,
+    val subtitle: String? = null
+)
+
+@Serializable
+data class TimePickerData(
+    val replyMessage: TimePickerReplyMessage? = null,
+    val content: TimePickerContentData
+)
+
+@Serializable
+data class TimePickerTemplate(
+    val templateType: String,
+    val version: String,
+    val data: TimePickerData
+)
+
+data class TimePickerContent(
+    val title: String,
+    val subtitle: String? = null,
+    val timeZoneOffset: Int? = null,
+    val location: Location? = null,
+    val timeslots: List<TimeSlot>
+): InteractiveContent {
+    companion object {
+        const val TEMPLATE_TYPE = Constants.TIME_PICKER
+        fun decode(text: String): InteractiveContent? {
+            return try {
+                val timePicker = Json.decodeFromString<TimePickerTemplate>(text)
+                val contentData = timePicker.data.content
+                TimePickerContent(
+                    title = contentData.title,
+                    subtitle = contentData.subtitle,
+                    timeZoneOffset = contentData.timeZoneOffset,
+                    location = contentData.location,
+                    timeslots = contentData.timeslots
+                )
+            } catch (e: SerializationException) {
+                println("Error decoding TimePickerContent: ${e.localizedMessage}")
+                null
+            }
+        }
+    }
+}
+
+// Carousel
+@Serializable
+data class CarouselElement(
+    val templateIdentifier: String,
+    val templateType: String,
+    val version: String,
+    val data: PanelData
+)
+
+@Serializable
+data class CarouselContentData(
+    val title: String,
+    val elements: List<CarouselElement>
+)
+
+@Serializable
+data class CarouselData(
+    val content: CarouselContentData
+)
+
+@Serializable
+data class CarouselTemplate(
+    val templateType: String,
+    val version: String,
+    val data: CarouselData
+)
+
+data class CarouselContent(
+    val title: String,
+    val elements: List<CarouselElement>
+): InteractiveContent {
+    companion object {
+        const val TEMPLATE_TYPE = Constants.CAROUSEL
+        fun decode(text: String): InteractiveContent? {
+            return try {
+                val carousel = Json.decodeFromString<CarouselTemplate>(text)
+                val contentData = carousel.data.content
+                CarouselContent(
+                    title = contentData.title,
+                    elements = contentData.elements
+                )
+            } catch (e: SerializationException) {
+                println("Error decoding CarouselContent: ${e.localizedMessage}")
+                null
+            }
+        }
+    }
+}
+
+// Panel
+@Serializable
+data class PanelElement(
+    val title: String
+)
+
+@Serializable
+data class PanelContentData(
+    val title: String,
+    val subtitle: String? = null,
+    val imageType: String? = null,
+    val imageData: String? = null,
+    val imageDescription: String? = null,
+    val elements: List<PanelElement>
+)
+
+@Serializable
+data class PanelReplyMessage(
+    val title: String,
+    val subtitle: String? = null
+)
+
+@Serializable
+data class PanelData(
+    val replyMessage: PanelReplyMessage? = null,
+    val content: PanelContentData
+)
+
+@Serializable
+data class PanelTemplate(
+    val templateType: String,
+    val version: String,
+    val data: PanelData
+)
+
+data class PanelContent(
+    val title: String,
+    val subtitle: String? = null,
+    val imageUrl: String? = null,
+    val imageDescription: String? = null,
+    val options: List<PanelElement>
+): InteractiveContent {
+    companion object {
+        const val TEMPLATE_TYPE = Constants.PANEL
+        fun decode(text: String): InteractiveContent? {
+            return try {
+                val panel = Json.decodeFromString<PanelTemplate>(text)
+                val contentData = panel.data.content
+                PanelContent(
+                    title = contentData.title,
+                    subtitle = contentData.subtitle,
+                    imageUrl = contentData.imageData,
+                    imageDescription = contentData.imageDescription,
+                    options = contentData.elements
+                )
+            } catch (e: SerializationException) {
+                println("Error decoding PanelContent: ${e.localizedMessage}")
                 null
             }
         }
