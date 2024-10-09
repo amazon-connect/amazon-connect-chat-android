@@ -33,13 +33,13 @@ interface ChatSession {
      * @param chatDetails The details of the chat.
      * @return A Result indicating whether the connection was successful.
      */
-    suspend fun connect(chatDetails: ChatDetails): Result<Unit>
+    suspend fun connect(chatDetails: ChatDetails): Result<Boolean>
 
     /**
      * Disconnects the current chat session.
      * @return A Result indicating whether the disconnection was successful.
      */
-    suspend fun disconnect(): Result<Unit>
+    suspend fun disconnect(): Result<Boolean>
 
     /**
      * Sends a message.
@@ -47,7 +47,7 @@ interface ChatSession {
      * @param contentType The content type of the message.
      * @return A Result indicating whether the message sending was successful.
      */
-    suspend fun sendMessage(contentType: ContentType, message: String): Result<Unit>
+    suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean>
 
     /**
      * Sends an event.
@@ -55,7 +55,7 @@ interface ChatSession {
      * @param contentType The content type of the event.
      * @return A Result indicating whether the event sending was successful.
      */
-    suspend fun sendEvent(contentType: ContentType, event: String): Result<Unit>
+    suspend fun sendEvent(contentType: ContentType, event: String): Result<Boolean>
 
     /**
      * Checks if a chat session is currently active.
@@ -67,7 +67,7 @@ interface ChatSession {
      * Sends an attachment.
      * @return A Result indicating whether sending the attachment was successful.
      */
-    suspend fun sendAttachment(fileUri: Uri): Result<Unit>
+    suspend fun sendAttachment(fileUri: Uri): Result<Boolean>
 
     /**
      * Downloads an attachment.
@@ -173,51 +173,31 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         chatService.configure(config)
     }
 
-    override suspend fun connect(chatDetails: ChatDetails): Result<Unit> {
+    override suspend fun connect(chatDetails: ChatDetails): Result<Boolean> {
         // Establish subscriptions whenever a new chat session is initiated
         setupEventSubscriptions()
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.createChatSession(chatDetails)
-                Result.success(Unit)
-            }.getOrElse {
-                Result.failure(it)
-            }
+            chatService.createChatSession(chatDetails)
         }
     }
 
-    override suspend fun disconnect(): Result<Unit> {
+    override suspend fun disconnect(): Result<Boolean> {
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.disconnectChatSession()
-                Result.success(Unit)
-            }.getOrElse {
-                Result.failure(it)
-            }
+            chatService.disconnectChatSession()
         }.also {
             cleanup()
         }
     }
 
-    override suspend fun sendMessage(contentType: ContentType, message: String): Result<Unit> {
+    override suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean> {
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.sendMessage(contentType, message)
-                Result.success(Unit)
-            }.getOrElse {
-                Result.failure(it)
-            }
+            chatService.sendMessage(contentType, message)
         }
     }
 
-    override suspend fun sendEvent(contentType: ContentType, content: String): Result<Unit> {
+    override suspend fun sendEvent(contentType: ContentType, content: String): Result<Boolean> {
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.sendEvent(contentType, content)
-                Result.success(Unit)
-            }.getOrElse {
-                Result.failure(it)
-            }
+            chatService.sendEvent(contentType, content)
         }
     }
 
@@ -233,17 +213,13 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         transcriptListCollectionJob = null
         chatSessionStateCollectionJob = null
     }
-    
-    override suspend fun sendAttachment(fileUri: Uri): Result<Unit> {
+
+    override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.sendAttachment(fileUri)
-                Result.success(Unit)
-            }.getOrElse {
-                Result.failure(it)
-            }
+            chatService.sendAttachment(fileUri)
         }
     }
+
 
     override suspend fun downloadAttachment(attachmentId: String, filename: String): Result<URL> {
         return withContext(Dispatchers.IO) {

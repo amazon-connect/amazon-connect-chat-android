@@ -17,8 +17,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -228,6 +230,7 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
 
         Column {
             ParticipantTokenSection(activity, viewModel)
+            Spacer(modifier = Modifier.height(16.dp))
             ConfigPicker(viewModel) // Include the configuration picker here
         }
 //        ParticipantTokenSection(activity, viewModel)
@@ -435,16 +438,13 @@ fun ChatMessage(
 fun ParticipantTokenSection(activity: Activity, viewModel: ChatViewModel) {
     val participantToken by viewModel.liveParticipantToken.observeAsState()
 
-    Column {
+    Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}",
             color = if (participantToken != null) Color.Blue else Color.Red
         )
         Button(onClick = viewModel::clearParticipantToken) {
             Text("Clear Participant Token")
-        }
-        Button(onClick = { viewModel.openFile(activity) }) {
-            Text(text = "Upload Attachment")
         }
     }
 }

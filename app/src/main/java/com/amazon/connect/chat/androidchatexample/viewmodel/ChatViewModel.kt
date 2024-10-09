@@ -68,6 +68,7 @@ class ChatViewModel @Inject constructor(
 
     fun setSelectedConfig(index: Int) {
         _selectedConfigIndex.value = index
+        clearParticipantToken()
         chatConfigProvider.updateConfig(index) // Update the current configuration
     }
 
@@ -85,9 +86,7 @@ class ChatViewModel @Inject constructor(
     }
 
     init {
-        viewModelScope.launch {
-            configureChatSession()
-        }
+
     }
 
     private suspend fun configureChatSession() {
@@ -135,6 +134,9 @@ class ChatViewModel @Inject constructor(
 
     fun initiateChat() {
         viewModelScope.launch {
+
+            configureChatSession()
+
             _isLoading.value = true
             messages = mutableStateListOf() // Clear existing messages
             if (participantToken != null) {
@@ -197,6 +199,7 @@ class ChatViewModel @Inject constructor(
                 // Handle successful connection
                 Log.d("ChatViewModel", "Connection successful $result")
             } else if (result.isFailure) {
+                Log.e("ChatViewModel", "Connection failed: ${result.exceptionOrNull()}")
                 _errorMessage.value = result.exceptionOrNull()?.message
             }
         }
