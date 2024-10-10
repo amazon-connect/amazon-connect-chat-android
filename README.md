@@ -533,6 +533,8 @@ class Event(
     override var text: String? = null,
     override var displayName: String? = null,
     override var eventDirection: MessageDirection? = MessageDirection.COMMON,
+
+    // TranscriptItem properties
     timeStamp: String,
     contentType: String,
     id: String,
@@ -551,18 +553,6 @@ class Event(
 * `eventDirection`
   * This is the direction of the event
   * Type: `eventDirection` (`Outgoing | Incoming | Common`)
-* `timeStamp`
-  * Time when the message or event was sent. Formatted in ISO 8601 (e.g. `yyyy-MM-ddThh:mm:ss.SSSZ` or ` 2019-11-08T02:41:28.172Z`)
-  * Type: `String`
-* `contentType`
-  * The type of message
-  * Type: `String` (See [ContentType](#contenttype)
-* `id`
-  * Id for the message. Unique to each message in the transcript.
-  * Type: `String`
-* `serializedContent`
-  * The raw JSON format of the received WebSocket message
-  * Type: Map of `String: Any`
 
 --------
 ### MessageMetadata (extends [TranscriptItem](#transcriptitem))
@@ -572,6 +562,8 @@ The MessageMetadata event is used to receive additional data on a given message 
 class MessageMetadata(
     override var status: MessageStatus? = null,
     override var eventDirection: MessageDirection? = MessageDirection.COMMON,
+
+    // TranscriptItem properties
     timeStamp: String,
     contentType: String,
     id: String,
@@ -584,18 +576,6 @@ class MessageMetadata(
 * `eventDirection`
   * This is the direction of the metadata event.
   * Type: `eventDirection` (`Outgoing | Incoming | Common`)
-* `timeStamp`
-  * Time when the message or event was sent. Formatted in ISO 8601 (e.g. `yyyy-MM-ddThh:mm:ss.SSSZ` or ` 2019-11-08T02:41:28.172Z`)
-  * Type: `String`
-* `contentType`
-  * The type of message
-  * Type: `String` (See [ContentType](#contenttype)
-* `id`
-  * Id for the message. Unique to each message in the transcript.
-  * Type: `String`
-* `serializedContent`
-  * The raw JSON format of the received WebSocket message
-  * Type: Map of `String: Any`
 
 ## Security
 
