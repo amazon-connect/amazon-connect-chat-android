@@ -472,7 +472,7 @@ open class TranscriptItem(
   * Type: `String`
 * `contentType`
   * The type of message
-  * Type: `String` (See [ContentType](#contenttype)
+  * Type: `String` (See [ContentType](#contenttype))
 * `serializedContent`
   * The raw JSON format of the received WebSocket message
   * Type: Map of `String: Any`
