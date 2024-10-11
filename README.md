@@ -141,7 +141,7 @@ fun configure(config: GlobalConfig)
 Attempts to connect to a chat session with the given details.
 
 ```
-suspend fun connect(chatDetails: ChatDetails): Result<Unit>
+suspend fun connect(chatDetails: ChatDetails): Result<Boolean>
 
 data class ChatDetails(
     var contactId: String? = null,
@@ -160,7 +160,7 @@ data class ChatDetails(
 Disconnects the current chat session.
 
 ```
-suspend fun disconnect(): Result<Unit>
+suspend fun disconnect(): Result<Boolean>
 ```
 
 --------------------
@@ -169,7 +169,7 @@ suspend fun disconnect(): Result<Unit>
 Sends a message within the chat session.
 
 ```
-suspend fun sendMessage(contentType: ContentType, message: String): Result<Unit>
+suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean>
 ```
 
 * `contentType`
@@ -185,7 +185,7 @@ suspend fun sendMessage(contentType: ContentType, message: String): Result<Unit>
 Sends an event within the chat session.
 
 ```
-suspend fun sendEvent(contentType: ContentType, event: String): Result<Unit>
+suspend fun sendEvent(contentType: ContentType, event: String): Result<Boolean>
 ```
 
 * `event`
@@ -201,7 +201,7 @@ suspend fun sendEvent(contentType: ContentType, event: String): Result<Unit>
 Sends read receipt for a message.
 
 ```
-suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType): Result<Unit>
+suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType): Result<Boolean>
 ```
 * `transcriptItem`
   * The transcript item associated with the message receipt.
@@ -252,7 +252,7 @@ suspend fun getTranscript(
 Sends an attachment within the chat session.
 
 ```
-suspend fun sendAttachment(fileUri: Uri): Result<Unit>
+suspend fun sendAttachment(fileUri: Uri): Result<Boolean>
 ```
 
 * `fileUri`
