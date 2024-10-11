@@ -101,7 +101,6 @@ data class GlobalConfig(
     var region: Regions = defaultRegion,
     var features: Features = Features.defaultFeatures,
     var disableCsm: Boolean = false,
-    var isDevMode: Boolean = false
 )
 ```
 * `region`
@@ -237,7 +236,7 @@ suspend fun getTranscript(
   * Default: `ASCENDING`
 * `maxResults`
   * The maximum number of results to retrieve.
-  * Type: `NSNumber?`
+  * Type: `Int?`
   * Default: `15`
 * `nextToken`
   * Type: `String`
@@ -461,7 +460,7 @@ open class TranscriptItem(
     id: String = "",
     timeStamp: String,
     override var contentType: String,
-    override var serializedContent: Map<String, Any>? = null
+    override var serializedContent: String? = null
 )
 ```
 * `id`
@@ -475,7 +474,7 @@ open class TranscriptItem(
   * Type: `String` (See [ContentType](#contenttype))
 * `serializedContent`
   * The raw JSON format of the received WebSocket message
-  * Type: Map of `String: Any`
+  * Type: Map of `String?`
 
 --------
 ### Message (extends [TranscriptItem](#transcriptitem))
@@ -493,7 +492,7 @@ class Message(
     var attachmentId: String? = null,
     id: String,
     override var metadata: MessageMetadataProtocol? = null,
-    serializedContent: Map<String, Any>? = null
+    serializedContent: String?? = null
 )
 ```
 * `participant`
@@ -522,7 +521,7 @@ class Message(
   * Type: [Metadata](#metadata)
 * `serializedContent`
   * This is the serialized message data that comes through the WebSocket which is used to create the message object.
-  * Type: `Map<String, Any>?`
+  * Type: `String?`
 ---
 ### Event (extends [TranscriptItem](#transcriptitem))
 The Event type of the TranscriptItem is for events that come through the WebSocket.  See [ContentType](#contenttype) for a list of possible events.
@@ -538,7 +537,7 @@ class Event(
     timeStamp: String,
     contentType: String,
     id: String,
-    serializedContent: Map<String, Any>? = null
+    serializedContent: String? = null
 )
 ```
 * `participant`
@@ -567,7 +566,7 @@ class MessageMetadata(
     timeStamp: String,
     contentType: String,
     id: String,
-    serializedContent: Map<String, Any>? = null
+    serializedContent: String? = null
 )
 ```
 * `status`
