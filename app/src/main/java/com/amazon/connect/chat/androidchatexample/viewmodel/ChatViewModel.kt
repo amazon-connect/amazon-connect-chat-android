@@ -266,10 +266,10 @@ class ChatViewModel @Inject constructor(
     }
 
     fun endChat(){
+        clearParticipantToken()
         viewModelScope.launch {
             chatSession.disconnect()
         }
-        clearParticipantToken()
     }
 
     fun clearErrorMessage() {

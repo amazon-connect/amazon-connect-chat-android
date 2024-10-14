@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.amazon.connect.chat.androidchatexample.Config
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
@@ -52,7 +53,16 @@ fun ConfigPicker(viewModel: ChatViewModel) {
             .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Text(
+            text = "Note: If you see Participant Token available, DO NOT change your account from dropdown, just start the chat to resume previous session",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 36.dp).fillMaxWidth().align(Alignment.CenterHorizontally),
+            color = Color.Red,
+            textAlign = TextAlign.Center
+        )
+
         Text("Select Configuration", style = MaterialTheme.typography.bodyLarge)
+
 
         // Exposed dropdown menu for selecting configuration
         ExposedDropdownMenuBox(

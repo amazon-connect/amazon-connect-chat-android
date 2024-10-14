@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -49,21 +50,44 @@ fun ListPickerContentView(
 ) {
     var showListPicker by remember { mutableStateOf(true) }
     val viewModel: ChatViewModel = hiltViewModel()
+    Column(
+        modifier = Modifier
+            .padding(8.dp)
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .fillMaxWidth(0.80f),
+        horizontalAlignment = Alignment.End,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            message.displayName?.let {
+                Text(
+                    text = it.ifEmpty { message.participant },
+                    color = Color.Black,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = CommonUtils.formatTime(message.timeStamp) ?: "",
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
 
-    if (message.participant != null) {
-        Text(
-            text = message.participant!!,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-        )
-    }
     if (showListPicker) {
         Column(
             modifier = Modifier
-                .padding(start = 8.dp)
                 .clip(RoundedCornerShape(size = 10.dp))
                 .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
-                .background(color = Color(0xFF9FB980))
+                .background(color = Color(0xFFEDEDED))
                 .padding(horizontal = 10.dp, vertical = 10.dp)
         ) {
             if (!content.imageUrl.isNullOrEmpty()) {
@@ -101,29 +125,22 @@ fun ListPickerContentView(
         }
     }else {
         Surface(
-            color = Color(0xFF8BC34A),
+            color = Color(0xFFEDEDED),
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier
-                .padding(start = 8.dp)
-                .background(Color(0xFF8BC34A), shape = RoundedCornerShape(10.dp))
-                .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
+                .background(Color(0xFFEDEDED), shape = RoundedCornerShape(10.dp))
+                .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.80f)
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
+            Column(modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.Start) {
                 Text(
                     text = content.title,
-                    color = Color.White
+                    color = Color.Black
                 )
-                message.timeStamp?.let {
-                    Text(
-                        text = CommonUtils.formatTime(it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White,
-                        modifier = Modifier.align(Alignment.End).alpha(0.7f)
-                    )
-                }
             }
         }
     }
+        }
 }
 
 @Composable

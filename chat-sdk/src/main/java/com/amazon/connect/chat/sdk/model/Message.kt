@@ -52,9 +52,11 @@ data class Message(
             val jsonData = text.toByteArray(Charsets.UTF_8)
             val genericTemplate = Json { ignoreUnknownKeys = true }.decodeFromString<GenericInteractiveTemplate>(String(jsonData))
             when (genericTemplate.templateType) {
-                QuickReplyContent.templateType -> QuickReplyContent.decode(text)
-                ListPickerContent.templateType -> ListPickerContent.decode(text)
-                // Add cases for each interactive message type, decoding as appropriate.
+                QuickReplyContent.TEMPLATE_TYPE -> QuickReplyContent.decode(text)
+                ListPickerContent.TEMPLATE_TYPE -> ListPickerContent.decode(text)
+                TimePickerContent.TEMPLATE_TYPE -> TimePickerContent.decode(text)
+                CarouselContent.TEMPLATE_TYPE -> CarouselContent.decode(text)
+                PanelContent.TEMPLATE_TYPE -> PanelContent.decode(text)
                 else -> {
                     logUnsupportedContentType(genericTemplate.templateType)
                     null

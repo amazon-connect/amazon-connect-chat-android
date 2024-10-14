@@ -59,7 +59,7 @@ fun ChatMessageView(
                         }
                         is QuickReplyContent -> QuickReplyContentView(transcriptItem, content)
                         is ListPickerContent -> ListPickerContentView(transcriptItem, content)
-                        else -> Text(text = "Unsupported message type")
+                        else -> Text(text = "Unsupported message type, View is missing")
                     }
                 }
                 MessageDirection.COMMON -> CommonChatBubble(transcriptItem)
