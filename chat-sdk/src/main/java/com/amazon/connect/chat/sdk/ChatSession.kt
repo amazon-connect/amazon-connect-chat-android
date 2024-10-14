@@ -99,7 +99,7 @@ interface ChatSession {
      * @param transcriptItem The transcript item.
      * @param receiptType The type of the receipt.
      */
-    suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType)
+    suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType): Result<Boolean>
 
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
@@ -251,21 +251,26 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         }
     }
 
-    override suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType) {
-        withContext(Dispatchers.IO) {
-            val messageItem = transcriptItem as? Message
+    override suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+                val messageItem = transcriptItem as? Message
 
-            // Check if the transcript item is a plain text message, is not empty, and is incoming
-            if (messageItem == null || messageItem.text.isEmpty() || messageItem.participant == "CUSTOMER") {
-                return@withContext
-            }
+                // Check if the transcript item is a plain text message, is not empty, and is incoming
+                if (messageItem == null || messageItem.text.isEmpty() || messageItem.participant == "CUSTOMER") {
+                    return@withContext Result.failure<Boolean>(IllegalArgumentException("Invalid message item.  Cannot send message receipts for outgoing or empty messages."))
+                }
 
-            // Check if the item already has the read status when sending a read receipt
-            if (receiptType == MessageReceiptType.MESSAGE_READ && messageItem.metadata?.status == MessageStatus.Read) {
-                return@withContext
-            }
+                // Check if the item already has the read status when sending a read receipt
+                if (receiptType == MessageReceiptType.MESSAGE_READ && messageItem.metadata?.status == MessageStatus.Read) {
+                    return@withContext Result.success(true)
+                }
 
-            sendReceipt(event = receiptType, messageId = messageItem.id)
+                val sendReceiptResult = sendReceipt(event = receiptType, messageId = messageItem.id)
+                if (sendReceiptResult.isSuccess) {
+                    Result.success(true)
+                } else {
+                    Result.failure(sendReceiptResult.exceptionOrNull() ?: IllegalStateException("sendReceipt call failed"))
+                }
         }
     }
 
