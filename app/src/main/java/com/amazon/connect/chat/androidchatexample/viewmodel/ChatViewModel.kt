@@ -1,6 +1,7 @@
 package com.amazon.connect.chat.androidchatexample.viewmodel
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
@@ -19,6 +20,7 @@ import com.amazon.connect.chat.androidchatexample.network.Resource
 import com.amazon.connect.chat.androidchatexample.repository.ChatRepository
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
 import com.amazon.connect.chat.sdk.ChatSession
+import com.amazon.connect.chat.sdk.ChatSessionProvider
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
@@ -29,6 +31,7 @@ import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
 import java.net.URL
 import javax.inject.Inject
@@ -40,11 +43,16 @@ class ChatViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val chatConfigProvider: ChatConfigProvider
 ) : ViewModel() {
+
+    // If you are not using Hilt, you can initialize ChatSession like this
+//    private val chatSession = ChatSessionProvider.getChatSession(context)
+
     private val _isLoading = MutableLiveData(false)
     val isLoading: MutableLiveData<Boolean> = _isLoading
 
     private val _isChatActive = MutableLiveData(false)
     val isChatActive: MutableLiveData<Boolean> = _isChatActive
+
 
     private val _selectedFileUri = MutableLiveData(Uri.EMPTY)
     val selectedFileUri: MutableLiveData<Uri> = _selectedFileUri
@@ -106,7 +114,7 @@ class ChatViewModel @Inject constructor(
         }
 
         chatSession.onTranscriptUpdated = { transcriptList ->
-            Log.d("ChatViewModel", "Transcript onTranscriptUpdated: $transcriptList")
+            Log.d("ChatViewModel", "Transcript onTranscriptUpdated last 3 items: ${transcriptList.takeLast(3)}")
             viewModelScope.launch {
                 onUpdateTranscript(transcriptList)
             }
@@ -129,6 +137,10 @@ class ChatViewModel @Inject constructor(
         chatSession.onChatSessionStateChanged = {
             Log.d("ChatViewModel", "Chat session state changed: $it")
             _isChatActive.value = it
+        }
+
+        chatSession.onDeepHeartBeatFailure = {
+            Log.d("ChatViewModel", "Deep heartbeat failure")
         }
     }
 
@@ -217,7 +229,6 @@ class ChatViewModel @Inject constructor(
                 transcriptItem
             }
             messages.addAll(updatedMessages)
-            Log.d("ChatViewModel", "Transcript updated: $messages")
         }
     }
 

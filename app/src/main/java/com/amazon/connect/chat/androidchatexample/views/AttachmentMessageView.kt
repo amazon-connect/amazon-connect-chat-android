@@ -153,7 +153,9 @@ fun AttachmentMessageView(
                     Text(
                         text = CommonUtils.customMessageStatus(message.metadata?.status),
                         fontSize = 10.sp,
-                        color = Color.Gray
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

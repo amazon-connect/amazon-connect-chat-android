@@ -4,8 +4,6 @@ package com.amazon.connect.chat.sdk.utils
 
 import java.text.SimpleDateFormat
 import java.util.*
-import com.amazon.connect.chat.sdk.Config
-import com.amazon.connect.chat.sdk.network.MetricsInterface
 
 object MetricsUtils {
     fun getCurrentMetricTimestamp(): String {
@@ -15,15 +13,7 @@ object MetricsUtils {
         return formatter.format(now)
     }
 
-    fun isCsmDisabled(): Boolean {
-        return Config.disableCsm
-    }
-
     fun getMetricsEndpoint(): String {
-        return if (Config.isDevMode) {
-            "https://f9cskafqk3.execute-api.us-west-2.amazonaws.com/devo/"
-        } else {
-            "https://ieluqbvv.telemetry.connect.us-west-2.amazonaws.com/prod/"
-        }
+        return "https://ieluqbvv.telemetry.connect.us-west-2.amazonaws.com/prod/"
     }
 }

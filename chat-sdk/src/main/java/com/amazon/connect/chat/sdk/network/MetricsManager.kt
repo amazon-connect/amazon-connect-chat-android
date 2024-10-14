@@ -8,6 +8,7 @@ import com.amazon.connect.chat.sdk.utils.MetricsUtils
 import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.Metric
 import com.amazon.connect.chat.sdk.model.Dimension
+import com.amazon.connect.chat.sdk.model.GlobalConfig
 
 class MetricsManager @Inject constructor(
     private var apiClient: APIClient
@@ -16,11 +17,16 @@ class MetricsManager @Inject constructor(
     private var isMonitoring: Boolean = false
     private var timer: Timer? = null
     private var shouldRetry: Boolean = true
+    private var _isCsmDisabled: Boolean = false
 
     init {
-        if (!MetricsUtils.isCsmDisabled()) {
+        if (!_isCsmDisabled) {
             monitorAndSendMetrics()
         }
+    }
+
+    fun configure(config: GlobalConfig) {
+        _isCsmDisabled = config.disableCsm
     }
 
     @Synchronized
@@ -85,7 +91,7 @@ class MetricsManager @Inject constructor(
     }
 
     private fun addMetric(metric: Metric) {
-        if (MetricsUtils.isCsmDisabled()) {
+        if (_isCsmDisabled) {
             return
         }
 

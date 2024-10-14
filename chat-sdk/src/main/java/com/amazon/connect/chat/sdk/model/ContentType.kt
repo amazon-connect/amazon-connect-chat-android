@@ -37,4 +37,5 @@ enum class ChatEvent {
     ConnectionReEstablished,
     ChatEnded,
     ConnectionBroken,
+    DeepHeartBeatFailure,
 }

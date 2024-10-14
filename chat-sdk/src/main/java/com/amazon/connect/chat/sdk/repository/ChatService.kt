@@ -3,6 +3,13 @@ package com.amazon.connect.chat.sdk.repository
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ContentType
@@ -130,7 +137,7 @@ class ChatServiceImpl @Inject constructor(
     private val metricsManager: MetricsManager,
     private val attachmentsManager: AttachmentsManager,
     private val messageReceiptsManager: MessageReceiptsManager
-) : ChatService {
+) : ChatService, DefaultLifecycleObserver {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
@@ -161,6 +168,7 @@ class ChatServiceImpl @Inject constructor(
 
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
+        metricsManager.configure(config)
     }
 
     init {
@@ -209,6 +217,7 @@ class ChatServiceImpl @Inject constructor(
                     ChatEvent.ConnectionReEstablished -> {
                         SDKLogger.logger.logDebug { "Connection Re-Established" }
                         connectionDetailsProvider.setChatSessionState(true)
+                        removeTypingIndicators()  // Make sure to remove typing indicators if still present
                         fetchReconnectedTranscript(internalTranscript)
                     }
 
@@ -218,8 +227,16 @@ class ChatServiceImpl @Inject constructor(
                     }
 
                     ChatEvent.ConnectionBroken -> SDKLogger.logger.logDebug { "Connection Broken" }
+                    ChatEvent.DeepHeartBeatFailure -> {
+                        SDKLogger.logger.logDebug { "Deep Heartbeat Failure" }
+                    }
                 }
                 _eventPublisher.emit(event)
+
+                // Cleanup when chat ends, making sure that it cleanups after event has been emitted
+                if (event == ChatEvent.ChatEnded) {
+                    clearSubscriptionsAndPublishers()
+                }
             }
         }
 
@@ -283,13 +300,12 @@ class ChatServiceImpl @Inject constructor(
         val initialCount = transcriptDict.size
 
         // Remove typing indicators from both transcriptDict and internalTranscript
-        val keysToRemove = transcriptDict.filterValues {
-            it is Event && it.contentType == ContentType.TYPING.type
-        }.keys
+        transcriptDict.entries.removeIf {
+            it.value is Event && it.value.contentType == ContentType.TYPING.type
+        }
 
-        keysToRemove.forEach { key ->
-            transcriptDict.remove(key)
-            internalTranscript.removeAll { item -> item.id == key }
+        internalTranscript.removeIf {
+            it is Event && it.contentType == ContentType.TYPING.type
         }
 
         // Send the updated transcript list to subscribers if items removed
@@ -300,11 +316,14 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
+
     private fun resetTypingIndicatorTimer(after: Double = 0.0) {
         typingIndicatorTimer?.cancel()
         typingIndicatorTimer = Timer().apply {
             schedule(after.toLong() * 1000) {
-                removeTypingIndicators()
+                if (isAppInForeground()) {
+                    removeTypingIndicators()
+                }
             }
         }
     }
@@ -325,6 +344,18 @@ class ChatServiceImpl @Inject constructor(
             // Update the internal transcript list with the new or updated item
             val existingIndex = internalTranscript.indexOfFirst { it.id == item.id }
             if (existingIndex != -1) {
+                val existingItem = internalTranscript[existingIndex]
+
+                // Reapply the metadata to the new item
+                // Whenever new items comes from getTranscript, it comes with null metadata, but we
+                // already have that item in our internalTranscript, so we will just apply existing
+                // metadata to new item.
+                if (existingItem is Message && item is Message) {
+                    if (existingItem.metadata != null && item.metadata == null) {
+                        item.metadata = existingItem.metadata
+                    }
+                }
+
                 // If the item already exists in the internal transcript list, update it
                 internalTranscript[existingIndex] = item
             } else {
@@ -392,7 +423,6 @@ class ChatServiceImpl @Inject constructor(
                 .getOrThrow()
             SDKLogger.logger.logDebug { "Participant Disconnected" }
             connectionDetailsProvider.setChatSessionState(false)
-            clearSubscriptionsAndPublishers()
             true
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to disconnect participant: ${exception.message}" }
@@ -460,12 +490,26 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private fun registerNotificationListeners() {
+        // Observe lifecycle events
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+
         coroutineScope.launch {
             webSocketManager.requestNewWsUrlFlow.collect {
                 handleNewWsUrlRequest()
             }
         }
     }
+
+    override fun onStop(owner: LifecycleOwner) {
+        // Called when the app goes to the background
+        typingIndicatorTimer?.cancel()
+        removeTypingIndicators()
+    }
+
+    private fun isAppInForeground(): Boolean {
+        return ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+    }
+
 
     private fun getRecentDisplayName(): String {
         val recentCustomerMessage = transcriptDict.values
@@ -475,6 +519,8 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private suspend fun handleNewWsUrlRequest() {
+        webSocketManager.isReconnecting.value = true
+
         val chatDetails = connectionDetailsProvider.getChatDetails()
         chatDetails?.let {
             val result = awsClient.createParticipantConnection(it.participantToken)
@@ -492,23 +538,12 @@ class ChatServiceImpl @Inject constructor(
                 }
                 SDKLogger.logger.logError { "CreateParticipantConnection failed: $error" }
             }
+            webSocketManager.isReconnecting.value = false
+        } ?: run {
+            // No chat details available, mark reconnection as failed
+            webSocketManager.isReconnecting.value = false
+            SDKLogger.logger.logError { "Failed to retrieve chat details." }
         }
-    }
-
-    private fun clearSubscriptionsAndPublishers() {
-        transcriptCollectionJob?.cancel()
-        eventCollectionJob?.cancel()
-        chatSessionStateCollectionJob?.cancel()
-
-        transcriptCollectionJob = null
-        eventCollectionJob = null
-        chatSessionStateCollectionJob = null
-
-        transcriptDict = mutableMapOf()
-        internalTranscript = mutableListOf()
-
-        typingIndicatorTimer?.cancel()
-        throttleTypingEventTimer?.cancel()
     }
 
     override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
@@ -542,7 +577,8 @@ class ChatServiceImpl @Inject constructor(
             // Update the recentlySentAttachmentMessage with a failure status if the message was created
             SDKLogger.logger.logError { "Failed to send attachment: ${exception.message}" }
             recentlySentAttachmentMessage?.let {
-                it.metadata?.status = MessageStatus.Failed
+                it.metadata?.status =
+                    MessageStatus.custom(exception.message ?: "Failed to send attachment")
                 sendSingleUpdateToClient(it)
                 SDKLogger.logger.logError { "Message status updated to Failed: $it" }
             }
@@ -625,6 +661,10 @@ class ChatServiceImpl @Inject constructor(
                     }
                 }
             }
+
+            SDKLogger.logger.logDebug { "Transcript fetched successfully" }
+            SDKLogger.logger.logDebug { "Transcript Items: $formattedItems" }
+
             // Create and return the TranscriptResponse
             TranscriptResponse(
                 initialContactId = response.initialContactId.orEmpty(),
@@ -695,4 +735,21 @@ class ChatServiceImpl @Inject constructor(
             Result.success(Unit)
         }
     }
+
+    private fun clearSubscriptionsAndPublishers() {
+        transcriptCollectionJob?.cancel()
+        eventCollectionJob?.cancel()
+        chatSessionStateCollectionJob?.cancel()
+
+        transcriptCollectionJob = null
+        eventCollectionJob = null
+        chatSessionStateCollectionJob = null
+
+        transcriptDict = mutableMapOf()
+        internalTranscript = mutableListOf()
+
+        typingIndicatorTimer?.cancel()
+        throttleTypingEventTimer?.cancel()
+    }
+
 }

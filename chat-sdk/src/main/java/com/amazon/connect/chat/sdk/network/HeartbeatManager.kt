@@ -1,16 +1,19 @@
 package com.amazon.connect.chat.sdk.network
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.concurrent.timer
 import java.util.Timer
 
 class HeartbeatManager(
     val sendHeartbeatCallback: () -> Unit,
-    val missedHeartbeatCallback: () -> Unit
+    val missedHeartbeatCallback: suspend () -> Unit
 ) {
     private var pendingResponse: Boolean = false
     private var timer: Timer? = null
 
-    fun startHeartbeat() {
+    suspend fun startHeartbeat() {
         timer?.cancel()
         pendingResponse = false
         timer = timer(period = 10000) {
@@ -19,7 +22,9 @@ class HeartbeatManager(
                 pendingResponse = true
             } else {
                 timer?.cancel()
-                missedHeartbeatCallback()
+                CoroutineScope(Dispatchers.IO).launch {
+                    missedHeartbeatCallback()
+                }
             }
         }
     }
