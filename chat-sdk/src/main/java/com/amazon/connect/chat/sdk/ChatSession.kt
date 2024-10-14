@@ -104,9 +104,11 @@ interface ChatSession {
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
     var onConnectionBroken: (() -> Unit)?
+    var onDeepHeartBeatFailure: (() -> Unit)?
     var onMessageReceived: ((TranscriptItem) -> Unit)?
     var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)?
     var onChatEnded: (() -> Unit)?
+    var isChatSessionActive: Boolean
 }
 
 @Singleton
@@ -115,16 +117,17 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onConnectionEstablished: (() -> Unit)? = null
     override var onConnectionReEstablished: (() -> Unit)? = null
     override var onConnectionBroken: (() -> Unit)? = null
+    override var onDeepHeartBeatFailure: (() -> Unit)? = null
     override var onMessageReceived: ((TranscriptItem) -> Unit)? = null
     override var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)? = null
     override var onChatEnded: (() -> Unit)? = null
     override var onChatSessionStateChanged: ((Boolean) -> Unit)? = null
+    override var isChatSessionActive: Boolean = false
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
     private var eventCollectionJob: Job? = null
     private var transcriptCollectionJob: Job? = null
     private var transcriptListCollectionJob: Job? = null
     private var chatSessionStateCollectionJob: Job? = null
-
 
     private fun setupEventSubscriptions() {
         // Cancel any existing subscriptions before setting up new ones
@@ -136,8 +139,12 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                 when (event) {
                     ChatEvent.ConnectionEstablished -> onConnectionEstablished?.invoke()
                     ChatEvent.ConnectionReEstablished -> onConnectionReEstablished?.invoke()
-                    ChatEvent.ChatEnded -> onChatEnded?.invoke()
+                    ChatEvent.ChatEnded -> {
+                        onChatEnded?.invoke()
+                        cleanup()
+                    }
                     ChatEvent.ConnectionBroken -> onConnectionBroken?.invoke()
+                    ChatEvent.DeepHeartBeatFailure -> onDeepHeartBeatFailure?.invoke()
                 }
             }
         }
@@ -164,6 +171,7 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
 
         chatSessionStateCollectionJob = coroutineScope.launch {
             chatService.chatSessionStatePublisher.collect { isActive ->
+                isChatSessionActive = isActive
                 onChatSessionStateChanged?.invoke(isActive)
             }
         }
@@ -184,8 +192,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override suspend fun disconnect(): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             chatService.disconnectChatSession()
-        }.also {
-            cleanup()
         }
     }
 
@@ -201,18 +207,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         }
     }
 
-    private fun cleanup() {
-        // Cancel flow collection jobs when disconnecting or cleaning up
-        eventCollectionJob?.cancel()
-        transcriptCollectionJob?.cancel()
-        transcriptListCollectionJob?.cancel()
-        chatSessionStateCollectionJob?.cancel()
-
-        eventCollectionJob = null
-        transcriptCollectionJob = null
-        transcriptListCollectionJob = null
-        chatSessionStateCollectionJob = null
-    }
 
     override suspend fun sendAttachment(fileUri: Uri): Result<Boolean> {
         return withContext(Dispatchers.IO) {
@@ -274,7 +268,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         }
     }
 
-
     private suspend fun sendReceipt(event: MessageReceiptType, messageId: String): Result<Unit> {
         return withContext(Dispatchers.IO) {
             runCatching {
@@ -286,4 +279,20 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         }
     }
 
+    private fun cleanup() {
+        // Cancel flow collection jobs when disconnecting or cleaning up
+        eventCollectionJob?.cancel()
+        transcriptCollectionJob?.cancel()
+        transcriptListCollectionJob?.cancel()
+        chatSessionStateCollectionJob?.cancel()
+
+        eventCollectionJob = null
+        transcriptCollectionJob = null
+        transcriptListCollectionJob = null
+        chatSessionStateCollectionJob = null
+
+        // Reset active state
+        isChatSessionActive = false
+        onChatSessionStateChanged?.invoke(false)
+    }
 }

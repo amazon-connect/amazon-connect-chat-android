@@ -397,7 +397,7 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
                         if(!selectedFileName?.lastPathSegment.isNullOrEmpty()) {
                             selectedFileName?.let { viewModel.uploadAttachment(it) }
                         }
-                        if (textInput.isNotEmpty()) {
+                        if (textInput.trim().isNotEmpty()) {
                             viewModel.sendMessage(textInput)
                         }
                         textInput = ""

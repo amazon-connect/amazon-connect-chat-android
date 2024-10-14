@@ -89,6 +89,7 @@ object CommonUtils {
             MessageStatus.Sending -> "Sending"
             MessageStatus.Failed -> "Failed to send"
             MessageStatus.Sent -> "Sent"
+            MessageStatus.Custom -> status.customValue ?: "Custom status"
             else -> ""  // Returning empty string for unknown or null status
         }
     }

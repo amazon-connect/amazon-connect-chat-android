@@ -1,12 +1,23 @@
 package com.amazon.connect.chat.sdk.model
 
-enum class MessageStatus(val status: String) {
+enum class MessageStatus(val status: String, var customValue: String? = null) {
     Delivered("Delivered"),
     Read("Read"),
     Sending("Sending"),
     Failed("Failed"),
     Sent("Sent"),
-    Unknown("Unknown")
+    Unknown("Unknown"),
+
+    Custom("Custom", null);
+
+    companion object {
+        fun custom(message: String): MessageStatus {
+            return Custom.apply {
+                Custom.customValue = message
+            }
+        }
+    }
+
 }
 
 interface MessageMetadataProtocol : TranscriptItemProtocol {

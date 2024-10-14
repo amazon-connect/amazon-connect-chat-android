@@ -13,11 +13,13 @@ import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.WebSocketMessageType
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -42,6 +44,7 @@ interface WebSocketManager {
     val eventPublisher: SharedFlow<ChatEvent>
     val transcriptPublisher: SharedFlow<TranscriptItem>
     val requestNewWsUrlFlow: MutableSharedFlow<Unit>
+    var isReconnecting: MutableStateFlow<Boolean>
     suspend fun connect(wsUrl: String, isReconnectFlow: Boolean = false)
     suspend fun disconnect()
     suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem?
@@ -61,7 +64,14 @@ class WebSocketManagerImpl @Inject constructor(
     private var webSocket: WebSocket? = null
     private var isConnectedToNetwork: Boolean = false
     private var isChatActive: Boolean = false
-    private var isReconnecting: Boolean = false
+
+    private val _isReconnecting = MutableStateFlow(false)
+    override var isReconnecting: MutableStateFlow<Boolean>
+        get() = _isReconnecting
+        set(value) {
+            _isReconnecting.value = value.value
+        }
+
 
     private var heartbeatManager: HeartbeatManager = HeartbeatManager(
         sendHeartbeatCallback = ::sendHeartbeat,
@@ -150,27 +160,27 @@ class WebSocketManagerImpl @Inject constructor(
     // --- WebSocket Listener ---
 
     private fun createWebSocketListener(isReconnectFlow: Boolean) = object : WebSocketListener() {
-        override fun onOpen(ws: WebSocket, response: Response) {
+        override fun onOpen(webSocket: WebSocket, response: Response) {
             coroutineScope.launch {
                 handleWebSocketOpen(isReconnectFlow)
             }
         }
 
-        override fun onMessage(ws: WebSocket, text: String) {
+        override fun onMessage(webSocket: WebSocket, text: String) {
             coroutineScope.launch {
                 processJsonContent(text)
             }
         }
 
-        override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             Log.i("WebSocket", "WebSocket is closing with code: $code, reason: $reason")
         }
 
-        override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             handleWebSocketClosed(code, reason)
         }
 
-        override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             handleWebSocketFailure(t)
         }
     }
@@ -178,7 +188,7 @@ class WebSocketManagerImpl @Inject constructor(
     private suspend fun handleWebSocketOpen(isReconnectFlow: Boolean) {
         sendMessage(EventTypes.subscribe)
         startHeartbeats()
-        isReconnecting = false
+        _isReconnecting.value = false // Reconnection successful, reset flag
         isChatActive = true
         if (isReconnectFlow) {
             this._eventPublisher.emit(ChatEvent.ConnectionReEstablished)
@@ -197,6 +207,7 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun handleWebSocketFailure(t: Throwable) {
+        Log.e("WebSocket", "WebSocket failure: ${t.message}")
         if (t is IOException && t.message == "Software caused connection abort") {
             if (isChatActive && isConnectedToNetwork) {
                 reestablishConnection()
@@ -228,7 +239,10 @@ class WebSocketManagerImpl @Inject constructor(
         when (topic) {
             "aws/ping" -> handlePing(json)
             "aws/heartbeat" -> handleHeartbeat()
-            "aws/chat" -> handleWebsocketMessage(json.optString("content"))
+            "aws/chat" -> {
+                SDKLogger.logger.logDebug { "Received chat message from websocket $json" }
+                handleWebsocketMessage(json.optString("content"))
+            }
             else -> Log.i("WebSocket", "Unhandled topic: $topic")
         }
     }
@@ -295,7 +309,7 @@ class WebSocketManagerImpl @Inject constructor(
         deepHeartbeatManager.stopHeartbeat()
     }
 
-    private fun startHeartbeats() {
+    private suspend fun startHeartbeats() {
         heartbeatManager.startHeartbeat()
         deepHeartbeatManager.startHeartbeat()
     }
@@ -316,7 +330,8 @@ class WebSocketManagerImpl @Inject constructor(
         }
     }
 
-    private fun onDeepHeartbeatMissed() {
+    private suspend fun onDeepHeartbeatMissed() {
+        this._eventPublisher.emit(ChatEvent.DeepHeartBeatFailure)
         if (isConnectedToNetwork) {
             reestablishConnection()
             Log.w("WebSocket", "Deep Heartbeat missed, retrying connection")
@@ -333,16 +348,15 @@ class WebSocketManagerImpl @Inject constructor(
     // --- Helper Methods ---
 
     private fun reestablishConnection() {
-        if (!isReconnecting) {
+        if (!_isReconnecting.value) {
+            _isReconnecting.value = true
             requestNewWsUrl()
-            isReconnecting = true
         }
     }
 
     private fun requestNewWsUrl() {
         CoroutineScope(Dispatchers.IO).launch {
             requestNewWsUrlFlow.emit(Unit)
-            isReconnecting = false
         }
     }
 
@@ -361,7 +375,6 @@ class WebSocketManagerImpl @Inject constructor(
         val displayName = innerJson.getString("DisplayName")
         val time = innerJson.getString("AbsoluteTime")
 
-        // TODO: Pass raw data
         val message = Message(
             participant = participantRole,
             text = messageText,
@@ -385,7 +398,7 @@ class WebSocketManagerImpl @Inject constructor(
             timeStamp = time,
             displayName = displayName,
             participant = participantRole,
-            text = innerJson.getString("ContentType"), // TODO: Need to be removed and replaced in UI once callbacks are hooked
+            text = innerJson.getString("ContentType"),
             contentType = innerJson.getString("ContentType"),
             eventDirection = MessageDirection.COMMON,
             serializedContent = rawData
