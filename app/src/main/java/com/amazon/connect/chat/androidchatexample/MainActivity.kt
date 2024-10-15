@@ -96,7 +96,8 @@ class MainActivity : ComponentActivity() {
         val externalFileDir = applicationContext.getExternalFilesDir(null)
 
         if (externalFileDir !== null) {
-            val logger = CustomLogger(externalFileDir)
+            val logger = CustomLogger()
+            logger.setLogOutputDir(externalFileDir)
             SDKLogger.configureLogger(logger)
         }
 

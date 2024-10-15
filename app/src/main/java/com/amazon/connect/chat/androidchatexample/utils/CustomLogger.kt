@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -16,14 +17,13 @@ import kotlin.io.path.appendText
 import kotlin.io.path.createFile
 import kotlin.io.path.exists
 
-class CustomLogger(
-    private val externalFileDir: File
-) : ChatSDKLogger {
+class CustomLogger : ChatSDKLogger {
+    private var outputFileDir: File? = null
     private val job = SupervisorJob()
     private val coroutineScope = CoroutineScope(job + Dispatchers.IO)
 
     private val currentTimeMillis = System.currentTimeMillis()
-    private val loggerCreationDateAndTime = formatDate(currentTimeMillis, false)
+    private val loggerCreationDateAndTime = CommonUtils.formatDate(currentTimeMillis, false)
 
     override fun logVerbose(message: () -> String) {
         // Custom logging logic
@@ -71,27 +71,19 @@ class CustomLogger(
         }
     }
 
-    private fun formatDate(currentTimeMillis: Long, forLogs: Boolean = false): String {
-        val date = Date(currentTimeMillis)
-        var utcFormatter: SimpleDateFormat? = null
-        if (forLogs) {
-            utcFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-        } else {
-            utcFormatter = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-        }
-        return utcFormatter.format(date)
+    fun setLogOutputDir(tempFile: File) {
+        outputFileDir = tempFile
     }
 
     private suspend fun writeToAppTempFile(content: String): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             runCatching {
                 val currentTimeMillis = System.currentTimeMillis()
-                val formattedDateTimeForLogs = formatDate(currentTimeMillis, true)
-                val filePath = Path(externalFileDir.absolutePath, "$loggerCreationDateAndTime-amazon-connect-logs.txt")
+                val formattedDateTimeForLogs = CommonUtils.formatDate(currentTimeMillis, true)
+                if (outputFileDir == null || !outputFileDir!!.exists() || !outputFileDir!!.isDirectory()) {
+                    return@runCatching false
+                }
+                val filePath = Path(outputFileDir!!.absolutePath, "$loggerCreationDateAndTime-amazon-connect-logs.txt")
 
                 if (!filePath.exists()) {
                     filePath.createFile()

@@ -7,6 +7,7 @@ import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
@@ -28,6 +29,20 @@ object CommonUtils {
         }
     }
 
+    fun formatDate(currentTimeMillis: Long, forLogs: Boolean = false): String {
+        val date = Date(currentTimeMillis)
+        var utcFormatter: SimpleDateFormat? = null
+        if (forLogs) {
+            utcFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+        } else {
+            utcFormatter = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+        }
+        return utcFormatter.format(date)
+    }
 
     fun getMessageDirection(transcriptItem: TranscriptItem) {
         when (transcriptItem) {
