@@ -9,6 +9,7 @@
   * [GlobalConfig](#globalconfig)
     * [GlobalConfig.init](#globalconfiginit)
     * [Updating configuration](#updating-configuration)
+  * [SDKLogger](#sdklogger)
   * [ChatSession APIs](#chatsession-apis)
   * [ChatSession Events](#chatsession-events)
   * [Classes and Structs](#classes-and-structs)
