@@ -47,7 +47,6 @@ fun TypingIndicator() {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .padding(10.dp)
             .background(Color(0xFFEDEDED), RoundedCornerShape(8.dp))
             .padding( start = 15.dp)
             .padding( end = 10.dp)

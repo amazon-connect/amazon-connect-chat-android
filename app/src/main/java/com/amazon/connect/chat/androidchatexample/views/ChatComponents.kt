@@ -267,7 +267,28 @@ fun EventView(event: Event) {
             contentAlignment = alignment
         ) {
             if (isTypingEvent) {
-                TypingIndicator()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color(0xFFFFFFFF),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(8.dp)
+                ) {
+                    event.displayName?.let {
+                        Text(
+                            text = it,
+                            color = Color.Black,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .padding(4.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    TypingIndicator()
+                }
             } else if (event.eventDirection == MessageDirection.COMMON) {
                 event.text?.let {
                     Text(
