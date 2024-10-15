@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.amazon.connect.chat.androidchatexample.ui.theme.androidconnectchatandroidTheme
+import com.amazon.connect.chat.androidchatexample.utils.CustomLogger
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.getOriginalFileName
 import com.amazon.connect.chat.androidchatexample.utils.FileUtils.previewFileFromCacheOrDownload
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
@@ -74,6 +75,7 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.keyboardAsState
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import dagger.hilt.android.AndroidEntryPoint
 import java.net.URL
 
@@ -91,6 +93,13 @@ class MainActivity : ComponentActivity() {
         )
 
         chatViewModel = ViewModelProvider(this)[ChatViewModel::class.java]
+        val externalFileDir = applicationContext.getExternalFilesDir(null)
+
+        if (externalFileDir !== null) {
+            val logger = CustomLogger(externalFileDir)
+            SDKLogger.configureLogger(logger)
+        }
+
         setContent {
             androidconnectchatandroidTheme {
                 // A surface container using the 'background' color from the theme
