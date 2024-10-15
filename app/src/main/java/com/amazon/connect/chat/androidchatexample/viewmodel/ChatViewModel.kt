@@ -53,7 +53,6 @@ class ChatViewModel @Inject constructor(
     private val _isChatActive = MutableLiveData(false)
     val isChatActive: MutableLiveData<Boolean> = _isChatActive
 
-
     private val _selectedFileUri = MutableLiveData(Uri.EMPTY)
     val selectedFileUri: MutableLiveData<Uri> = _selectedFileUri
 
