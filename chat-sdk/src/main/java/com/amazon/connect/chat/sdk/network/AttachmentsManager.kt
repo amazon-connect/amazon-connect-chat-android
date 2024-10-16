@@ -110,9 +110,9 @@ class AttachmentsManager @Inject constructor(
     }
 
     suspend fun downloadAttachment(
+        connectionToken: String,
         attachmentId: String,
         fileName: String,
-        connectionToken: String
     ): Result<URL> {
         return getAttachmentDownloadUrl(connectionToken, attachmentId).mapCatching { url ->
             downloadFile(url, fileName).getOrThrow()
@@ -121,7 +121,7 @@ class AttachmentsManager @Inject constructor(
         }
     }
 
-    private suspend fun getAttachmentDownloadUrl(connectionToken: String, attachmentId: String): Result<URL> {
+    suspend fun getAttachmentDownloadUrl(connectionToken: String, attachmentId: String): Result<URL> {
         return runCatching {
             val response = awsClient.getAttachment(connectionToken, attachmentId)
             URL(response.getOrNull()?.url ?: throw IOException("Invalid URL"))

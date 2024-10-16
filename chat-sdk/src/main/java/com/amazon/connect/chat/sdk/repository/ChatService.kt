@@ -98,6 +98,14 @@ interface ChatService {
      */
     suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL>
 
+
+    /**
+     * Returns the S3 download URL for an attachment.
+     * @param attachmentId The ID of the attachment.
+     * @return A Result containing the download URL for the attachment.
+     */
+    suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL>
+
     /**
      * Gets the transcript.
      * @param scanDirection The direction of the scan.
@@ -590,9 +598,19 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            attachmentsManager.downloadAttachment(attachmentId, fileName, connectionDetails.connectionToken).getOrThrow()
+            attachmentsManager.downloadAttachment(connectionDetails.connectionToken, attachmentId, fileName).getOrThrow()
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to download attachment: ${exception.message}" }
+        }
+    }
+
+    override suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL> {
+        return runCatching {
+            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+                ?: throw Exception("No connection details available")
+            attachmentsManager.getAttachmentDownloadUrl(attachmentId, connectionDetails.connectionToken).getOrThrow()
+        }.onFailure { exception ->
+            SDKLogger.logger.logError { "Failed to retrieve attachment download URL: ${exception.message}" }
         }
     }
 
