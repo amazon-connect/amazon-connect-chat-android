@@ -1,19 +1,16 @@
 package com.amazon.connect.chat.sdk
 
 import android.net.Uri
-import android.util.Log
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
-import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.repository.ChatService
-import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import com.amazonaws.services.connectparticipant.model.StartPosition

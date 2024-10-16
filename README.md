@@ -9,6 +9,7 @@
   * [GlobalConfig](#globalconfig)
     * [GlobalConfig.init](#globalconfiginit)
     * [Updating configuration](#updating-configuration)
+  * [SDKLogger](#sdklogger)
   * [ChatSession APIs](#chatsession-apis)
   * [ChatSession Events](#chatsession-events)
   * [Classes and Structs](#classes-and-structs)
@@ -125,6 +126,31 @@ If you have set the `GlobalConfig` object or want to update the configurations, 
 ```
 val globalConfig = GlobalConfig(region = chatConfiguration.region)
 chatSession.configure(globalConfig)
+```
+
+### SDKLogger
+The `SDKLogger` class is responsible for logging relevant runtime information to the console which is useful for debugging purposes. The `SDKLogger` will log key events such as establishing a connection or failures such as failing to send a message.
+
+#### `SDKLogger.configure`
+This API will allow you to override the SDK's built-in logger with your own [ChatSDKLogger](#chatsdklogger) implementation. This is especially useful in cases where you would want to store logs for debugging purposes. Attaching these logs to issues filed in this project will greatly expedite the resolution process.
+
+```
+fun configureLogger(logger: ChatSDKLogger) {
+    this.logger = logger
+}
+```
+
+#### ChatSDKLogger
+The ChatSDKLogger is an interface used for the `SDKLogger`.  Users can override the `SDKLogger` with any class that implements the ChatSDKLogger interface.
+
+```
+interface ChatSDKLogger {
+    fun logVerbose(message: () -> String)
+    fun logInfo(message: () -> String)
+    fun logDebug(message: () -> String)
+    fun logWarn(message: () -> String)
+    fun logError(message: () -> String)
+}
 ```
 
 --------------------
