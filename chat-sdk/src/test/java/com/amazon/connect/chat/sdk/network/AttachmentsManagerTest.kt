@@ -7,6 +7,7 @@ import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
+import com.amazonaws.services.connectparticipant.model.GetAttachmentResult
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
 import com.amazonaws.services.connectparticipant.model.UploadMetadata
@@ -33,6 +34,7 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.net.URL
 import retrofit2.Response as RetrofitResponse
 
 @ExperimentalCoroutinesApi
@@ -56,6 +58,7 @@ class AttachmentsManagerTest {
     private val contentResolver = mock(ContentResolver::class.java)
     private val mockStartAttachmentUploadRequest = StartAttachmentUploadRequest()
     private val mockStartAttachmentUploadResult = StartAttachmentUploadResult()
+    private val mockGetAttachmentResult = GetAttachmentResult()
 
     private val mockUri: Uri = Uri.parse("https://example.com/dummy")
     private val mockAttachmentId = "12345"
@@ -63,6 +66,7 @@ class AttachmentsManagerTest {
     private val mockUrl = "https://example.com/"
     private val mockHeadersToInclude = mapOf("key1" to "value1", "key2" to "value2", "key3" to "value3")
     private val mockConnectionToken = "connectionToken"
+    private val mockFilename = "example.txt"
 
     @Before
     fun setUp() {
@@ -176,6 +180,19 @@ class AttachmentsManagerTest {
         assertTrue(copiedFile.path == "test/cache/temp_file.txt")
         assertTrue(copiedFile.length() == tempFile.length())
         File("test").deleteRecursively()
+    }
+
+    @Test
+    fun test_downloadAttachment() = runTest {
+        mockGetAttachmentResult.url = mockUrl
+        doReturn(mockGetAttachmentResult)
+            .`when`(awsClient)
+            .getAttachment(mockConnectionToken, mockAttachmentId)
+
+        attachmentsManager.downloadAttachment(mockConnectionToken, mockAttachmentId, mockFilename)
+        verify(awsClient).getAttachment(mockConnectionToken, mockAttachmentId)
+        verify(attachmentsManager).getAttachmentDownloadUrl(mockConnectionToken, mockAttachmentId)
+        verify(attachmentsManager).downloadFile(URL(mockUrl), mockFilename)
     }
 
     @Test

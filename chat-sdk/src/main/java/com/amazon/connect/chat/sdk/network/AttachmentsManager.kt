@@ -53,7 +53,9 @@ class AttachmentsManager @Inject constructor(
                 file
             ) { response ->
                 CoroutineScope(Dispatchers.IO).launch {
+                    print("DEBUG!!")
                     if (response != null && response.isSuccessful) {
+                        print("DEBUG2!!")
                         completeAttachmentUpload(connectionToken, attachmentId)
                     } else {
                         val exception = response?.message()
@@ -68,6 +70,7 @@ class AttachmentsManager @Inject constructor(
     }
 
     suspend fun completeAttachmentUpload(connectionToken: String, attachmentId: String) {
+        print("HIT!!")
         val request = CompleteAttachmentUploadRequest().apply {
             this.connectionToken = connectionToken
             this.setAttachmentIds(listOf(attachmentId))
@@ -130,7 +133,7 @@ class AttachmentsManager @Inject constructor(
         }
     }
 
-    private suspend fun downloadFile(url: URL, fileName: String): Result<URL> = withContext(Dispatchers.IO) {
+    suspend fun downloadFile(url: URL, fileName: String): Result<URL> = withContext(Dispatchers.IO) {
         runCatching {
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
