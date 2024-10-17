@@ -53,9 +53,7 @@ class AttachmentsManager @Inject constructor(
                 file
             ) { response ->
                 CoroutineScope(Dispatchers.IO).launch {
-                    print("DEBUG!!")
                     if (response != null && response.isSuccessful) {
-                        print("DEBUG2!!")
                         completeAttachmentUpload(connectionToken, attachmentId)
                     } else {
                         val exception = response?.message()

@@ -600,7 +600,7 @@ class ChatServiceImpl @Inject constructor(
                 ?: throw Exception("No connection details available")
             attachmentsManager.downloadAttachment(connectionDetails.connectionToken, attachmentId, fileName).getOrThrow()
         }.onFailure { exception ->
-            SDKLogger.logger.logError { "Failed to download attachment: ${exception.message}" }
+            SDKLogger.logger.logError { "Failed to download attachment for attachmentId $attachmentId. Error: ${exception.message}" }
         }
     }
 
@@ -610,7 +610,7 @@ class ChatServiceImpl @Inject constructor(
                 ?: throw Exception("No connection details available")
             attachmentsManager.getAttachmentDownloadUrl(attachmentId, connectionDetails.connectionToken).getOrThrow()
         }.onFailure { exception ->
-            SDKLogger.logger.logError { "Failed to retrieve attachment download URL: ${exception.message}" }
+            SDKLogger.logger.logError { "Failed to retrieve attachment download URL for attachment $attachmentId. Error: ${exception.message}" }
         }
     }
 
