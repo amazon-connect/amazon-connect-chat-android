@@ -68,6 +68,7 @@ class AttachmentsManager @Inject constructor(
     }
 
     suspend fun completeAttachmentUpload(connectionToken: String, attachmentId: String) {
+        print("HIT!!")
         val request = CompleteAttachmentUploadRequest().apply {
             this.connectionToken = connectionToken
             this.setAttachmentIds(listOf(attachmentId))
@@ -110,9 +111,9 @@ class AttachmentsManager @Inject constructor(
     }
 
     suspend fun downloadAttachment(
+        connectionToken: String,
         attachmentId: String,
         fileName: String,
-        connectionToken: String
     ): Result<URL> {
         return getAttachmentDownloadUrl(connectionToken, attachmentId).mapCatching { url ->
             downloadFile(url, fileName).getOrThrow()
@@ -121,7 +122,7 @@ class AttachmentsManager @Inject constructor(
         }
     }
 
-    private suspend fun getAttachmentDownloadUrl(connectionToken: String, attachmentId: String): Result<URL> {
+    suspend fun getAttachmentDownloadUrl(connectionToken: String, attachmentId: String): Result<URL> {
         return runCatching {
             val response = awsClient.getAttachment(connectionToken, attachmentId)
             URL(response.getOrNull()?.url ?: throw IOException("Invalid URL"))
@@ -130,7 +131,7 @@ class AttachmentsManager @Inject constructor(
         }
     }
 
-    private suspend fun downloadFile(url: URL, fileName: String): Result<URL> = withContext(Dispatchers.IO) {
+    suspend fun downloadFile(url: URL, fileName: String): Result<URL> = withContext(Dispatchers.IO) {
         runCatching {
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"

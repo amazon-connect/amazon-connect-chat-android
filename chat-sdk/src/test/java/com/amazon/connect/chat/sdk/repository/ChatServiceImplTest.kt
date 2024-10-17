@@ -326,13 +326,13 @@ class ChatServiceImplTest {
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
 
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
-        `when`(attachmentsManager.downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)).thenReturn(Result.success(mockUrl))
+        `when`(attachmentsManager.downloadAttachment(mockConnectionDetails.connectionToken, attachmentId, fileName)).thenReturn(Result.success(mockUrl))
 
         val result = chatService.downloadAttachment(attachmentId, fileName)
 
         assertTrue(result.isSuccess)
         assertEquals(mockUrl, result.getOrNull())
-        verify(attachmentsManager).downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)
+        verify(attachmentsManager).downloadAttachment(mockConnectionDetails.connectionToken, attachmentId, fileName)
     }
 
     @Test
@@ -342,12 +342,12 @@ class ChatServiceImplTest {
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
 
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
-        `when`(attachmentsManager.downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)).thenThrow(RuntimeException("Download error"))
+        `when`(attachmentsManager.downloadAttachment(mockConnectionDetails.connectionToken, attachmentId, fileName)).thenThrow(RuntimeException("Download error"))
 
         val result = chatService.downloadAttachment(attachmentId, fileName)
 
         assertTrue(result.isFailure)
-        verify(attachmentsManager).downloadAttachment(attachmentId, fileName, mockConnectionDetails.connectionToken)
+        verify(attachmentsManager).downloadAttachment(mockConnectionDetails.connectionToken, attachmentId, fileName)
     }
 
     @Test

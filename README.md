@@ -307,7 +307,23 @@ suspend fun downloadAttachment(attachmentId: String, filename: String): Result<U
   * The name of the file to save the attachment as.
   * Type: `String`
 * Return result type: `URL`
+  * The return URL points to the location of the downloaded attachment in the local temporary storage.
+  
+--------------------
 
+#### `ChatSession.getAttachmentDownloadUrl`
+Returns the download URL link for the given attachment ID.
+
+```
+suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL>
+```
+
+* `attachmentId`
+  * The ID of the attachment.
+  * Type: `String`
+* Return result type: `URL`
+  * This return URL points to the S3 download URL of the attachment.
+ 
 --------------------
 
 ### ChatSession Events

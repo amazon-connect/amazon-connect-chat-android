@@ -75,6 +75,13 @@ interface ChatSession {
     suspend fun downloadAttachment(attachmentId: String, filename: String): Result<URL>
 
     /**
+     * Returns the S3 download URL for an attachment.
+     * @param attachmentId The ID of the attachment.
+     * @return A Result containing the download URL for the attachment.
+     */
+    suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL>
+
+    /**
      * Gets the transcript.
      * @param scanDirection The direction of the scan.
      * @param sortKey The sort key.
@@ -216,6 +223,14 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         return withContext(Dispatchers.IO) {
             runCatching {
                 chatService.downloadAttachment(attachmentId, filename).getOrThrow()
+            }
+        }
+    }
+
+    override suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                chatService.getAttachmentDownloadUrl(attachmentId).getOrThrow()
             }
         }
     }
