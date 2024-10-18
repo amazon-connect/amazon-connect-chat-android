@@ -1,10 +1,12 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.network
 
-import android.util.Log
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.ContentType
-import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazonaws.regions.Region
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest

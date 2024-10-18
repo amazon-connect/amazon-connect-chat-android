@@ -1,4 +1,7 @@
-package com.amazon.connect.chat.sdk.network
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.amazon.connect.chat.sdk.repository
 
 import com.amazon.connect.chat.sdk.model.MetricRequestBody
 import javax.inject.Inject
@@ -9,6 +12,7 @@ import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.Metric
 import com.amazon.connect.chat.sdk.model.Dimension
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.network.api.APIClient
 
 class MetricsManager @Inject constructor(
     private var apiClient: APIClient

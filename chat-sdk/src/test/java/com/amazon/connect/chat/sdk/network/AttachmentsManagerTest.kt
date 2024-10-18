@@ -3,6 +3,10 @@ package com.amazon.connect.chat.sdk.network
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import com.amazon.connect.chat.sdk.network.api.APIClient
+import com.amazon.connect.chat.sdk.network.api.AttachmentsInterface
+import com.amazon.connect.chat.sdk.network.api.MetricsInterface
+import com.amazon.connect.chat.sdk.repository.AttachmentsManager
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
