@@ -1,19 +1,22 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.di
 
 import android.content.Context
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.AttachmentsManager
-import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
+import com.amazon.connect.chat.sdk.repository.AttachmentsManager
+import com.amazon.connect.chat.sdk.repository.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.network.WebSocketManager
-import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.repository.MetricsManager
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
 import com.amazon.connect.chat.sdk.network.WebSocketManagerImpl
 import com.amazon.connect.chat.sdk.repository.ChatService
 import com.amazon.connect.chat.sdk.repository.ChatServiceImpl
-import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProvider
-import com.amazon.connect.chat.sdk.repository.ConnectionDetailsProviderImpl
+import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
+import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProviderImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

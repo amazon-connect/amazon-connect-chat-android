@@ -1,6 +1,8 @@
-package com.amazon.connect.chat.sdk.network
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 
-import android.util.Log
+package com.amazon.connect.chat.sdk.repository
+
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageReceipts
 import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
