@@ -68,7 +68,6 @@ class AttachmentsManager @Inject constructor(
     }
 
     suspend fun completeAttachmentUpload(connectionToken: String, attachmentId: String) {
-        print("HIT!!")
         val request = CompleteAttachmentUploadRequest().apply {
             this.connectionToken = connectionToken
             this.setAttachmentIds(listOf(attachmentId))
