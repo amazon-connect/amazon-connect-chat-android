@@ -1,4 +1,7 @@
-package com.amazon.connect.chat.sdk.repository
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.amazon.connect.chat.sdk.provider
 
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ConnectionDetails

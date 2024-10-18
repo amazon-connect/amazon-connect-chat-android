@@ -1,6 +1,10 @@
-package com.amazon.connect.chat.sdk
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.amazon.connect.chat.sdk.provider
 
 import android.content.Context
+import com.amazon.connect.chat.sdk.ChatSession
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors

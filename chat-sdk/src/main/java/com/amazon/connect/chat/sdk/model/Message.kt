@@ -1,5 +1,9 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.model
 
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
@@ -70,9 +74,11 @@ data class Message(
 
     private fun logUnsupportedContentType(templateType: String?) {
         // Log the unsupported content type
+        SDKLogger.logger.logDebug { "Unsupported content type: $templateType" }
     }
 
     private fun logSerializationException(e: SerializationException) {
         // Log the serialization exception
+        SDKLogger.logger.logError { "Serialization exception: ${e.message}" }
    }
 }

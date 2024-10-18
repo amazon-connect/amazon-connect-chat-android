@@ -1,17 +1,20 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.di
 
 import android.content.Context
-import com.amazon.connect.chat.sdk.network.APIClient
+import com.amazon.connect.chat.sdk.network.api.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.AWSClientImpl
-import com.amazon.connect.chat.sdk.network.ApiUrl
-import com.amazon.connect.chat.sdk.network.AttachmentsInterface
-import com.amazon.connect.chat.sdk.network.MetricsInterface
-import com.amazon.connect.chat.sdk.network.MetricsManager
+import com.amazon.connect.chat.sdk.network.api.ApiUrl
+import com.amazon.connect.chat.sdk.network.api.AttachmentsInterface
+import com.amazon.connect.chat.sdk.network.api.MetricsInterface
+import com.amazon.connect.chat.sdk.repository.MetricsManager
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
-import com.amazon.connect.chat.sdk.network.AttachmentsManager
-import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
-import com.amazon.connect.chat.sdk.network.MessageReceiptsManagerImpl
+import com.amazon.connect.chat.sdk.repository.AttachmentsManager
+import com.amazon.connect.chat.sdk.repository.MessageReceiptsManager
+import com.amazon.connect.chat.sdk.repository.MessageReceiptsManagerImpl
 import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module

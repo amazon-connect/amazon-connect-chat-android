@@ -13,11 +13,8 @@ import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.AttachmentsManager
-import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
-import com.amazon.connect.chat.sdk.network.MetricsManager
-import com.amazon.connect.chat.sdk.network.PendingMessageReceipts
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
 import com.amazonaws.services.connectparticipant.model.GetTranscriptResult

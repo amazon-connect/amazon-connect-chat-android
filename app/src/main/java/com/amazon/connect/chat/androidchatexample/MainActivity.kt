@@ -69,7 +69,6 @@ import com.amazon.connect.chat.androidchatexample.utils.FileUtils.previewFileFro
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.androidchatexample.views.AttachmentTextView
 import com.amazon.connect.chat.androidchatexample.views.ChatMessageView
-import com.amazon.connect.chat.androidchatexample.views.ConfigPicker
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
@@ -241,7 +240,6 @@ fun ChatScreen(activity: Activity, viewModel: ChatViewModel = hiltViewModel()) {
         Column {
             ParticipantTokenSection(activity, viewModel)
             Spacer(modifier = Modifier.height(16.dp))
-            ConfigPicker(viewModel) // Include the configuration picker here
         }
 //        ParticipantTokenSection(activity, viewModel)
 

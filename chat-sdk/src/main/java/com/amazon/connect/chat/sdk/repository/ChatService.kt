@@ -1,14 +1,13 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.repository
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.OnLifecycleEvent
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
@@ -23,11 +22,8 @@ import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.AttachmentsManager
-import com.amazon.connect.chat.sdk.network.MessageReceiptsManager
-import com.amazon.connect.chat.sdk.network.MetricsManager
-import com.amazon.connect.chat.sdk.network.PendingMessageReceipts
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getMimeType
 import com.amazon.connect.chat.sdk.utils.CommonUtils.Companion.getOriginalFileName
 import com.amazon.connect.chat.sdk.utils.Constants

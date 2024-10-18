@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.network
 
 import android.util.Log
@@ -13,6 +16,7 @@ import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.WebSocketMessageType
+import com.amazon.connect.chat.sdk.repository.HeartbeatManager
 import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
