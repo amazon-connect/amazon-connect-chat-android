@@ -129,6 +129,31 @@ tasks.withType<AbstractPublishToMaven>().configureEach {
     dependsOn(tasks.named("assembleRelease"))
 }
 
+// For local publishing
+// Can be used in example app like below
+// Keeping group Id different for local testing purpose
+// implementation("com.amazon.connect.chat.sdk:connect-chat-sdk:1.0.0")
+publishing {
+    publications {
+        // Create a MavenPublication for the release build type
+        create<MavenPublication>("release") {
+            afterEvaluate {
+                artifact(tasks.getByName("bundleReleaseAar"))
+            }
+            groupId = "com.amazon.connect.chat.sdk"
+            artifactId = "connect-chat-sdk"
+            version = "1.0.0"
+
+
+        }
+    }
+    // Define the repository where the artifact will be published
+    repositories {
+        mavenLocal()
+    }
+}
+
+
 // Test summary gradle file
 apply(from = "test-summary.gradle.kts")
 

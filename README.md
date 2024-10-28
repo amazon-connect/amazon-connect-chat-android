@@ -53,7 +53,7 @@ dependencies {
 
 ## Getting Started
 
-The first step to leveraging the Amazon Connect Chat SDK after installation is to import the library into your file. Next, let's call the StartChatContact API and pass the response details into the SDK’s ChatSession object.  Here is an [example](TODO - Add link to UI Example) of how we would set this up in Kotlin. For reference, you can visit the [AndroidChatExample demo](https://github.com/amazon-connect/amazon-connect-chat-ui-examples/tree/master/mobileChatExamples/androidChatExample) within the [Amazon Connect Chat UI Examples](https://github.com/amazon-connect/amazon-connect-chat-ui-examples/tree/master) GitHub repository.
+The first step to leveraging the Amazon Connect Chat SDK after installation is to import the library into your file. Next, let's call the StartChatContact API and pass the response details into the SDK’s ChatSession object. For reference, you can visit the [AndroidChatExample demo](https://github.com/amazon-connect/amazon-connect-chat-ui-examples/tree/master/mobileChatExamples/androidChatExample) within the [Amazon Connect Chat UI Examples](https://github.com/amazon-connect/amazon-connect-chat-ui-examples/tree/master) GitHub repository.
 
 The majority of the SDKs functionality will be accessed through the `ChatSession` object. In order to use this object in the file, you can inject it using `@HiltViewModel`:
 
@@ -70,6 +70,7 @@ If you are not using Hilt, then you can initialise `ChatSession` like this:
 ```
 private val chatSession = ChatSessionProvider.getChatSession(context)
 ```
+> Note: When not using Hilt/Dagger for dependency injection, you may need to manually import the necessary dependencies for [AWSConnectParticipant](https://github.com/aws-amplify/aws-sdk-android) and [AWSCore](https://github.com/aws-amplify/aws-sdk-android) in your app’s build.gradle file. With Hilt/Dagger, these dependencies are managed automatically, but for manual implementations, you must include them explicitly to ensure all required classes are available.
 
 In this example, we are using a `ChatViewModel` class that helps bridge UI and SDK communication.  This class is responsible for managing interactions with the SDK's ChatSession object. From here, we can access the SDK's suite of APIs from the `chatSession` property. 
 
