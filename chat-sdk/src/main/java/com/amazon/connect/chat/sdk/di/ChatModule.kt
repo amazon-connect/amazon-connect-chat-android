@@ -19,6 +19,7 @@ import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProviderImpl
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -48,7 +49,17 @@ object ChatModule {
         attachmentsManager: AttachmentsManager,
         messageReceiptsManager: MessageReceiptsManager,
     ): ChatService {
-        return ChatServiceImpl(context, awsClient, connectionDetailsProvider, webSocketManager, metricsManager, attachmentsManager, messageReceiptsManager)
+        return ChatServiceImpl(context, awsClient, connectionDetailsProvider,
+            webSocketManager, metricsManager, attachmentsManager, messageReceiptsManager)
+    }
+
+    /**
+     * Entry point for Hilt to provide ChatSession.
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface ChatSessionEntryPoint {
+        fun getChatSession(): ChatSession
     }
 
     /**

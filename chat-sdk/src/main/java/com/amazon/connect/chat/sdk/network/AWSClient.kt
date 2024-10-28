@@ -108,6 +108,15 @@ class AWSClientImpl @Inject constructor(
     private val connectParticipantClient: AmazonConnectParticipantClient
 ) : AWSClient {
 
+    companion object {
+        fun create(): AWSClient {
+            // Create an AmazonConnectParticipantClient
+            val connectParticipantClient = AmazonConnectParticipantClient()
+
+            return AWSClientImpl(connectParticipantClient)
+        }
+    }
+
     override fun configure(config: GlobalConfig) {
         connectParticipantClient.setRegion(Region.getRegion(config.region))
     }

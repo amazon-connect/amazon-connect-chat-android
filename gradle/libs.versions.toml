@@ -84,7 +84,7 @@ awsSdkConnectParticipant = { module = "com.amazonaws:aws-android-sdk-connectpart
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 serializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
 coilCompose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
-chatSdk = { module = "com.amazon.connect.chat:library", version.ref = "chatSdk" }
+chatSdk = { module = "software.aws.connect:amazon-connect-chat-android", version.ref = "chatSdk" }
 runtimeLivedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
