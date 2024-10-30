@@ -20,6 +20,7 @@ import com.amazonaws.services.connectparticipant.model.StartPosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
@@ -148,7 +149,11 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                     ChatEvent.ConnectionReEstablished -> onConnectionReEstablished?.invoke()
                     ChatEvent.ChatEnded -> {
                         onChatEnded?.invoke()
-                        cleanup()
+                        coroutineScope.launch {
+                            // Provide some time for transcript to update and surface end event to user.
+                            delay(500)
+                            cleanup()
+                        }
                     }
                     ChatEvent.ConnectionBroken -> onConnectionBroken?.invoke()
                     ChatEvent.DeepHeartBeatFailure -> onDeepHeartBeatFailure?.invoke()
