@@ -236,11 +236,6 @@ class ChatServiceImpl @Inject constructor(
                     }
                 }
                 _eventPublisher.emit(event)
-
-                // Cleanup when chat ends, making sure that it cleanups after event has been emitted
-                if (event == ChatEvent.ChatEnded) {
-                    clearSubscriptionsAndPublishers()
-                }
             }
         }
 
@@ -374,6 +369,9 @@ class ChatServiceImpl @Inject constructor(
             }
 
             _transcriptListPublisher.emit(internalTranscript)
+            if (ContentType.fromType(item.contentType) == ContentType.ENDED) {
+                clearSubscriptionsAndPublishers()
+            }
         }
     }
 
