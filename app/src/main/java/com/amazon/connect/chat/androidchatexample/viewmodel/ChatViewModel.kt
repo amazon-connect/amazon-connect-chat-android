@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.amazon.connect.chat.androidchatexample.Config
 import com.amazon.connect.chat.androidchatexample.models.ParticipantDetails
+import com.amazon.connect.chat.androidchatexample.models.PersistentChat
 import com.amazon.connect.chat.androidchatexample.models.StartChatRequest
 import com.amazon.connect.chat.androidchatexample.models.StartChatResponse
 import com.amazon.connect.chat.androidchatexample.network.Resource
@@ -69,6 +70,10 @@ class ChatViewModel @Inject constructor(
     private val _liveParticipantToken = MutableLiveData<String?>(sharedPreferences.getString("participantToken", null))
     val liveParticipantToken: LiveData<String?> = _liveParticipantToken
 
+    // LiveData to hold participant token from shared preferences
+    private val _liveContactId = MutableLiveData<String?>(sharedPreferences.getString("contactId", null))
+    val liveContactId: LiveData<String?> = _liveContactId
+
     // Property to get or set participant token in shared preferences
     private var participantToken: String?
         get() = liveParticipantToken.value
@@ -77,10 +82,23 @@ class ChatViewModel @Inject constructor(
             _liveParticipantToken.value = value  // Update LiveData with new token
         }
 
+    private var contactId: String?
+        get() = liveContactId.value
+        set(value) {
+            sharedPreferences.edit().putString("contactId", value).apply()
+            _liveContactId.value = value  // Update LiveData with new contactId
+        }
+
     // Clear participant token from shared preferences
     fun clearParticipantToken() {
         sharedPreferences.edit().remove("participantToken").apply()
         _liveParticipantToken.value = null
+    }
+
+    // Clear contact id  from shared preferences
+    fun clearContactId() {
+        sharedPreferences.edit().remove("contactId").apply()
+        _liveContactId.value = null
     }
 
     // Initialize ViewModel (add additional initialization logic if needed)
@@ -145,29 +163,34 @@ class ChatViewModel @Inject constructor(
             _isLoading.value = true
             messages = mutableStateListOf() // Clear existing messages
 
-            // Check if participant token exists for reconnecting
-            participantToken?.let {
-                val chatDetails = ChatDetails(participantToken = it)
+            if (participantToken != null) {
+                val chatDetails = ChatDetails(participantToken = participantToken!!)
                 createParticipantConnection(chatDetails)
-            } ?: run {
-                startChat() // Start a fresh chat if no token is found
+            } else if (contactId != null) {
+                startChat(contactId)
+            } else {
+                startChat(null) // Start a fresh chat if no tokens are present
             }
+
         }
     }
 
     // Start a new chat session by sending a StartChatRequest to the repository
-    private fun startChat() {
+    private fun startChat(sourceContactId: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             val participantDetails = ParticipantDetails(displayName = chatConfiguration.customerName)
+            val persistentChat: PersistentChat? = sourceContactId?.let { PersistentChat(it, "ENTIRE_PAST_SESSION") }
             val request = StartChatRequest(
                 connectInstanceId = chatConfiguration.connectInstanceId,
                 contactFlowId = chatConfiguration.contactFlowId,
+                persistentChat = persistentChat,
                 participantDetails = participantDetails
             )
             when (val response = chatRepository.startChat(endpoint = chatConfiguration.startChatEndpoint,startChatRequest = request)) {
                 is Resource.Success -> {
                     response.data?.data?.startChatResult?.let { result ->
+                        this@ChatViewModel.contactId = result.contactId
                         this@ChatViewModel.participantToken = result.participantToken
                         handleStartChatResponse(result)
                     } ?: run {
@@ -263,11 +286,25 @@ class ChatViewModel @Inject constructor(
 
 
     // Fetch the chat transcript
-    fun fetchTranscript(onCompletion: (Boolean) -> Unit) {
+    fun fetchTranscript(onCompletion: (Boolean) -> Unit, nextToken: String? = null) {
         viewModelScope.launch {
-            chatSession.getTranscript(ScanDirection.BACKWARD, SortKey.DESCENDING, 30, null, messages?.get(0)?.id).onSuccess {
+            chatSession.getTranscript(
+                ScanDirection.BACKWARD,
+                SortKey.DESCENDING,
+                15,
+                nextToken,
+                null
+            ).onSuccess { response ->
                 Log.d("ChatViewModel", "Transcript fetched successfully")
-                onCompletion(true)
+
+                // Check for nextToken
+                if (!response.nextToken.isNullOrEmpty()) {
+                    // Call fetchTranscript again with the nextToken
+                    fetchTranscript(onCompletion, response.nextToken)
+                } else {
+                    // No more pages to fetch, call onCompletion
+                    onCompletion(true)
+                }
             }.onFailure {
                 Log.e("ChatViewModel", "Error fetching transcript: ${it.message}")
                 onCompletion(false)

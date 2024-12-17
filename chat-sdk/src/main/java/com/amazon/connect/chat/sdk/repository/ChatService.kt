@@ -369,9 +369,6 @@ class ChatServiceImpl @Inject constructor(
             }
 
             _transcriptListPublisher.emit(internalTranscript)
-            if (ContentType.fromType(item.contentType) == ContentType.ENDED) {
-                clearSubscriptionsAndPublishers()
-            }
         }
     }
 
@@ -424,6 +421,8 @@ class ChatServiceImpl @Inject constructor(
             awsClient.disconnectParticipantConnection(connectionDetails.connectionToken)
                 .getOrThrow()
             SDKLogger.logger.logDebug { "Participant Disconnected" }
+            webSocketManager.disconnect("Customer ended the chat")
+            _eventPublisher.emit(ChatEvent.ChatEnded)
             connectionDetailsProvider.setChatSessionState(false)
             true
         }.onFailure { exception ->
