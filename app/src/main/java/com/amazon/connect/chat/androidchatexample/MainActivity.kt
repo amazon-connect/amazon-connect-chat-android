@@ -307,14 +307,14 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
 
     val onRefresh: () -> Unit = {
         isRefreshing = true
-        viewModel.fetchTranscript { success ->
+        viewModel.fetchTranscript(onCompletion = { success ->
             isRefreshing = false
             if (success) {
                 Log.d("ChatView", "Transcript fetched successfully")
             } else {
                 Log.e("ChatView", "Failed to fetch transcript")
             }
-        }
+        })
     }
 
     // Scroll to the last message when messages change
@@ -369,7 +369,6 @@ fun ChatView(viewModel: ChatViewModel, activity: Activity) {
                     LaunchedEffect(key1 = message, key2 = index) {
                         if (message.contentType == ContentType.ENDED.type) {
                             isChatEnded = true
-                            viewModel.clearParticipantToken()
                         } else {
                             isChatEnded = false
                         }
@@ -445,8 +444,18 @@ fun ChatMessage(
 @Composable
 fun ParticipantTokenSection(activity: Activity, viewModel: ChatViewModel) {
     val participantToken by viewModel.liveParticipantToken.observeAsState()
+    val contactId by viewModel.liveContactId.observeAsState()
 
     Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "Contact Id: ${if (contactId != null) "Available" else "Not available"}",
+            color = if (contactId != null) Color.Blue else Color.Red
+        )
+        Button(onClick = viewModel::clearContactId) {
+            Text("Clear Contact Id")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
             text = "Participant Token: ${if (participantToken != null) "Available" else "Not available"}",
             color = if (participantToken != null) Color.Blue else Color.Red

@@ -50,7 +50,7 @@ interface WebSocketManager {
     val requestNewWsUrlFlow: MutableSharedFlow<Unit>
     var isReconnecting: MutableStateFlow<Boolean>
     suspend fun connect(wsUrl: String, isReconnectFlow: Boolean = false)
-    suspend fun disconnect()
+    suspend fun disconnect(reason: String?)
     suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem?
 }
 
@@ -152,13 +152,14 @@ class WebSocketManagerImpl @Inject constructor(
 
     private fun closeWebSocket(reason: String? = null) {
         CoroutineScope(Dispatchers.IO).launch {
+            isChatActive = false;
             resetHeartbeatManagers()
             webSocket?.close(1000, reason)
         }
     }
 
-    override suspend fun disconnect() {
-        closeWebSocket("Disconnecting...")
+    override suspend fun disconnect(reason: String?) {
+        closeWebSocket(reason)
     }
 
     // --- WebSocket Listener ---
@@ -181,10 +182,12 @@ class WebSocketManagerImpl @Inject constructor(
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            Log.i("WebSocket", "WebSocket is closed with code: $code, reason: $reason")
             handleWebSocketClosed(code, reason)
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            Log.e("WebSocket", "WebSocket failure: ${t.message}")
             handleWebSocketFailure(t)
         }
     }
@@ -428,9 +431,6 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private suspend fun handleChatEnded(innerJson: JSONObject, rawData: String): TranscriptItem {
-        closeWebSocket("Chat Ended");
-        isChatActive = false;
-        this._eventPublisher.emit(ChatEvent.ChatEnded)
         val time = innerJson.getString("AbsoluteTime")
         val eventId = innerJson.getString("Id")
         val event = Event(

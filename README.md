@@ -247,6 +247,7 @@ suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: Mess
 --------------------
 
 #### `ChatSession.getTranscript`
+
 Retrieves the chat transcript.
 
 ```
@@ -278,6 +279,20 @@ suspend fun getTranscript(
   * The start position for the transcript.
   * Type: `StartPosition?`. See [StartPosition](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_StartPosition.html)
 * Return result type: [TranscriptResponse](#transcriptresponse)
+
+Upon establishing a connection, the SDK automatically calls `getTranscript` to retrieve messages
+sent while the app was in the background, offline, or in similar disconnected states. Users can also
+call `getTranscript` as they need, for example - pull to fetch previous message etc.
+
+Here's how `getTranscript` works in SDK:
+
+* **Automatic Transcript Management:** The SDK automatically manages the received transcript.
+  New messages are delivered through the `onTranscriptUpdated` and `onMessageReceived` callbacks.
+* **Pagination:** The response includes a `nextToken` that you can use to fetch additional messages
+  if the transcript is large.
+
+For more information on how getTranscript API works, please
+visit [GetTranscript](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_GetTranscript.html)
 
 --------------------
 
