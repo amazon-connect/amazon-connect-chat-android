@@ -63,46 +63,46 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidxCoreKtx)
-    implementation(libs.androidxLifecycleRuntimeKtx)
-    implementation(libs.androidxActivityCompose)
-    implementation(platform(libs.composeBom))
-    implementation(libs.composeUi)
-    implementation(libs.composeUiGraphics)
-    implementation(libs.composeUiToolingPreview)
-    implementation(libs.material3)
-    implementation(libs.runtimeLivedata)
+    api(libs.androidxCoreKtx)
+    api(libs.androidxLifecycleRuntimeKtx)
+    api(libs.androidxActivityCompose)
+    api(platform(libs.composeBom))
+    api(libs.composeUi)
+    api(libs.composeUiGraphics)
+    api(libs.composeUiToolingPreview)
+    api(libs.material3)
+    api(libs.runtimeLivedata)
 
     // Lifecycle livedata
-    implementation(libs.lifecycleLivedataKtx)
-    implementation(libs.lifecycleViewmodelKtx)
-    implementation(libs.coroutinesAndroid)
+    api(libs.lifecycleLivedataKtx)
+    api(libs.lifecycleViewmodelKtx)
+    api(libs.coroutinesAndroid)
 
     // Retrofit
-    implementation(libs.retrofit)
-    implementation(libs.converterGson)
-    implementation(libs.okhttp)
-    implementation(libs.loggingInterceptor)
-    implementation(libs.otto)
-    implementation(libs.adapterRxjava2)
+    api(libs.retrofit)
+    api(libs.converterGson)
+    api(libs.okhttp)
+    api(libs.loggingInterceptor)
+    api(libs.otto)
+    api(libs.adapterRxjava2)
 
     //Hilt
-    implementation(libs.hiltAndroid)
-    implementation(libs.hiltNavigationCompose)
-    implementation(libs.lifecycleProcess)
+    api(libs.hiltAndroid)
+    api(libs.hiltNavigationCompose)
+    api(libs.lifecycleProcess)
     kapt(libs.hiltCompiler)
-    implementation(libs.navigationCompose)
+    api(libs.navigationCompose)
     kapt(libs.hiltAndroidCompiler)
 
     // AWS
-    implementation(libs.awsSdkCore)
-    implementation(libs.awsSdkConnectParticipant)
+    api(libs.awsSdkCore)
+    api(libs.awsSdkConnectParticipant)
 
     // Serialization
-    implementation(libs.serializationJson)
+    api(libs.serializationJson)
 
     // Image loading
-    implementation(libs.coilCompose)
+    api(libs.coilCompose)
 
     // Testing
     // Mockito for mocking
@@ -133,25 +133,23 @@ tasks.withType<AbstractPublishToMaven>().configureEach {
 // Can be used in example app like below
 // Keeping group Id different for local testing purpose
 // implementation("com.amazon.connect.chat.sdk:connect-chat-sdk:1.0.0")
-publishing {
-    publications {
-        // Create a MavenPublication for the release build type
-        create<MavenPublication>("release") {
-            afterEvaluate {
-                artifact(tasks.getByName("bundleReleaseAar"))
-            }
-            groupId = "com.amazon.connect.chat.sdk"
-            artifactId = "connect-chat-sdk"
-            version = "1.0.0"
-
-
-        }
-    }
-    // Define the repository where the artifact will be published
-    repositories {
-        mavenLocal()
-    }
-}
+//publishing {
+//    publications {
+//        // Create a MavenPublication for the release build type
+//        create<MavenPublication>("release") {
+//            afterEvaluate {
+//                artifact(tasks.getByName("bundleReleaseAar"))
+//            }
+//            groupId = "com.amazon.connect.chat.sdk"
+//            artifactId = "connect-chat-sdk"
+//            version = "1.0.2"
+//        }
+//    }
+//    // Define the repository where the artifact will be published
+//    repositories {
+//        mavenLocal()
+//    }
+//}
 
 
 // Test summary gradle file
