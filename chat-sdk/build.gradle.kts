@@ -65,33 +65,25 @@ android {
 dependencies {
     api(libs.androidxCoreKtx)
     api(libs.androidxLifecycleRuntimeKtx)
-    api(libs.androidxActivityCompose)
-    api(platform(libs.composeBom))
-    api(libs.composeUi)
-    api(libs.composeUiGraphics)
-    api(libs.composeUiToolingPreview)
     api(libs.material3)
     api(libs.runtimeLivedata)
 
     // Lifecycle livedata
-    api(libs.lifecycleLivedataKtx)
-    api(libs.lifecycleViewmodelKtx)
-    api(libs.coroutinesAndroid)
+    implementation(libs.lifecycleLivedataKtx)
+    implementation(libs.lifecycleViewmodelKtx)
+    implementation(libs.coroutinesAndroid)
 
     // Retrofit
     api(libs.retrofit)
-    api(libs.converterGson)
     api(libs.okhttp)
-    api(libs.loggingInterceptor)
-    api(libs.otto)
     api(libs.adapterRxjava2)
+    implementation(libs.converterGson)
+    implementation(libs.loggingInterceptor)
 
     //Hilt
-    api(libs.hiltAndroid)
-    api(libs.hiltNavigationCompose)
-    api(libs.lifecycleProcess)
+    implementation(libs.hiltAndroid)
+    implementation(libs.lifecycleProcess)
     kapt(libs.hiltCompiler)
-    api(libs.navigationCompose)
     kapt(libs.hiltAndroidCompiler)
 
     // AWS
@@ -99,10 +91,7 @@ dependencies {
     api(libs.awsSdkConnectParticipant)
 
     // Serialization
-    api(libs.serializationJson)
-
-    // Image loading
-    api(libs.coilCompose)
+    implementation(libs.serializationJson)
 
     // Testing
     // Mockito for mocking
@@ -117,10 +106,8 @@ dependencies {
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidxJunit)
-    androidTestImplementation(platform(libs.composeBom))
-    androidTestImplementation(libs.composeUiTestJunit4)
-    debugImplementation(libs.composeUiTooling)
-    debugImplementation(libs.composeUiTestManifest)
+
+
     testImplementation(libs.robolectric)
 }
 

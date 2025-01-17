@@ -1,3 +1,5 @@
+package com.amazon.connect.chat.sdk.provider
+
 import android.content.Context
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
@@ -9,7 +11,6 @@ import com.amazon.connect.chat.sdk.network.WebSocketManagerImpl
 import com.amazon.connect.chat.sdk.network.api.APIClient
 import com.amazon.connect.chat.sdk.network.api.AttachmentsInterface
 import com.amazon.connect.chat.sdk.network.api.MetricsInterface
-import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProviderImpl
 import com.amazon.connect.chat.sdk.repository.AttachmentsManager
 import com.amazon.connect.chat.sdk.repository.ChatServiceImpl
 import com.amazon.connect.chat.sdk.repository.MessageReceiptsManagerImpl
@@ -72,9 +73,12 @@ object ChatSessionProvider {
         val networkConnectionManager = NetworkConnectionManager(appContext)
 
         // Step 3: Create WebSocket Manager
+        val connectionDetailsProvider = ConnectionDetailsProviderImpl()
+
         val webSocketManager = WebSocketManagerImpl(
             dispatcher = Dispatchers.IO,
-            networkConnectionManager = networkConnectionManager
+            networkConnectionManager = networkConnectionManager,
+            connectionDetailsProvider = connectionDetailsProvider
         )
 
         // Step 4: Create Retrofit Builder
@@ -87,7 +91,6 @@ object ChatSessionProvider {
         val metricsManager = MetricsManager(apiClient)
         val attachmentsManager = AttachmentsManager(appContext, awsClient, apiClient)
         val messageReceiptsManager = MessageReceiptsManagerImpl()
-        val connectionDetailsProvider = ConnectionDetailsProviderImpl()
 
         // Step 7: Create ChatService and return ChatSessionImpl
         val chatService = ChatServiceImpl(
