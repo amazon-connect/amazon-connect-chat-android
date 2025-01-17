@@ -107,7 +107,9 @@ object ChatModule {
     @Singleton
     fun provideWebSocketManager(
         networkConnectionManager: NetworkConnectionManager,
+        connectionDetailsProvider: ConnectionDetailsProvider
     ): WebSocketManager {
-        return WebSocketManagerImpl(networkConnectionManager = networkConnectionManager)
+        return WebSocketManagerImpl(networkConnectionManager = networkConnectionManager,
+            connectionDetailsProvider = connectionDetailsProvider)
     }
 }

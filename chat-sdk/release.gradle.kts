@@ -57,14 +57,14 @@ if (sonatypeUsername.isNullOrEmpty() || sonatypePassword.isNullOrEmpty()) {
     configure<PublishingExtension> {
         publications {
             create<MavenPublication>("publishChatSDK") {
+
+                afterEvaluate {
+                    from(components["release"]) // Reference the release component
+                }
+
                 groupId = _groupId
                 artifactId = _artifactId
                 version = _sdkVersion
-
-                // Ensure the AAR artifact is included
-                afterEvaluate {
-                    artifact(tasks.getByName("bundleReleaseAar"))
-                }
 
                 // Configure POM metadata using the helper function
                 configurePom()
