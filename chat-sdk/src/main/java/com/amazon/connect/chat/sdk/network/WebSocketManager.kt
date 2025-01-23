@@ -62,7 +62,6 @@ class WebSocketManagerImpl @Inject constructor(
 ) : WebSocketManager {
 
     private val coroutineScope = CoroutineScope(dispatcher + SupervisorJob())
-    private var latestParticipantJoinedTimestamp: String? = null
 
     private val client: OkHttpClient = OkHttpClient.Builder()
         .pingInterval(60, TimeUnit.SECONDS)
@@ -287,14 +286,7 @@ class WebSocketManagerImpl @Inject constructor(
                 WebSocketMessageType.EVENT -> {
                     val eventTypeString = jsonObject.optString("ContentType")
                     when (val eventType = ContentType.fromType(eventTypeString)) {
-                        ContentType.JOINED -> {
-                            val timestamp = jsonObject.getString("AbsoluteTime")
-                            if (latestParticipantJoinedTimestamp == null
-                                || timestamp > (latestParticipantJoinedTimestamp ?: "")) {
-                                latestParticipantJoinedTimestamp = timestamp
-                            }
-                            handleParticipantEvent(jsonObject, jsonString)
-                        }
+                        ContentType.JOINED -> handleParticipantEvent(jsonObject, jsonString)
                         ContentType.LEFT -> handleParticipantEvent(jsonObject, jsonString)
                         ContentType.TYPING -> handleTyping(jsonObject, jsonString)
                         ContentType.ENDED -> handleChatEnded(jsonObject, jsonString)
@@ -443,11 +435,9 @@ class WebSocketManagerImpl @Inject constructor(
     private suspend fun handleChatEnded(innerJson: JSONObject, rawData: String): TranscriptItem {
         val time = innerJson.getString("AbsoluteTime")
         val eventId = innerJson.getString("Id")
+        val isFromPastSession = innerJson.optBoolean("isFromPastSession", false)
 
-        // Check if the event belongs to a previous transcript
-        val isOlderEvent = latestParticipantJoinedTimestamp?.let { time < it } == true
-
-        if (!isOlderEvent) {
+        if (!isFromPastSession) {
             // Current session event: Reset state and update session
             resetHeartbeatManagers()
             this._eventPublisher.emit(ChatEvent.ChatEnded)

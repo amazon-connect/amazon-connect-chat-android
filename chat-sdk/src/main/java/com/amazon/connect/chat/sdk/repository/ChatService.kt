@@ -416,6 +416,15 @@ class ChatServiceImpl @Inject constructor(
 
     override suspend fun disconnectChatSession(): Result<Boolean> {
         return runCatching {
+            // Check if the chat session is active
+            if (!connectionDetailsProvider.isChatSessionActive()) {
+                webSocketManager.disconnect("Session inactive")
+                clearSubscriptionsAndPublishers()
+                SDKLogger.logger.logDebug { "Chat session is inactive. Disconnecting websocket and clearing resources." }
+                return Result.success(true) // Successfully handled the inactive session case
+            }
+
+            // Proceed with the disconnection logic
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
             awsClient.disconnectParticipantConnection(connectionDetails.connectionToken)

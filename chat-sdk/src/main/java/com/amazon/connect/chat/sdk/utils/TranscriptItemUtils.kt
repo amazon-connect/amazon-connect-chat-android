@@ -84,7 +84,8 @@ object TranscriptItemUtils {
                 "Content" to (item.content ?: ""),
                 "Type" to item.type,
                 "DisplayName" to (item.displayName ?: ""),
-                "Attachments" to attachmentsArray
+                "Attachments" to attachmentsArray,
+                "isFromPastSession" to true // Mark all these items as coming from a past session
             )
 
             // Serialize the dictionary to JSON string
