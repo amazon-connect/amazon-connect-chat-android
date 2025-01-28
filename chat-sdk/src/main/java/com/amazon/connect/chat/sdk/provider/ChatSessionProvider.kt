@@ -36,29 +36,47 @@ object ChatSessionProvider {
         }
     }
 
-    // Private method to initialize ChatSession using Hilt or manual fallback
-    private fun initializeChatSession(context: Context): ChatSession {
-        return if (isHiltAvailable()) {
-            // Use Hilt's EntryPoint mechanism if Hilt is available
-            val entryPoint = EntryPointAccessors.fromApplication(
-                context.applicationContext,
-                ChatModule.ChatSessionEntryPoint::class.java
-            )
-            entryPoint.getChatSession()
-        } else {
-            // Fallback to manual initialization
-            createChatSessionManually(context)
-        }
-    }
-
     // Method to check if Hilt is available
     private fun isHiltAvailable(): Boolean {
         return try {
-            Class.forName("dagger.hilt.EntryPoints")
+            // Check for the presence of Hilt's core class
+            val hiltClass = Class.forName("dagger.hilt.android.EntryPointAccessors")
+            SDKLogger.logger.logDebug { "Hilt detected: $hiltClass" }
             true
         } catch (e: ClassNotFoundException) {
-            SDKLogger.logger.logDebug {"Hilt is not available"}
+            SDKLogger.logger.logDebug { "Hilt is not available: ${e.message}" }
             false
+        } catch (e: Exception) {
+            // Catch any unexpected issues during class detection
+            SDKLogger.logger.logDebug { "Error while checking Hilt availability: ${e.message}" }
+            false
+        }
+    }
+
+    private fun initializeChatSession(context: Context): ChatSession {
+        return try {
+            if (isHiltAvailable()) {
+                SDKLogger.logger.logDebug { "Attempting Hilt-based ChatSession initialization." }
+                val entryPoint = EntryPointAccessors.fromApplication(
+                    context.applicationContext,
+                    ChatModule.ChatSessionEntryPoint::class.java
+                )
+                entryPoint.getChatSession().also {
+                    SDKLogger.logger.logDebug { "ChatSession initialized using Hilt." }
+                }
+            } else {
+                SDKLogger.logger.logDebug { "Hilt not available. Falling back to manual initialization." }
+                createChatSessionManually(context).also {
+                    SDKLogger.logger.logDebug { "ChatSession initialized manually." }
+                }
+            }
+        } catch (e: Exception) {
+            // Handle unexpected errors during initialization
+            SDKLogger.logger.logDebug { "Error initializing ChatSession: ${e.message}" }
+            SDKLogger.logger.logDebug { "Falling back to manual initialization due to error." }
+            createChatSessionManually(context).also {
+                SDKLogger.logger.logDebug { "ChatSession initialized manually after Hilt failure." }
+            }
         }
     }
 

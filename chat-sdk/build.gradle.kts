@@ -81,8 +81,8 @@ dependencies {
     implementation(libs.loggingInterceptor)
 
     //Hilt
-    implementation(libs.hiltAndroid)
-    implementation(libs.lifecycleProcess)
+    compileOnly(libs.hiltAndroid)
+    compileOnly(libs.lifecycleProcess)
     kapt(libs.hiltCompiler)
     kapt(libs.hiltAndroidCompiler)
 
