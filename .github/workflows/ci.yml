@@ -39,7 +39,7 @@ jobs:
         run: ./gradlew assemble
 
       - name: Save Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-build
           path: app/build/outputs/apk/
@@ -76,61 +76,19 @@ jobs:
       - name: Run Unit Tests and Capture Results
         id: run_tests
         run: |
+          # Run tests and capture exit code
           ./gradlew test | tee test-results.txt
-          TEST_RESULTS=$(grep -A 7 "Test Summary" test-results.txt | tail -n +2 | sed 's/\x1B\[[0-9;]*[JKmsu]//g' | tr -d '[:space:]')
-          echo "$TEST_RESULTS" > test-summary.txt
-
-      # - name: Format Test Results for Two-Row Markdown Table with Emojis
-      #   run: |
-      #     echo "### Test Results" > formatted-summary.txt
-      #     echo "" >> formatted-summary.txt
-      #     echo "| Total Tests | Passed | Failed | Skipped | Result |" >> formatted-summary.txt
-      #     echo "|-------------|--------|--------|---------|--------|" >> formatted-summary.txt
-  
-      #     echo "Raw Test Summary Content:"
-      #     cat test-summary.txt
-  
-      #     # Extracting values using awk
-      #     TOTAL=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/TotalTests/ {print $2}')
-      #     PASSED=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Passed/ {print $2}')
-      #     FAILED=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Failed/ {print $2}')
-      #     SKIPPED=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Skipped/ {print $2}')
-      #     RESULT=$(echo "$TEST_RESULTS" | awk -F'[: ]+' '/Result/ {print $2}')
-  
-      #     # Detailed debugging
-      #     echo "Debug: Extracted Values:"
-      #     echo "  TOTAL: '$TOTAL'"
-      #     echo "  PASSED: '$PASSED'"
-      #     echo "  FAILED: '$FAILED'"
-      #     echo "  SKIPPED: '$SKIPPED'"
-      #     echo "  RESULT (Raw): '$RESULT'"
-  
-      #     if [[ "$RESULT" == "SUCCESS" ]]; then
-      #       EMOJI="✅"
-      #     elif [[ "$RESULT" == "FAILURE" ]]; then
-      #       EMOJI="❌"
-      #     else
-      #       EMOJI="⚠️"
-      #     fi
-  
-      #     echo "Debug: Final RESULT after processing: '$RESULT $EMOJI'"
-  
-      #     echo "| $TOTAL | $PASSED | $FAILED | $SKIPPED | $RESULT $EMOJI |" >> formatted-summary.txt
-  
-      #     # Show the final output for debugging
-      #     echo "Final formatted-summary.txt content:"
-      #     cat formatted-summary.txt
-        
-      # - name: Comment on PR
-      #   if: github.event_name == 'pull_request'
-      #   uses: actions/github-script@v6
-      #   with:
-      #     script: |
-      #       const fs = require('fs');
-      #       const testResults = fs.readFileSync('formatted-summary.txt', 'utf8');
-      #       github.rest.issues.createComment({
-      #         issue_number: context.issue.number,
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         body: testResults
-      #       });
+          TEST_EXIT_CODE=${PIPESTATUS[0]}  # Capture the exit code of ./gradlew test
+      
+          # Extract a clean test summary from Gradle output
+          echo "### 📌 Unit Test Summary" > test-summary.txt
+          grep -A 10 "Test Summary" test-results.txt | tail -n +2 | sed 's/\x1B\[[0-9;]*[JKmsu]//g' >> test-summary.txt
+      
+          # Print the test summary in GitHub Actions logs
+          cat test-summary.txt
+      
+          # Fail the workflow if tests fail
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "❌ Unit tests failed. See test-results.txt for details."
+            exit $TEST_EXIT_CODE  # Fail the workflow
+          fi
