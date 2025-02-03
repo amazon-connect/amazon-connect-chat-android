@@ -141,38 +141,73 @@ class ChatServiceImplTest {
 
     @Test
     fun test_disconnectParticipantConnection_success() = runTest {
+        // Simulate that the chat session is active.
+        `when`(connectionDetailsProvider.isChatSessionActive()).thenReturn(true)
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
-        `when`(awsClient.disconnectParticipantConnection(mockConnectionDetails.connectionToken)).thenReturn(Result.success(
-            DisconnectParticipantResult()
-        ))
+        `when`(awsClient.disconnectParticipantConnection(mockConnectionDetails.connectionToken))
+            .thenReturn(Result.success(DisconnectParticipantResult()))
 
+        // Invoke the disconnection logic.
         val result = chatService.disconnectChatSession()
 
+        // Verify that the overall result is successful.
         assertTrue(result.isSuccess)
+        assertEquals(true, result.getOrNull())
+
+        // Verify that the proper calls were made.
+        verify(connectionDetailsProvider).isChatSessionActive()
         verify(connectionDetailsProvider).getConnectionDetails()
         verify(awsClient).disconnectParticipantConnection(mockConnectionDetails.connectionToken)
+        verify(webSocketManager).disconnect("Customer ended the chat")
+        verify(connectionDetailsProvider).setChatSessionState(false)
     }
 
     @Test
     fun test_disconnectParticipantConnection_failure() = runTest {
+        // Simulate that the chat session is active.
+        `when`(connectionDetailsProvider.isChatSessionActive()).thenReturn(true)
         val mockConnectionDetails = createMockConnectionDetails("invalid_token")
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
-        `when`(awsClient.disconnectParticipantConnection(mockConnectionDetails.connectionToken)).thenThrow(RuntimeException("Network error"))
+        // Simulate an error during AWS disconnect.
+        `when`(awsClient.disconnectParticipantConnection(mockConnectionDetails.connectionToken))
+            .thenThrow(RuntimeException("Network error"))
 
+        // Invoke the disconnection logic.
         val result = chatService.disconnectChatSession()
+
+        // Verify that the overall result is a failure.
         assertTrue(result.isFailure)
+
+        // Verify that the calls were attempted.
+        verify(connectionDetailsProvider).isChatSessionActive()
         verify(connectionDetailsProvider).getConnectionDetails()
         verify(awsClient).disconnectParticipantConnection(mockConnectionDetails.connectionToken)
+
+        // Because AWS disconnect failed, the subsequent steps should not be executed.
+        verify(webSocketManager, never()).disconnect("Customer ended the chat")
+        verify(connectionDetailsProvider, never()).setChatSessionState(false)
     }
 
     @Test
     fun test_disconnectParticipantConnection_noConnectionDetails() = runTest {
+        // Simulate that the chat session is active.
+        `when`(connectionDetailsProvider.isChatSessionActive()).thenReturn(true)
+        // No connection details available.
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(null)
+
+        // Invoke the disconnection logic.
         val result = chatService.disconnectChatSession()
+
+        // Verify that the overall result is a failure.
         assertTrue(result.isFailure)
+
+        // Verify that after checking the session state, it tried to get connection details.
+        verify(connectionDetailsProvider).isChatSessionActive()
         verify(connectionDetailsProvider).getConnectionDetails()
+        // Because there are no connection details, AWS disconnect should never be called.
         verify(awsClient, never()).disconnectParticipantConnection(anyString())
+        verify(webSocketManager, never()).disconnect("Customer ended the chat")
     }
 
     @Test

@@ -16,13 +16,16 @@ import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequ
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
 import com.amazonaws.services.connectparticipant.model.UploadMetadata
 import junit.framework.TestCase.assertTrue
+import junit.framework.TestCase.fail
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.Response
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.anyMap
+import org.mockito.ArgumentMatchers.eq
 import org.mockito.Mock
 import org.mockito.Mockito.anyString
 import org.mockito.Mockito.doAnswer
@@ -39,6 +42,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 import java.net.URL
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import retrofit2.Response as RetrofitResponse
 
 @ExperimentalCoroutinesApi
@@ -97,6 +102,10 @@ class AttachmentsManagerTest {
 
     @Test
     fun test_sendAttachment_success() = runTest {
+        // Create a latch that will be counted down when completeAttachmentUpload is invoked.
+        val latch = CountDownLatch(1)
+
+        // Stub the methods that sendAttachment uses.
         doReturn(mockStartAttachmentUploadRequest)
             .`when`(attachmentsManager)
             .createStartAttachmentUploadRequest(mockConnectionToken, mockUri)
@@ -105,17 +114,29 @@ class AttachmentsManagerTest {
             .`when`(awsClient)
             .startAttachmentUpload(mockConnectionToken, mockStartAttachmentUploadRequest)
 
-        doReturn(Unit).`when`(attachmentsManager).completeAttachmentUpload(mockConnectionToken, mockAttachmentId)
+        // Stub completeAttachmentUpload so that when it is eventually called, we count down the latch.
+        doAnswer {
+            latch.countDown()
+        }.`when`(attachmentsManager).completeAttachmentUpload(mockConnectionToken, mockAttachmentId)
 
+        // Stub apiClient.uploadAttachment to trigger its callback with a "successful" response.
         doAnswer { invocation ->
-            val callback = invocation.getArgument<((RetrofitResponse<*>?) -> Unit)>(3)
+            // The lambda is the 4th parameter.
+            val callback = invocation.getArgument<(RetrofitResponse<*>?) -> Unit>(3)
             val mockResponse = mock(RetrofitResponse::class.java)
+            // Simulate a successful response.
             `when`(mockResponse.isSuccessful).thenReturn(true)
             callback(mockResponse)
             null
         }.`when`(apiClient).uploadAttachment(anyString(), anyMap(), anyOrNull(), anyOrNull())
 
+        // When: call sendAttachment. (Make sure attachmentsManager is a spy so that we can verify internal calls.)
         attachmentsManager.sendAttachment(mockConnectionToken, mockUri)
+
+        // Wait for up to 1 second for completeAttachmentUpload to be invoked.
+        latch.await(1, TimeUnit.SECONDS)
+
+        // Then: verify the expected interactions.
         verify(awsClient).startAttachmentUpload(anyString(), anyOrNull())
         verify(apiClient).uploadAttachment(anyString(), anyMap(), anyOrNull(), anyOrNull())
         verify(attachmentsManager).completeAttachmentUpload(mockConnectionToken, mockAttachmentId)
