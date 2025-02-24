@@ -342,6 +342,19 @@ suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL>
  
 --------------------
 
+#### `ChatSession.resendFailedMessage`
+Retry a text message or attachment that failed to be sent.
+
+```
+suspend fun resendFailedMessage(messageId: String): Result<Boolean>
+```
+
+* `messageId`
+  * messageId The Id of the message that failed to be sent.
+  * Type: `String`
+
+--------------------
+
 ### ChatSession Events
 
 #### `ChatSession.onConnectionEstablished`

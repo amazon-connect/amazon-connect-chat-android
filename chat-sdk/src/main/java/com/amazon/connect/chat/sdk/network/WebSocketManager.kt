@@ -134,6 +134,12 @@ class WebSocketManagerImpl @Inject constructor(
                 }
                 Lifecycle.Event.ON_STOP -> {
                     Log.d("AppLifecycleObserver", "App in Background")
+                    if (isChatActive) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            closeWebSocket("App Backgrounded", 4000)
+                        }
+                    }
+
                     // Optional: Implement any specific actions for when the app goes to the background
                 }
                 else -> {}
@@ -152,11 +158,14 @@ class WebSocketManagerImpl @Inject constructor(
         webSocket = client.newWebSocket(request, createWebSocketListener(isReconnectFlow))
     }
 
-    private fun closeWebSocket(reason: String? = null) {
+    private fun closeWebSocket(reason: String? = null, code: Int = 1000) {
         CoroutineScope(Dispatchers.IO).launch {
-            isChatActive = false;
+            // 4000 = disconnect websocket due to backgrounding.
+            if (code != 4000) {
+                isChatActive = false;
+            }
             resetHeartbeatManagers()
-            webSocket?.close(1000, reason)
+            webSocket?.close(code, reason)
         }
     }
 
@@ -210,7 +219,7 @@ class WebSocketManagerImpl @Inject constructor(
         Log.i("WebSocket", "WebSocket closed with code: $code, reason: $reason")
         if (code == 1000) {
             isChatActive = false
-        } else if (isConnectedToNetwork && isChatActive) {
+        } else if (isConnectedToNetwork && isChatActive && code != 4000) {
             reestablishConnection()
         }
     }

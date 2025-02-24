@@ -5,6 +5,7 @@ package com.amazon.connect.chat.sdk.repository
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -71,6 +72,13 @@ interface ChatService {
      * @return A Result indicating whether the message sending was successful.
      */
     suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean>
+
+    /**
+     * Retry a text message or attachment that failed to be sent.
+     * @param messageId The Id of the message that failed to be sent.
+     * @return A Result indicating whether the message sending was successful.
+     */
+    suspend fun resendFailedMessage(messageId: String): Result<Boolean>
 
     /**
      * Sends an event.
@@ -160,7 +168,9 @@ class ChatServiceImpl @Inject constructor(
     override val chatSessionStatePublisher: SharedFlow<Boolean> get() = _chatSessionStatePublisher
     private var chatSessionStateCollectionJob: Job? = null
 
+    @VisibleForTesting
     private var transcriptDict = mutableMapOf<String, TranscriptItem>()
+    @VisibleForTesting
     private var internalTranscript = mutableListOf<TranscriptItem>()
 
     private var typingIndicatorTimer: Timer? = null
@@ -169,6 +179,9 @@ class ChatServiceImpl @Inject constructor(
 
     // Dictionary to map attachment IDs to temporary message IDs
     private val attachmentIdToTempMessageId = mutableMapOf<String, String>()
+
+    // Dictionary to map temporary attachment message IDs to file urls
+    private val tempMessageIdToFileUrl = mutableMapOf<String, Uri>()
 
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
@@ -472,6 +485,35 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
+    override suspend fun resendFailedMessage(messageId: String): Result<Boolean> {
+        val oldMessage = transcriptDict[messageId] as? Message
+
+        // cannot retry if old message didn't exist or fail to be sent
+        if (oldMessage == null || !arrayOf(MessageStatus.Failed, MessageStatus.Custom, MessageStatus.Unknown).contains(oldMessage.metadata?.status)) {
+            return Result.failure(Exception("Unable to find the failed message"))
+        }
+
+        // remove failed message from transcript & transcript dict
+        internalTranscript.removeAll { it.id == messageId }
+        transcriptDict.remove(messageId);
+        // Send out updated transcript with old message removed
+        coroutineScope.launch {
+            _transcriptListPublisher.emit(internalTranscript)
+        }
+
+        // as the next step, attempt to resend the message based on its type
+        val attachmentUrl = tempMessageIdToFileUrl[messageId];
+        // if old message is an attachment
+        if (attachmentUrl != null) {
+            return sendAttachment(attachmentUrl)
+        } else {
+            (ContentType.fromType(oldMessage.contentType))?.let { contentType ->
+                return sendMessage(contentType, oldMessage.text)
+            } ?:
+                return Result.failure(Exception("Unable to find the failed message"))
+        }
+    }
+
     override suspend fun sendEvent(contentType: ContentType, content: String): Result<Boolean> {
         // Check if it's a typing event and throttle if necessary
         if (contentType == ContentType.TYPING && throttleTypingEvent) {
@@ -572,15 +614,17 @@ class ChatServiceImpl @Inject constructor(
                 displayName = getRecentDisplayName()
             )
 
-            sendSingleUpdateToClient(recentlySentAttachmentMessage!!)
+            recentlySentAttachmentMessage?.let { message ->
+                tempMessageIdToFileUrl[message.id] = fileUri
+                sendSingleUpdateToClient(message)
+                // Get the attachmentId by starting the upload
+                val attachmentIdResult = attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
 
-            // Get the attachmentId by starting the upload
-            val attachmentIdResult = attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
+                // Get the attachmentId immediately
+                val attachmentId = attachmentIdResult.getOrThrow()
 
-            // Get the attachmentId immediately
-            val attachmentId = attachmentIdResult.getOrThrow()
-
-            attachmentIdToTempMessageId[attachmentId] = recentlySentAttachmentMessage!!.id
+                attachmentIdToTempMessageId[attachmentId] = message.id
+            }
 
             true
         }.onFailure { exception ->

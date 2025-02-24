@@ -163,6 +163,16 @@ class ChatSessionImplTest {
     }
 
     @Test
+    fun test_resendFailedMessage_success() = runTest {
+        val messageId = "failed_message_id"
+        `when`(chatService.resendFailedMessage(messageId)).thenReturn(Result.success(true))
+
+        val result = chatSession.resendFailedMessage(messageId)
+        assertTrue(result.isSuccess)
+        verify(chatService).resendFailedMessage(messageId)
+    }
+
+    @Test
     fun test_downloadAttachment_success() = runTest {
         val attachmentId = "attachmentId"
         val filename = "filename"

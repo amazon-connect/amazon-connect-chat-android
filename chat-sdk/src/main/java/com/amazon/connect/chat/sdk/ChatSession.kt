@@ -51,6 +51,13 @@ interface ChatSession {
     suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean>
 
     /**
+     * Retry a message that failed to be sent.
+     * @param messageId The Id of the message that failed to be sent.
+     * @return A Result indicating whether the message sending was successful.
+     */
+    suspend fun resendFailedMessage(messageId: String): Result<Boolean>
+
+    /**
      * Sends an event.
      * @param event The event content.
      * @param contentType The content type of the event.
@@ -210,6 +217,12 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             chatService.sendMessage(contentType, message)
+        }
+    }
+
+    override suspend fun resendFailedMessage(messageId: String): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            chatService.resendFailedMessage(messageId)
         }
     }
 

@@ -63,10 +63,10 @@ android {
 }
 
 dependencies {
-    api(libs.androidxCoreKtx)
-    api(libs.androidxLifecycleRuntimeKtx)
-    api(libs.material3)
-    api(libs.runtimeLivedata)
+    compileOnly(libs.androidxCoreKtx)
+    compileOnly(libs.androidxLifecycleRuntimeKtx)
+    compileOnly(libs.runtimeLivedata)
+    compileOnly(libs.material3)
 
     // Lifecycle livedata
     implementation(libs.lifecycleLivedataKtx)
@@ -75,7 +75,7 @@ dependencies {
 
     // Retrofit
     api(libs.retrofit)
-    api(libs.okhttp)
+    implementation(libs.okhttp)
     api(libs.adapterRxjava2)
     implementation(libs.converterGson)
     implementation(libs.loggingInterceptor)
@@ -97,6 +97,8 @@ dependencies {
     // Mockito for mocking
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.inline)
+    testImplementation(libs.material3)
+    testImplementation(libs.mockk)
 
     // Kotlin extensions for Mockito
     testImplementation(libs.mockito.kotlin)
@@ -115,6 +117,11 @@ dependencies {
 tasks.withType<AbstractPublishToMaven>().configureEach {
     dependsOn(tasks.named("assembleRelease"))
 }
+
+tasks.withType<Test>().configureEach {
+    jvmArgs("--add-opens", "java.base/java.util=ALL-UNNAMED")
+}
+
 
 // For local publishing
 // Can be used in example app like below
