@@ -5,6 +5,7 @@ hiltAndroid = "2.49"
 kotlin = "1.9.20"
 hilt = "2.49"
 materialIconsExtended = "1.7.0"
+mockk = "1.13.16"
 playServicesBasement = "18.4.0"
 robolectric = "4.13"
 serialization = "1.9.20"
@@ -70,6 +71,7 @@ composeUiTestManifest = { module = "androidx.compose.ui:ui-test-manifest", versi
 lifecycleLivedataKtx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecycleLivedataKtx" }
 lifecycleViewmodelKtx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
 coroutinesAndroid = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutinesAndroid" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 play-services-basement = { module = "com.google.android.gms:play-services-basement", version.ref = "playServicesBasement" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 converterGson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }

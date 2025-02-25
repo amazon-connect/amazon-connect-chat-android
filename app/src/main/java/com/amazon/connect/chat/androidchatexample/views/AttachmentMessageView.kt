@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.retryButtonEnabled
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
@@ -144,7 +146,9 @@ fun AttachmentMessageView(
                 }
             }
 
-            if (message.messageDirection == MessageDirection.OUTGOING && message.id == recentOutgoingMessageID) {
+            // display message status only when the message wasn't sent successfully, or it is the recent outgoing message
+            val retryEnabled = retryButtonEnabled(CommonUtils.customMessageStatus(message.metadata?.status))
+            if (message.messageDirection == MessageDirection.OUTGOING && (message.id == recentOutgoingMessageID || retryEnabled)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth(),
@@ -157,6 +161,13 @@ fun AttachmentMessageView(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+                if (retryEnabled) {
+                    TextButton(
+                        onClick = {
+                            chatViewModel.resendFailedMessage(message.id)
+                        }
+                    ) { Text("Retry") }
                 }
             }
         }

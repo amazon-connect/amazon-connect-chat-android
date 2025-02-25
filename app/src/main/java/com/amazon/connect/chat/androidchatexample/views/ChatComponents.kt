@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
+import com.amazon.connect.chat.androidchatexample.utils.CommonUtils.retryButtonEnabled
 import com.amazon.connect.chat.androidchatexample.viewmodel.ChatViewModel
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
@@ -45,7 +47,7 @@ fun ChatMessageView(
                     if (transcriptItem.attachmentId != null) {
                         AttachmentMessageView(transcriptItem, viewModel, recentOutgoingMessageID, onPreviewAttachment)
                     } else {
-                        SenderChatBubble(transcriptItem, recentOutgoingMessageID)
+                        SenderChatBubble(transcriptItem, recentOutgoingMessageID, viewModel::resendFailedMessage)
                     }
                 }
                 MessageDirection.INCOMING -> {
@@ -76,7 +78,7 @@ fun ChatMessageView(
 
 
 @Composable
-fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null) {
+fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null, resendFailedMessage: (messageId: String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,12 +144,21 @@ fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null) 
             }
 
             message.metadata?.status?.let {
-                if (message.id == recentOutgoingMessageID) {
+                val retryEnabled = retryButtonEnabled(it.status)
+                // display message status only when the message wasn't sent successfully, or it is the recent outgoing message
+                if (message.id == recentOutgoingMessageID || retryEnabled) {
                     Text(
                         text = it.status,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
+                }
+                if (retryEnabled) {
+                    TextButton(
+                        onClick = {
+                            resendFailedMessage(message.id)
+                        }
+                    ) { Text("Retry") }
                 }
             }
         }

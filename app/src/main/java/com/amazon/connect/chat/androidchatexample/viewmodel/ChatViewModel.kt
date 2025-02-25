@@ -175,6 +175,21 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun resendFailedMessage(messageId: String) {
+        viewModelScope.launch {
+            if (messageId.isNotEmpty()) {
+                val result = chatSession.resendFailedMessage(messageId)
+                result.onSuccess {
+                    // Handle success - update UI or state as needed
+                }.onFailure { exception ->
+                    // Handle failure - update UI or state, log error, etc.
+                    Log.e("ChatViewModel", "Error re-sending message: ${exception.message}")
+                }
+            }
+        }
+
+    }
+
     // Start a new chat session by sending a StartChatRequest to the repository
     private fun startChat(sourceContactId: String? = null) {
         viewModelScope.launch {

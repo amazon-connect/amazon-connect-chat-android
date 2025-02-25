@@ -108,4 +108,8 @@ object CommonUtils {
             else -> ""  // Returning empty string for unknown or null status
         }
     }
+
+    fun retryButtonEnabled(status: String): Boolean {
+        return !arrayOf("Delivered", "Read", "Sending", "Sent").contains(status)
+    }
 }

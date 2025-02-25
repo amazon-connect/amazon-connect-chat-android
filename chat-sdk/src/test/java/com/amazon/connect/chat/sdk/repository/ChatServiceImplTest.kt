@@ -39,11 +39,16 @@ import org.mockito.Mockito.anyString
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.times;
 import org.mockito.Mockito.`when`
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.mock
 import org.robolectric.RobolectricTestRunner
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import java.util.UUID
 import java.net.URL
 
 @ExperimentalCoroutinesApi
@@ -251,6 +256,29 @@ class ChatServiceImplTest {
     }
 
     @Test
+    fun test_resendFailedMessage_success() = runTest {
+        val mockMessage = "Hello"
+        val contentType = ContentType.PLAIN_TEXT
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+
+        `when`(awsClient.sendMessage(mockConnectionDetails.connectionToken, contentType, mockMessage))
+            .thenThrow(RuntimeException("Network error")).thenReturn(Result.success(SendMessageResult()))
+
+        val messageId = "123e4567-e89b-12d3-a456-426614174000"
+        mockkStatic(UUID::class)
+        every { UUID.randomUUID() } returns UUID.fromString(messageId)
+
+        chatService.sendMessage(ContentType.PLAIN_TEXT, mockMessage)
+
+        val result = chatService.resendFailedMessage(messageId)
+        assertTrue(result.isSuccess)
+        verify(connectionDetailsProvider, times(2)).getConnectionDetails()
+        verify(awsClient, times(2)).sendMessage(mockConnectionDetails.connectionToken, contentType, mockMessage)
+        unmockkStatic(UUID::class)
+    }
+
+    @Test
     fun test_sendEvent_success() = runTest {
         val contentType = ContentType.TYPING
         val eventContent = "Typing event"
@@ -348,6 +376,30 @@ class ChatServiceImplTest {
         assertTrue(result.isFailure)
         verify(connectionDetailsProvider).getConnectionDetails()
         verify(attachmentsManager, never()).sendAttachment(anyString(), anyOrNull())
+    }
+
+    @Test
+    fun test_resendFailedAttachment_success() = runTest {
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        // Mock Context and ContentResolver
+        val mockContentResolver = mock(ContentResolver::class.java)
+        val mockAttachmentId = "attachment123"
+        val messageId = "123e4567-e89b-12d3-a456-426614174000"
+        mockkStatic(UUID::class)
+        every { UUID.randomUUID() } returns UUID.fromString(messageId)
+
+        // Mock URI and file name retrieval
+        `when`(context.contentResolver).thenReturn(mockContentResolver)
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        `when`(attachmentsManager.sendAttachment(mockConnectionDetails.connectionToken, mockUri)).thenThrow(RuntimeException("Network error")).thenReturn(Result.success(mockAttachmentId))
+
+        chatService.sendAttachment(mockUri)
+
+        val result = chatService.resendFailedMessage(messageId)
+        assertTrue(result.isSuccess)
+        verify(connectionDetailsProvider, times(2)).getConnectionDetails()
+        verify(attachmentsManager, times(2)).sendAttachment(mockConnectionDetails.connectionToken, mockUri)
+        unmockkStatic(UUID::class)
     }
 
     @Test
