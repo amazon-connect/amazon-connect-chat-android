@@ -52,6 +52,8 @@ interface ChatService {
 
     fun configure(config: GlobalConfig)
 
+    fun getConnectionDetailsProvider(): ConnectionDetailsProvider
+
     /**
      * Creates a chat session with the specified chat details.
      * @param chatDetails The details of the chat.
@@ -198,6 +200,10 @@ class ChatServiceImpl @Inject constructor(
     override fun configure(config: GlobalConfig) {
         awsClient.configure(config)
         metricsManager.configure(config)
+    }
+
+    override fun getConnectionDetailsProvider(): ConnectionDetailsProvider {
+        return connectionDetailsProvider
     }
 
     init {
