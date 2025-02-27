@@ -117,6 +117,12 @@ class ChatServiceImplTest {
     }
 
     @Test
+    fun test_getConnectionDetailsProvider(){
+        val result = chatService.getConnectionDetailsProvider()
+        assertEquals(result, connectionDetailsProvider)
+    }
+
+    @Test
     fun test_createParticipantConnection_success() = runTest {
         val chatDetails = ChatDetails(participantToken = "token")
         val mockConnectionDetails = createMockConnectionDetails("valid_token")

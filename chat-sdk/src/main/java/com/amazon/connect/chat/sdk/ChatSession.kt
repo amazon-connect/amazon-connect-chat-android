@@ -13,6 +13,7 @@ import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
+import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazon.connect.chat.sdk.repository.ChatService
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
@@ -29,6 +30,13 @@ import javax.inject.Singleton
 
 interface ChatSession {
     fun configure(config: GlobalConfig)
+
+    /**
+     *  Returns ConnectionDetailsProvider object
+     *  @return ConnectionDetailsProvider object that includes connection details.
+     */
+    fun getConnectionDetailsProvider(): ConnectionDetailsProvider
+
     /**
      * Connects to a chat session with the specified chat details.
      * @param chatDetails The details of the chat.
@@ -198,6 +206,10 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
 
     override fun configure(config: GlobalConfig) {
         chatService.configure(config)
+    }
+
+    override fun getConnectionDetailsProvider(): ConnectionDetailsProvider {
+        return chatService.getConnectionDetailsProvider()
     }
 
     override suspend fun connect(chatDetails: ChatDetails): Result<Boolean> {

@@ -170,6 +170,14 @@ fun configure(config: GlobalConfig)
 
 --------------------
 
+#### `ChatSession.getConnectionDetailsProvider`
+Returns a `ConnectionDetailsProvider` object that includes connection details.
+
+```
+fun getConnectionDetailsProvider(): ConnectionDetailsProvider
+```
+* Return type: [ConnectionDetailsProvider](#connectiondetailsprovider)
+
 #### `ChatSession.connect`
 Attempts to connect to a chat session with the given details.
 
@@ -479,6 +487,63 @@ data class ChatDetails(
   * Participant token received via [StartChatContact](https://docs.aws.amazon.com/connect/latest/APIReference/API_StartChatContact.html) response
   * Type: `String`
 ---------------------
+
+### ConnectionDetailsProvider
+
+```
+interface ConnectionDetailsProvider {
+    fun updateChatDetails(newDetails: ChatDetails)
+    fun getConnectionDetails(): ConnectionDetails?
+    fun updateConnectionDetails(newDetails: ConnectionDetails)
+    fun getChatDetails(): ChatDetails?
+    fun isChatSessionActive(): Boolean
+    fun setChatSessionState(isActive: Boolean)
+}
+```
+* `updateChatDetails`
+  * Updates chat details
+  * newDetails
+    * Type: `ChatDetails`
+* `getConnectionDetails`
+  * Gets connection details received via [CreateParticipantConnection](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_CreateParticipantConnection.html) response
+  * Return type: [ConnectionDetails](#connectiondetails)
+* `updateConnectionDetails`
+  * Updates connection details 
+  * newDetails
+    * Type: [ConnectionDetails](#connectiondetails)
+* `getChatDetails`
+  * Gets chat details
+  * Return type: `ChatDetails`
+* `isChatSessionActive`
+  * Gets chat session active state
+  * Return type: Boolean
+* `setChatSessionState`
+  * Sets chat session state
+  * isActive
+    * Type: Boolean
+
+---------------------
+
+### ConnectionDetails
+
+```
+data class ConnectionDetails(
+    val websocketUrl: String,
+    val connectionToken: String,
+    val expiry: String
+)
+```
+* `websocketUrl`
+  * URL of the websocket received via [CreateParticipantConnection](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_CreateParticipantConnection.html) response
+  * Type: `String`
+* `connectionToken`
+  * Connection token received via [CreateParticipantConnection](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_CreateParticipantConnection.html) response
+  * Type: `String`
+* `expiry`
+  * Expiration of the token received via [CreateParticipantConnection](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_CreateParticipantConnection.html) response
+  * Type: `String`
+---------------------
+
 ### ContentType
 
 `ContentType` describe the type of events and messages that come through the WebSocket.
