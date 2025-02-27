@@ -42,6 +42,19 @@ interface ChatSession {
      */
     suspend fun disconnect(): Result<Boolean>
 
+
+    /**
+     * Disconnects the websocket and suspends reconnection attempts.
+     * @return A Result indicating whether the suspension was successful.
+     */
+    suspend fun suspendWebSocketConnection(): Result<Boolean>
+
+    /**
+     * Resumes a suspended websocket and attempts to reconnect.
+     * @return A Result indicating whether the resume was successful.
+     */
+    suspend fun resumeWebSocketConnection(): Result<Boolean>
+
     /**
      * Sends a message.
      * @param message The message content.
@@ -211,6 +224,18 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override suspend fun disconnect(): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             chatService.disconnectChatSession()
+        }
+    }
+
+    override suspend fun suspendWebSocketConnection(): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            chatService.suspendWebSocketConnection()
+        }
+    }
+
+    override suspend fun resumeWebSocketConnection(): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            chatService.resumeWebSocketConnection()
         }
     }
 

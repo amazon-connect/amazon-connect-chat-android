@@ -53,6 +53,8 @@ interface WebSocketManager {
     suspend fun connect(wsUrl: String, isReconnectFlow: Boolean = false)
     suspend fun disconnect(reason: String?)
     suspend fun parseTranscriptItemFromJson(jsonString: String): TranscriptItem?
+    fun suspendWebSocketConnection()
+    fun resumeWebSocketConnection()
 }
 
 class WebSocketManagerImpl @Inject constructor(
@@ -70,6 +72,7 @@ class WebSocketManagerImpl @Inject constructor(
     private var webSocket: WebSocket? = null
     private var isConnectedToNetwork: Boolean = false
     private var isChatActive: Boolean = false
+    private var isChatSuspended: Boolean = false
 
     private val _isReconnecting = MutableStateFlow(false)
     override var isReconnecting: MutableStateFlow<Boolean>
@@ -113,9 +116,7 @@ class WebSocketManagerImpl @Inject constructor(
             networkConnectionManager.isNetworkAvailable.collect { isAvailable ->
                 if (isAvailable) {
                     isConnectedToNetwork = true
-                    if (isChatActive) {
-                        reestablishConnection()
-                    }
+                    reestablishConnectionIfChatActive()
                 } else {
                     isConnectedToNetwork = false
                     Log.d("WebSocketManager", "Network connection lost")
@@ -128,9 +129,7 @@ class WebSocketManagerImpl @Inject constructor(
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
                     Log.d("AppLifecycleObserver", "App in Foreground")
-                    if (isChatActive) {
-                        reestablishConnection()
-                    }
+                    reestablishConnectionIfChatActive()
                 }
                 Lifecycle.Event.ON_STOP -> {
                     Log.d("AppLifecycleObserver", "App in Background")
@@ -162,7 +161,7 @@ class WebSocketManagerImpl @Inject constructor(
         CoroutineScope(Dispatchers.IO).launch {
             // 4000 = disconnect websocket due to backgrounding.
             if (code != 4000) {
-                isChatActive = false;
+                isChatActive = false
             }
             resetHeartbeatManagers()
             webSocket?.close(code, reason)
@@ -171,6 +170,16 @@ class WebSocketManagerImpl @Inject constructor(
 
     override suspend fun disconnect(reason: String?) {
         closeWebSocket(reason)
+    }
+
+    override fun suspendWebSocketConnection() {
+        isChatSuspended = true
+        closeWebSocket("Suspend WebSocket Connection", 4000)
+    }
+
+    override fun resumeWebSocketConnection() {
+        isChatSuspended = false
+        reestablishConnectionIfChatActive()
     }
 
     // --- WebSocket Listener ---
@@ -219,17 +228,15 @@ class WebSocketManagerImpl @Inject constructor(
         Log.i("WebSocket", "WebSocket closed with code: $code, reason: $reason")
         if (code == 1000) {
             isChatActive = false
-        } else if (isConnectedToNetwork && isChatActive && code != 4000) {
-            reestablishConnection()
+        } else if (code != 4000) {
+            reestablishConnectionIfChatActive()
         }
     }
 
     private fun handleWebSocketFailure(t: Throwable) {
         Log.e("WebSocket", "WebSocket failure: ${t.message}")
         if (t is IOException && t.message == "Software caused connection abort") {
-            if (isChatActive && isConnectedToNetwork) {
-                reestablishConnection()
-            }
+            reestablishConnectionIfChatActive()
         }
     }
 
@@ -351,7 +358,7 @@ class WebSocketManagerImpl @Inject constructor(
     private suspend fun onDeepHeartbeatMissed() {
         this._eventPublisher.emit(ChatEvent.DeepHeartBeatFailure)
         if (isConnectedToNetwork) {
-            reestablishConnection()
+            reestablishConnectionIfChatActive()
             Log.w("WebSocket", "Deep Heartbeat missed, retrying connection")
         } else {
             Log.w("WebSocket", "Deep Heartbeat missed, no internet connection")
@@ -364,12 +371,26 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     // --- Helper Methods ---
-
-    private fun reestablishConnection() {
-        if (!_isReconnecting.value) {
-            _isReconnecting.value = true
-            requestNewWsUrl()
+    private fun reestablishConnectionIfChatActive() {
+        if (!isChatActive) {
+            Log.d("WebSocket", "Re-connection aborted due to inactive chat session")
+            return
         }
+        if (!isConnectedToNetwork) {
+            Log.d("WebSocket", "Re-connection aborted due to missing network connectivity")
+            return
+        }
+        if (isChatSuspended) {
+            Log.d("WebSocket", "Re-connection aborted due suspended chat session.")
+            return
+        }
+        if (_isReconnecting.value) {
+            Log.d("WebSocket", "Re-connection aborted due ongoing reconnection attempt.")
+            return
+        }
+
+        _isReconnecting.value = true
+        requestNewWsUrl()
     }
 
     private fun requestNewWsUrl() {
@@ -527,5 +548,4 @@ class WebSocketManagerImpl @Inject constructor(
             serializedContent = rawData
         )
     }
-
 }

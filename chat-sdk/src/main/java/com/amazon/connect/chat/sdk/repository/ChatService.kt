@@ -66,6 +66,18 @@ interface ChatService {
     suspend fun disconnectChatSession(): Result<Boolean>
 
     /**
+     * Disconnects the websocket and suspends reconnection attempts.
+     * @return A Result indicating whether the disconnection was successful.
+     */
+    suspend fun suspendWebSocketConnection(): Result<Boolean>
+
+    /**
+     * Resumes a suspended websocket and attempts to reconnect.
+     * @return A Result indicating whether the disconnection was successful.
+     */
+    suspend fun resumeWebSocketConnection(): Result<Boolean>
+
+    /**
      * Sends a message.
      * @param contentType The content type of the message.
      * @param message The message content.
@@ -198,7 +210,7 @@ class ChatServiceImpl @Inject constructor(
             connectionDetailsProvider.updateChatDetails(chatDetails)
             val connectionDetails =
                 awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
-            metricsManager.addCountMetric(MetricName.CreateParticipantConnection);
+            metricsManager.addCountMetric(MetricName.CreateParticipantConnection)
             connectionDetailsProvider.updateConnectionDetails(connectionDetails)
             setupWebSocket(connectionDetails.websocketUrl)
             SDKLogger.logger.logDebug { "Participant Connected" }
@@ -452,6 +464,24 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
+    override suspend fun suspendWebSocketConnection(): Result<Boolean> {
+        return runCatching {
+            webSocketManager.suspendWebSocketConnection()
+            true
+        }.onFailure { exception ->
+            SDKLogger.logger.logError { "Failed to suspend chat: ${exception.message}" }
+        }
+    }
+
+    override suspend fun resumeWebSocketConnection(): Result<Boolean> {
+        return runCatching {
+            webSocketManager.resumeWebSocketConnection()
+            true
+        }.onFailure { exception ->
+            SDKLogger.logger.logError { "Failed to resume chat: ${exception.message}" }
+        }
+    }
+
     override suspend fun sendMessage(contentType: ContentType, message: String): Result<Boolean> {
         val connectionDetails = connectionDetailsProvider.getConnectionDetails()
             ?: return Result.failure(Exception("No connection details available"))
@@ -472,7 +502,7 @@ class ChatServiceImpl @Inject constructor(
                 message = message
             ).getOrThrow()
 
-            metricsManager.addCountMetric(MetricName.SendMessage);
+            metricsManager.addCountMetric(MetricName.SendMessage)
 
             response.id?.let { id ->
                 updatePlaceholderMessage(oldId = recentlySentMessage.id, newId = id)
@@ -495,14 +525,14 @@ class ChatServiceImpl @Inject constructor(
 
         // remove failed message from transcript & transcript dict
         internalTranscript.removeAll { it.id == messageId }
-        transcriptDict.remove(messageId);
+        transcriptDict.remove(messageId)
         // Send out updated transcript with old message removed
         coroutineScope.launch {
             _transcriptListPublisher.emit(internalTranscript)
         }
 
         // as the next step, attempt to resend the message based on its type
-        val attachmentUrl = tempMessageIdToFileUrl[messageId];
+        val attachmentUrl = tempMessageIdToFileUrl[messageId]
         // if old message is an attachment
         if (attachmentUrl != null) {
             return sendAttachment(attachmentUrl)
