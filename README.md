@@ -198,6 +198,25 @@ suspend fun disconnect(): Result<Boolean>
 
 --------------------
 
+#### `ChatSession.suspendWebSocketConnection`
+Disconnects the websocket and suspends reconnection attempts.
+
+```
+suspend fun suspendWebSocketConnection(): Result<Boolean>
+```
+
+--------------------
+
+
+#### `ChatSession.resumeWebSocketConnection`
+Resumes a suspended websocket and attempts to reconnect.
+
+```
+suspend fun resumeWebSocketConnection(): Result<Boolean>
+```
+
+--------------------
+
 #### `ChatSession.sendMessage`
 Sends a message within the chat session.
 
