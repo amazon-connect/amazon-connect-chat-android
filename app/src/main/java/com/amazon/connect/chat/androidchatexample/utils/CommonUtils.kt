@@ -102,14 +102,13 @@ object CommonUtils {
             MessageStatus.Delivered -> "Delivered"
             MessageStatus.Read -> "Read"
             MessageStatus.Sending -> "Sending"
-            MessageStatus.Failed -> "Failed to send"
+            MessageStatus.Failed -> status.customValue ?: "Failed to send"
             MessageStatus.Sent -> "Sent"
-            MessageStatus.Custom -> status.customValue ?: "Custom status"
             else -> ""  // Returning empty string for unknown or null status
         }
     }
 
-    fun retryButtonEnabled(status: String): Boolean {
-        return !arrayOf("Delivered", "Read", "Sending", "Sent").contains(status)
+    fun retryButtonEnabled(status: MessageStatus?): Boolean {
+        return status == MessageStatus.Failed
     }
 }

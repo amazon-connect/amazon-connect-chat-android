@@ -9,14 +9,12 @@ enum class MessageStatus(val status: String, var customValue: String? = null) {
     Sending("Sending"),
     Failed("Failed"),
     Sent("Sent"),
-    Unknown("Unknown"),
-
-    Custom("Custom", null);
+    Unknown("Unknown");
 
     companion object {
-        fun custom(message: String): MessageStatus {
-            return Custom.apply {
-                Custom.customValue = message
+        fun customFailed(message: String): MessageStatus {
+            return Failed.apply {
+                Failed.customValue = message
             }
         }
     }

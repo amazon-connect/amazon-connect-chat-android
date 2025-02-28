@@ -144,7 +144,7 @@ fun SenderChatBubble(message: Message, recentOutgoingMessageID: String? = null, 
             }
 
             message.metadata?.status?.let {
-                val retryEnabled = retryButtonEnabled(it.status)
+                val retryEnabled = retryButtonEnabled(it)
                 // display message status only when the message wasn't sent successfully, or it is the recent outgoing message
                 if (message.id == recentOutgoingMessageID || retryEnabled) {
                     Text(

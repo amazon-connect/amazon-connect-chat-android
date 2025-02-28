@@ -525,7 +525,7 @@ class ChatServiceImpl @Inject constructor(
         val oldMessage = transcriptDict[messageId] as? Message
 
         // cannot retry if old message didn't exist or fail to be sent
-        if (oldMessage == null || !arrayOf(MessageStatus.Failed, MessageStatus.Custom, MessageStatus.Unknown).contains(oldMessage.metadata?.status)) {
+        if (oldMessage == null || MessageStatus.Failed != oldMessage.metadata?.status) {
             return Result.failure(Exception("Unable to find the failed message"))
         }
 
@@ -668,7 +668,7 @@ class ChatServiceImpl @Inject constructor(
             SDKLogger.logger.logError { "Failed to send attachment: ${exception.message}" }
             recentlySentAttachmentMessage?.let {
                 it.metadata?.status =
-                    MessageStatus.custom(exception.message ?: "Failed to send attachment")
+                    MessageStatus.customFailed(exception.message ?: "Failed to send attachment")
                 sendSingleUpdateToClient(it)
                 SDKLogger.logger.logError { "Message status updated to Failed: $it" }
             }

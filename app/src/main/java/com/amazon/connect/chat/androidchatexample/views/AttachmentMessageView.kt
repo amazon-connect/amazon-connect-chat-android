@@ -147,7 +147,7 @@ fun AttachmentMessageView(
             }
 
             // display message status only when the message wasn't sent successfully, or it is the recent outgoing message
-            val retryEnabled = retryButtonEnabled(CommonUtils.customMessageStatus(message.metadata?.status))
+            val retryEnabled = retryButtonEnabled(message.metadata?.status)
             if (message.messageDirection == MessageDirection.OUTGOING && (message.id == recentOutgoingMessageID || retryEnabled)) {
                 Row(
                     modifier = Modifier
