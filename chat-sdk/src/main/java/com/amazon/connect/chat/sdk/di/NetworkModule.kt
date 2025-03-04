@@ -16,6 +16,7 @@ import com.amazon.connect.chat.sdk.repository.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.repository.MessageReceiptsManagerImpl
 import com.amazon.connect.chat.sdk.repository.MetricsManager
 import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
+import com.amazon.connect.chat.sdk.utils.CommonUtils
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
 import dagger.Provides
@@ -113,7 +114,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAmazonConnectParticipantClient(): AmazonConnectParticipantClient {
-        return AmazonConnectParticipantClient()
+        val clientConfiguration = CommonUtils.createConnectParticipantConfiguration()
+        return AmazonConnectParticipantClient(clientConfiguration)
     }
 
     /**

@@ -6,6 +6,7 @@ package com.amazon.connect.chat.sdk.network
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.utils.CommonUtils
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazonaws.regions.Region
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
@@ -111,8 +112,8 @@ class AWSClientImpl @Inject constructor(
     companion object {
         fun create(): AWSClient {
             // Create an AmazonConnectParticipantClient
-            val connectParticipantClient = AmazonConnectParticipantClient()
-
+            val clientConfiguration = CommonUtils.createConnectParticipantConfiguration()
+            val connectParticipantClient = AmazonConnectParticipantClient(clientConfiguration)
             return AWSClientImpl(connectParticipantClient)
         }
     }

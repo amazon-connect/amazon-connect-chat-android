@@ -1,3 +1,9 @@
+import java.util.Properties
+
+val versionProperties = Properties().apply {
+    file("version.properties").inputStream().use { load(it) }
+}
+
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinAndroid)
@@ -11,6 +17,9 @@ plugins {
 android {
     namespace = "com.amazon.connect.chat.sdk"
     compileSdk = 34
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         minSdk = 24
@@ -18,6 +27,7 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        buildConfigField("String", "SDK_VERSION", "\"${versionProperties["sdkVersion"]}\"")
     }
 
     buildTypes {
