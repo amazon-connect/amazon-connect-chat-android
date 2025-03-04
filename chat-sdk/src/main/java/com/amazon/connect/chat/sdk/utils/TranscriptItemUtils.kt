@@ -88,15 +88,14 @@ object TranscriptItemUtils {
                 "isFromPastSession" to true // Mark all these items as coming from a past session
             )
 
+            val messageContent = mapOf(
+                "content" to messageContentDict
+            )
             // Serialize the dictionary to JSON string
-            val messageContentString = JSONObject(messageContentDict).toString()
-
-            // Wrap the JSON string
-            val wrappedMessageString =
-                "{\"content\":\"${messageContentString.replace("\"", "\\\"")}\"}"
+            val messageContentString = JSONObject(messageContent).toString()
 
             // Deserialize back to JSON object
-            val json = JSONObject(wrappedMessageString)
+            val json = JSONObject(messageContentString)
 
             json.optString("content")
         } catch (e: Exception) {
