@@ -41,8 +41,14 @@ data class QuickReplyContentData(
     val elements: List<QuickReplyElement>
 )
 @Serializable
+data class QuickReplyReplyMessage(
+    val title: String,
+    val subtitle: String? = null
+)
+@Serializable
 data class QuickReplyData(
-    val content: QuickReplyContentData
+    val content: QuickReplyContentData,
+    val replyMessage: QuickReplyReplyMessage? = null,
 )
 @Serializable
 data class QuickReplyTemplate(
@@ -90,12 +96,19 @@ data class ListPickerContentData(
     val elements: List<ListPickerElement>
 )
 @Serializable
+data class ListPickerReplyMessage(
+    val title: String,
+    val subtitle: String? = null
+)
+@Serializable
 data class ListPickerData(
-    val content: ListPickerContentData
+    val content: ListPickerContentData,
+    val replyMessage: ListPickerReplyMessage? = null,
 )
 @Serializable
 data class ListPickerTemplate(
     val templateType: String,
+    val templateIdentifier: String,
     val version: String,
     val data: ListPickerData
 )
