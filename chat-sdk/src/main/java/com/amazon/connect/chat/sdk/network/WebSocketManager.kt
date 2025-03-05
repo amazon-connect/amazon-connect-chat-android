@@ -381,11 +381,11 @@ class WebSocketManagerImpl @Inject constructor(
             return
         }
         if (isChatSuspended) {
-            Log.d("WebSocket", "Re-connection aborted due suspended chat session.")
+            Log.d("WebSocket", "Re-connection aborted due to suspended chat session.")
             return
         }
         if (_isReconnecting.value) {
-            Log.d("WebSocket", "Re-connection aborted due ongoing reconnection attempt.")
+            Log.d("WebSocket", "Re-connection aborted due to ongoing reconnection attempt.")
             return
         }
 

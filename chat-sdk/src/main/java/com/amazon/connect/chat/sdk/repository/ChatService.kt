@@ -69,15 +69,21 @@ interface ChatService {
 
     /**
      * Disconnects the websocket and suspends reconnection attempts.
-     * @return A Result indicating whether the disconnection was successful.
+     * @return A Result indicating whether the suspension was successful.
      */
     suspend fun suspendWebSocketConnection(): Result<Boolean>
 
     /**
      * Resumes a suspended websocket and attempts to reconnect.
-     * @return A Result indicating whether the disconnection was successful.
+     * @return A Result indicating whether the resume was successful.
      */
     suspend fun resumeWebSocketConnection(): Result<Boolean>
+
+    /**
+     * Resets the current state which will disconnect the webSocket and remove all session related data.
+     * @return A Result indicating whether the reset was successful.
+     */
+    suspend fun reset(): Result<Boolean>
 
     /**
      * Sends a message.
@@ -185,7 +191,7 @@ class ChatServiceImpl @Inject constructor(
     @VisibleForTesting
     private var transcriptDict = mutableMapOf<String, TranscriptItem>()
     @VisibleForTesting
-    private var internalTranscript = mutableListOf<TranscriptItem>()
+    internal var internalTranscript = mutableListOf<TranscriptItem>()
 
     private var typingIndicatorTimer: Timer? = null
     private var throttleTypingEventTimer: Timer? = null
@@ -485,6 +491,19 @@ class ChatServiceImpl @Inject constructor(
             true
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to resume chat: ${exception.message}" }
+        }
+    }
+
+    override suspend fun reset(): Result<Boolean> {
+        return runCatching {
+            webSocketManager.disconnect("Resetting ChatService")
+            clearSubscriptionsAndPublishers()
+            connectionDetailsProvider.reset()
+            attachmentIdToTempMessageId.clear()
+            tempMessageIdToFileUrl.clear()
+            true
+        }.onFailure { exception ->
+            SDKLogger.logger.logError { "Failed to reset state: ${exception.message}" }
         }
     }
 

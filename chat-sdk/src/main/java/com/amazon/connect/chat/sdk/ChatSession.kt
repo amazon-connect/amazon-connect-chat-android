@@ -64,6 +64,12 @@ interface ChatSession {
     suspend fun resumeWebSocketConnection(): Result<Boolean>
 
     /**
+     * Resets the current state which will disconnect the webSocket and remove all session related data.
+     * @return A Result indicating whether the reset was successful.
+     */
+    suspend fun reset(): Result<Boolean>
+
+    /**
      * Sends a message.
      * @param message The message content.
      * @param contentType The content type of the message.
@@ -248,6 +254,14 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override suspend fun resumeWebSocketConnection(): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             chatService.resumeWebSocketConnection()
+        }
+    }
+
+    override suspend fun reset(): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            cleanup()
+            isChatSessionActive = false
+            chatService.reset()
         }
     }
 

@@ -81,7 +81,7 @@ class ChatServiceImplTest {
     private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
     private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
     private lateinit var transcriptListSharedFlow: MutableSharedFlow<List<TranscriptItem>>
-
+    private lateinit var newWsUrlFlow: MutableSharedFlow<Unit>
 
     private val mockUri: Uri = Uri.parse("https://example.com/dummy.pdf")
 
@@ -93,9 +93,11 @@ class ChatServiceImplTest {
         transcriptSharedFlow = MutableSharedFlow()
         transcriptListSharedFlow = MutableSharedFlow()
         chatSessionStateFlow = MutableStateFlow(false)
+        newWsUrlFlow = MutableSharedFlow()
 
         `when`(webSocketManager.eventPublisher).thenReturn(eventSharedFlow)
         `when`(webSocketManager.transcriptPublisher).thenReturn(transcriptSharedFlow)
+        `when`(webSocketManager.requestNewWsUrlFlow).thenReturn(newWsUrlFlow)
         `when`(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
 
         chatService = ChatServiceImpl(
@@ -606,6 +608,22 @@ class ChatServiceImplTest {
 
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
+    }
+
+    @Test
+    fun test_reset() = runTest {
+        // Add message in internal transcript
+        val transcriptItem = Message(id = "1", timeStamp = "mockedTimestamp", participant = "user",
+            contentType = "text/plain", text = "Hello")
+        (chatService as ChatServiceImpl).internalTranscript.add(0, transcriptItem)
+
+        // Execute reset
+        chatService.reset()
+
+        // Validate that websocket disconnected, tokens are reset and internal transcript is deleted
+        verify(webSocketManager).disconnect("Resetting ChatService")
+        verify(connectionDetailsProvider).reset()
+        assertEquals(0, (chatService as ChatServiceImpl).internalTranscript.size)
     }
 
     private fun createMockConnectionDetails(token : String): ConnectionDetails {
