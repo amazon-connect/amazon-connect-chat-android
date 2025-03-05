@@ -64,7 +64,7 @@ interface ChatSession {
     suspend fun resumeWebSocketConnection(): Result<Boolean>
 
     /**
-     * Resets the current state which will disconnect the webSocket and remove all session related data.
+     * Resets the current state which will disconnect the webSocket and remove all session related data without disconnecting the participant from the chat contact.
      * @return A Result indicating whether the reset was successful.
      */
     suspend fun reset(): Result<Boolean>

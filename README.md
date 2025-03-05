@@ -226,7 +226,7 @@ suspend fun resumeWebSocketConnection(): Result<Boolean>
 --------------------
 
 #### `ChatSession.reset`
-Resets the ChatSession object which will disconnect the webSocket and remove all session related data without disconnected the participant from the chat contact.
+Resets the ChatSession object which will disconnect the webSocket and remove all session related data without disconnecting the participant from the chat contact.
 
 ```
 suspend fun reset(): Result<Boolean>
