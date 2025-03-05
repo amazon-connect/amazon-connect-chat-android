@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.amazon.connect.chat.sdk.BuildConfig
+import com.amazonaws.ClientConfiguration
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,6 +71,14 @@ class CommonUtils {
         fun getMimeType(fileName: String): String {
             val extension = fileName.substringAfterLast('.', "")
             return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
+        }
+
+        fun createConnectParticipantConfiguration(): ClientConfiguration {
+            val clientConfiguration = ClientConfiguration()
+            val originalUserAgent: String = clientConfiguration.getUserAgent()
+            val userAgentSuffix = "AmazonConnect-Mobile Chat-Android SDK/" + BuildConfig.SDK_VERSION
+            clientConfiguration.userAgent = "$originalUserAgent $userAgentSuffix"
+            return clientConfiguration
         }
     }
 
