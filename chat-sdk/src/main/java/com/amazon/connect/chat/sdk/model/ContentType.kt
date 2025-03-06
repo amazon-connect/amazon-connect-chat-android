@@ -14,7 +14,8 @@ enum class ContentType(val type: String){
     ENDED("application/vnd.amazonaws.connect.event.chat.ended"),
     PLAIN_TEXT("text/plain"),
     RICH_TEXT("text/markdown"),
-    INTERACTIVE_TEXT("application/vnd.amazonaws.connect.message.interactive");
+    INTERACTIVE_TEXT("application/vnd.amazonaws.connect.message.interactive"),
+    INTERACTIVE_RESPONSE("application/vnd.amazonaws.connect.message.interactive.response");
 
     companion object {
         fun fromType(type: String): ContentType? {
