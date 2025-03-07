@@ -17,6 +17,7 @@ interface ConnectionDetailsProvider {
     fun getChatDetails(): ChatDetails?
     fun isChatSessionActive(): Boolean
     fun setChatSessionState(isActive: Boolean)
+    fun reset()
     var chatSessionState: StateFlow<Boolean>
 }
 
@@ -54,5 +55,11 @@ class ConnectionDetailsProviderImpl @Inject constructor() : ConnectionDetailsPro
 
     override fun setChatSessionState(isActive: Boolean) {
         _chatSessionState.value = isActive
+    }
+
+    override fun reset() {
+        connectionDetails = null
+        chatDetails = null
+        setChatSessionState(false)
     }
 }
