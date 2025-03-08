@@ -258,9 +258,9 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     }
 
     override suspend fun reset(): Result<Boolean> {
+        cleanup()
+        isChatSessionActive = false
         return withContext(Dispatchers.IO) {
-            cleanup()
-            isChatSessionActive = false
             chatService.reset()
         }
     }
