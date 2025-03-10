@@ -13,6 +13,7 @@ import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageMetadata
+import com.amazon.connect.chat.sdk.model.MessageMetadataProtocol
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.WebSocketMessageType
@@ -421,7 +422,9 @@ class WebSocketManagerImpl @Inject constructor(
             timeStamp = time,
             id = messageId,
             displayName = displayName,
-            serializedContent = rawData
+            serializedContent = rawData,
+            metadata = if (innerJson.has("MessageMetadata"))
+                    (handleMetadata(innerJson, rawData) as? MessageMetadataProtocol) else null
         )
         return message
     }
