@@ -76,6 +76,21 @@ object TranscriptItemUtils {
                 )
             } ?: emptyList()
 
+            var messageMetadataDict: Map<String, Any>? = null
+            if (item.messageMetadata != null) {
+                val receiptsArray = item.messageMetadata?.receipts?.map { receipt ->
+                    mapOf(
+                        "ReadTimestamp" to (receipt.readTimestamp ?: ""),
+                        "DeliveredTimestamp" to (receipt.deliveredTimestamp ?: ""),
+                        "RecipientParticipantId" to (receipt.recipientParticipantId ?: "")
+                    )
+                } ?: emptyList()
+                messageMetadataDict = mapOf(
+                    "MessageId" to item.messageMetadata.messageId,
+                    "Receipts" to receiptsArray
+                )
+            }
+
             val messageContentDict = mapOf(
                 "Id" to (item.id ?: ""),
                 "ParticipantRole" to participantRole,
@@ -85,7 +100,8 @@ object TranscriptItemUtils {
                 "Type" to item.type,
                 "DisplayName" to (item.displayName ?: ""),
                 "Attachments" to attachmentsArray,
-                "isFromPastSession" to true // Mark all these items as coming from a past session
+                "isFromPastSession" to true, // Mark all these items as coming from a past session
+                "MessageMetadata" to messageMetadataDict
             )
 
             val messageContent = mapOf(
