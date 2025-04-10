@@ -10,6 +10,7 @@ import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
+import com.amazon.connect.chat.sdk.model.TranscriptData
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
@@ -51,10 +52,22 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import junit.framework.TestCase.fail
 import kotlinx.coroutines.Dispatchers
+<<<<<<< HEAD
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.setMain
 import org.mockito.kotlin.any
+=======
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.setMain
+import org.mockito.Mockito.spy
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
+>>>>>>> 1d017c2 (Implementing previousTranscriptNextToken)
 import java.util.UUID
 import java.net.URL
 
@@ -87,7 +100,6 @@ class ChatServiceImplTest {
     private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
     private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
     private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
-    private lateinit var transcriptListSharedFlow: MutableSharedFlow<List<TranscriptItem>>
     private lateinit var newWsUrlFlow: MutableSharedFlow<Unit>
 
     private val mockUri: Uri = Uri.parse("https://example.com/dummy.pdf")
@@ -100,14 +112,13 @@ class ChatServiceImplTest {
 
         eventSharedFlow = MutableSharedFlow()
         transcriptSharedFlow = MutableSharedFlow()
-        transcriptListSharedFlow = MutableSharedFlow()
         chatSessionStateFlow = MutableStateFlow(false)
         newWsUrlFlow = MutableSharedFlow()
 
-        `when`(webSocketManager.eventPublisher).thenReturn(eventSharedFlow)
-        `when`(webSocketManager.transcriptPublisher).thenReturn(transcriptSharedFlow)
-        `when`(webSocketManager.requestNewWsUrlFlow).thenReturn(newWsUrlFlow)
-        `when`(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
+        whenever(webSocketManager.eventPublisher).thenReturn(eventSharedFlow)
+        whenever(webSocketManager.transcriptPublisher).thenReturn(transcriptSharedFlow)
+        whenever(webSocketManager.requestNewWsUrlFlow).thenReturn(newWsUrlFlow)
+        whenever(connectionDetailsProvider.chatSessionState).thenReturn(chatSessionStateFlow)
 
         chatService = ChatServiceImpl(
             context,
@@ -533,6 +544,81 @@ class ChatServiceImplTest {
     }
 
     @Test
+    fun test_getTranscript_previousTranscriptNextToken() = runTest {
+        val chatServiceInstance = chatService as ChatServiceImpl
+
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        val chatDetails = ChatDetails(participantToken = "token")
+        chatServiceInstance.createChatSession(chatDetails)
+        advanceUntilIdle()
+
+        // Create a mock GetTranscriptResult and configure it to return expected values
+        val mockGetTranscriptResult = mock<GetTranscriptResult>()
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken1")
+        `when`(mockGetTranscriptResult.initialContactId).thenReturn("")
+        `when`(awsClient.getTranscript(anyOrNull())).thenReturn(Result.success(mockGetTranscriptResult))
+
+        chatServiceInstance.getTranscript(ScanDirection.BACKWARD, SortKey.ASCENDING, 10, null, null)
+        advanceUntilIdle()
+
+        // Expect previousTranscriptNextToken to be set when internal transcript is empty.
+        assertEquals(chatServiceInstance.previousTranscriptNextToken, "nextToken1")
+
+        // Add items to the internal transcript
+        val transcriptItem1 = Message(id = "1", timeStamp = "2024-01-01T00:00:00Z", participant = "user", contentType = "text/plain", text = "Hello")
+        val transcriptItem2 = Message(id = "2", timeStamp = "2025-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
+        transcriptSharedFlow.emit(transcriptItem1)
+        transcriptSharedFlow.emit(transcriptItem2)
+        advanceUntilIdle()
+
+        // Expect previousTranscriptNextToken to persist when items are added
+        assertEquals(chatServiceInstance.previousTranscriptNextToken, "nextToken1")
+
+        // Expect previousTranscriptNextToken to be set when getTranscript returns an empty list.
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken2")
+        `when`(awsClient.getTranscript(anyOrNull())).thenReturn(Result.success(mockGetTranscriptResult))
+
+        chatServiceInstance.getTranscript(ScanDirection.BACKWARD, SortKey.ASCENDING, 10, null, null)
+        advanceUntilIdle()
+
+        assertEquals(chatServiceInstance.previousTranscriptNextToken, "nextToken2")
+
+        // Expect previousTranscriptNextToken to be set when getTranscript returns an older message.
+        val item1 = createMockItem("1", "2023-01-01T00:00:00Z")
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf(item1))
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken3")
+
+        chatServiceInstance.getTranscript(ScanDirection.BACKWARD, SortKey.ASCENDING, 10, null, null)
+        advanceUntilIdle()
+
+        assertEquals(chatServiceInstance.previousTranscriptNextToken, "nextToken3")
+
+        // Expect previousTranscriptNextToken to be the same when getTranscript returns a newer message.
+        val item2 = createMockItem("2", "2025-01-01T00:00:00Z")
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf(item2))
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken4")
+
+        chatServiceInstance.getTranscript(ScanDirection.BACKWARD, SortKey.ASCENDING, 10, null, null)
+        advanceUntilIdle()
+
+        assertEquals(chatServiceInstance.previousTranscriptNextToken, "nextToken3")
+
+        // Expect previousTranscriptNextToken to be the same when receiving an empty array using startPosition.
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken5")
+        val mockStartPosition = StartPosition()
+        mockStartPosition.id = "1234"
+
+        chatServiceInstance.getTranscript(ScanDirection.BACKWARD, SortKey.ASCENDING, 10, null, mockStartPosition)
+        advanceUntilIdle()
+
+        assertEquals(chatServiceInstance.previousTranscriptNextToken, "nextToken3")
+    }
+
+    @Test
     fun test_fetchReconnectedTranscript_success() = runTest {
         val chatDetails = ChatDetails(participantToken = "token")
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
@@ -591,58 +677,92 @@ class ChatServiceImplTest {
 
     @Test
     fun test_eventPublisher_emitsCorrectEvent() = runTest {
-        val chatEvent = ChatEvent.ConnectionEstablished
+        var assertCalled = false
+        val chatDetails = ChatDetails(participantToken = "token")
+        chatService.createChatSession(chatDetails)
+        advanceUntilIdle()
+
+        val chatEvent = ChatEvent.ChatEnded
 
         // Launch the flow collection within the test's coroutine scope
         val job = chatService.eventPublisher
             .onEach { event ->
                 assertEquals(chatEvent, event)
+                assertCalled = true
             }
             .launchIn(this)
 
         // Emit the event
         eventSharedFlow.emit(chatEvent)
+        advanceUntilIdle()
 
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
+
+        if (!assertCalled) {
+            fail("chatService.eventPublisher.onEach was not triggered")
+        }
     }
 
     @Test
     fun test_transcriptPublisher_emitsCorrectTranscriptItem() = runTest {
+        var assertCalled = false
+        val chatDetails = ChatDetails(participantToken = "token")
+        chatService.createChatSession(chatDetails)
+        advanceUntilIdle()
+
         val transcriptItem = Message(id = "1", timeStamp = "mockedTimestamp", participant = "user",
             contentType = "text/plain", text = "Hello")
 
         val job = chatService.transcriptPublisher
             .onEach { item ->
                 assertEquals(transcriptItem, item)
+                assertCalled = true
             }
             .launchIn(this)
 
         // Emit the transcript item
         transcriptSharedFlow.emit(transcriptItem)
-
+        advanceUntilIdle()
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
+
+        if (!assertCalled) {
+            fail("chatService.transcriptPublisher.onEach was not triggered")
+        }
     }
 
     @Test
     fun test_transcriptListPublisher_emitsTranscriptList() = runTest {
+        var assertCalled = false
+        val chatDetails = ChatDetails(participantToken = "token")
+        chatService.createChatSession(chatDetails)
+        advanceUntilIdle()
+
         val transcriptItem1 = Message(id = "1", timeStamp = "2024-01-01T00:00:00Z", participant = "user", contentType = "text/plain", text = "Hello")
         val transcriptItem2 = Message(id = "2", timeStamp = "2024-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
-        val transcriptList = listOf(transcriptItem1, transcriptItem2)
 
         // Launch the flow collection within the test's coroutine scope
         val job = chatService.transcriptListPublisher
-            .onEach { items ->
-                assertEquals(transcriptList, items)
+            .onEach { transcriptData ->
+                assertEquals(transcriptData.transcriptList.size, 2)
+                assertEquals(transcriptData.transcriptList[0], transcriptItem1)
+                assertEquals(transcriptData.transcriptList[1], transcriptItem2)
+                assertCalled = true
             }
             .launchIn(this)
 
         // Emit the transcript list
-        transcriptListSharedFlow.emit(transcriptList)
+        transcriptSharedFlow.emit(transcriptItem1)
+        transcriptSharedFlow.emit(transcriptItem2)
+        advanceUntilIdle()
 
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
+
+        if (!assertCalled) {
+            fail("chatService.transcriptPublisher.onEach was not triggered")
+        }
     }
 
     @Test

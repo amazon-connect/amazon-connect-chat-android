@@ -58,6 +58,8 @@ class ChatViewModel @Inject constructor(
     private val _selectedFileUri = MutableLiveData(Uri.EMPTY)
     val selectedFileUri: MutableLiveData<Uri> = _selectedFileUri
 
+    private var previousTranscriptNextToken: String? = null
+
     // State to store chat transcript items (messages and events)
     var messages = mutableStateListOf<TranscriptItem>()
         private set
@@ -124,10 +126,11 @@ class ChatViewModel @Inject constructor(
             // Handle received websocket message if needed
         }
 
-        chatSession.onTranscriptUpdated = { transcriptList ->
-            Log.d("ChatViewModel", "Transcript onTranscriptUpdated last 3 items: ${transcriptList.takeLast(3)}")
+        chatSession.onTranscriptUpdated = { transcriptData ->
+            Log.d("ChatViewModel", "Transcript onTranscriptUpdated last 3 items: ${transcriptData.transcriptList.takeLast(3)}")
+            previousTranscriptNextToken = transcriptData.previousTranscriptNextToken
             viewModelScope.launch {
-                onUpdateTranscript(transcriptList)
+                onUpdateTranscript(transcriptData.transcriptList)
             }
         }
 
@@ -299,7 +302,6 @@ class ChatViewModel @Inject constructor(
         chatSession.sendMessageReceipt(message, MessageReceiptType.MESSAGE_READ)
     }
 
-
     // Fetch the chat transcript
     fun fetchTranscript(onCompletion: (Boolean) -> Unit, nextToken: String? = null) {
         viewModelScope.launch {
@@ -307,19 +309,12 @@ class ChatViewModel @Inject constructor(
                 ScanDirection.BACKWARD,
                 SortKey.DESCENDING,
                 15,
-                nextToken,
+                previousTranscriptNextToken,
                 null
             ).onSuccess { response ->
                 Log.d("ChatViewModel", "Transcript fetched successfully")
 
-                // Check for nextToken
-                if (!response.nextToken.isNullOrEmpty()) {
-                    // Call fetchTranscript again with the nextToken
-                    fetchTranscript(onCompletion, response.nextToken)
-                } else {
-                    // No more pages to fetch, call onCompletion
-                    onCompletion(true)
-                }
+                onCompletion(true)
             }.onFailure {
                 Log.e("ChatViewModel", "Error fetching transcript: ${it.message}")
                 onCompletion(false)
