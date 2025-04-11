@@ -547,9 +547,9 @@ class ChatServiceImplTest {
         `when`(awsClient.getTranscript(anyOrNull())).thenReturn(Result.success(mockGetTranscriptResult))
 
         // Add items to the internal transcript and emit reconnection event.
-        // This scenario should call getTranscript twice since nextToken is defined in the first call.
+        // This scenario should call getTranscript once since the empty transcript response.
         `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
-        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken1").thenReturn("")
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken1")
 
         val transcriptItem1 = Message(id = "1", timeStamp = "2024-01-01T00:00:00Z", participant = "user", contentType = "text/plain", text = "Hello")
         val transcriptItem2 = Message(id = "2", timeStamp = "2025-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
@@ -558,7 +558,7 @@ class ChatServiceImplTest {
         val chatEvent = ChatEvent.ConnectionReEstablished
         eventSharedFlow.emit(chatEvent)
         advanceUntilIdle()
-        verify(awsClient, times(2)).getTranscript(anyOrNull())
+        verify(awsClient, times(1)).getTranscript(anyOrNull())
     }
 
     @Test
