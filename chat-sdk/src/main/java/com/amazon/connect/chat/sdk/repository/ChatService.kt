@@ -744,13 +744,9 @@ class ChatServiceImpl @Inject constructor(
             sortKey = SortKey.ASCENDING,
             maxResults = 100,
             nextToken = null).onSuccess { transcriptResponse ->
-            if (transcriptResponse.nextToken?.isNotEmpty() == true) {
-                val lastItem = transcriptResponse.transcript.lastOrNull()
-                val newStartPosition = lastItem?.let {
-                    StartPosition().apply {
-                        id = it.id
-                    }
-                }
+            val lastItem = transcriptResponse.transcript.lastOrNull()
+            if (transcriptResponse.nextToken?.isNotEmpty() == true && lastItem != null) {
+                val newStartPosition = StartPosition().apply { id = lastItem.id }
                 if (!isItemInInternalTranscript(lastItem?.id)) {
                     fetchTranscriptWith(startPosition = newStartPosition)
                 }
