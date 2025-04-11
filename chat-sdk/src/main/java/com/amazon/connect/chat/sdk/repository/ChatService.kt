@@ -259,7 +259,7 @@ class ChatServiceImpl @Inject constructor(
                         SDKLogger.logger.logDebug { "Connection Re-Established" }
                         connectionDetailsProvider.setChatSessionState(true)
                         removeTypingIndicators()  // Make sure to remove typing indicators if still present
-                        fetchReconnectedTranscript(internalTranscript)
+                        fetchReconnectedTranscript()
                     }
 
                     ChatEvent.ChatEnded -> {
@@ -715,7 +715,7 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    private suspend fun fetchReconnectedTranscript(internalTranscript: List<TranscriptItem>) {
+    private suspend fun fetchReconnectedTranscript() {
         val lastItem = internalTranscript.lastOrNull { (it as? Message)?.metadata?.status != MessageStatus.Failed }
             ?: return
 
@@ -728,19 +728,28 @@ class ChatServiceImpl @Inject constructor(
         fetchTranscriptWith(startPosition)
     }
 
+    private fun isItemInInternalTranscript(Id: String?): Boolean {
+        if (Id == null) return false
+        for (item in internalTranscript.reversed()) {
+            if (item.id == Id) {
+                return true
+            }
+        }
+        return false
+    }
+
     private suspend fun fetchTranscriptWith(startPosition: StartPosition?) {
         getTranscript(startPosition = startPosition,
             scanDirection = ScanDirection.FORWARD,
             sortKey = SortKey.ASCENDING,
-            maxResults = 30,
+            maxResults = 100,
             nextToken = null).onSuccess { transcriptResponse ->
-            if (transcriptResponse.nextToken?.isNotEmpty() == true) {
-                val newStartPosition = transcriptResponse.transcript.lastOrNull()?.let {
-                    StartPosition().apply {
-                        id = it.id
-                    }
+            val lastItem = transcriptResponse.transcript.lastOrNull()
+            if (transcriptResponse.nextToken?.isNotEmpty() == true && lastItem != null) {
+                val newStartPosition = StartPosition().apply { id = lastItem.id }
+                if (!isItemInInternalTranscript(lastItem?.id)) {
+                    fetchTranscriptWith(startPosition = newStartPosition)
                 }
-                fetchTranscriptWith(startPosition = newStartPosition)
             }
         }.onFailure { error ->
             SDKLogger.logger.logError { "Error fetching transcript with startPosition $startPosition: ${error.localizedMessage}" }

@@ -18,6 +18,7 @@ import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
 import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
+import com.amazonaws.services.connectparticipant.model.Item
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SendEventResult
 import com.amazonaws.services.connectparticipant.model.SendMessageResult
@@ -48,6 +49,12 @@ import org.robolectric.RobolectricTestRunner
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import junit.framework.TestCase.fail
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.setMain
+import org.mockito.kotlin.any
 import java.util.UUID
 import java.net.URL
 
@@ -76,7 +83,7 @@ class ChatServiceImplTest {
     @Mock
     private lateinit var messageReceiptsManager: MessageReceiptsManager
 
-    private lateinit var chatService: ChatService
+    private lateinit var chatService: ChatServiceImpl
     private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
     private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
     private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
@@ -84,10 +91,12 @@ class ChatServiceImplTest {
     private lateinit var newWsUrlFlow: MutableSharedFlow<Unit>
 
     private val mockUri: Uri = Uri.parse("https://example.com/dummy.pdf")
+    private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setUp() {
         MockitoAnnotations.openMocks(this)
+        Dispatchers.setMain(testDispatcher)
 
         eventSharedFlow = MutableSharedFlow()
         transcriptSharedFlow = MutableSharedFlow()
@@ -510,6 +519,48 @@ class ChatServiceImplTest {
         verify(awsClient).getTranscript(anyOrNull())
     }
 
+    private fun createMockItem(id: String, timestamp: String): Item {
+        val item = Item()
+        item.absoluteTime = timestamp
+        item.content = "test${id}"
+        item.contentType = "text/plain"
+        item.id = id
+        item.type = "MESSAGE"
+        item.participantId = id
+        item.displayName = "test${id}"
+        item.participantRole = "CUSTOMER"
+        return item
+    }
+
+    @Test
+    fun test_fetchReconnectedTranscript_success() = runTest {
+        val chatDetails = ChatDetails(participantToken = "token")
+        val mockConnectionDetails = createMockConnectionDetails("valid_token")
+        `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
+        chatService.createChatSession(chatDetails)
+        advanceUntilIdle()
+
+        // Create a mock GetTranscriptResult and configure it to return expected values
+        val mockGetTranscriptResult = mock<GetTranscriptResult>()
+
+        `when`(mockGetTranscriptResult.initialContactId).thenReturn("")
+        `when`(awsClient.getTranscript(anyOrNull())).thenReturn(Result.success(mockGetTranscriptResult))
+
+        // Add items to the internal transcript and emit reconnection event.
+        // This scenario should call getTranscript once since the empty transcript response.
+        `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
+        `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken1")
+
+        val transcriptItem1 = Message(id = "1", timeStamp = "2024-01-01T00:00:00Z", participant = "user", contentType = "text/plain", text = "Hello")
+        val transcriptItem2 = Message(id = "2", timeStamp = "2025-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
+        chatService.internalTranscript.add(transcriptItem1)
+        chatService.internalTranscript.add(transcriptItem2)
+        val chatEvent = ChatEvent.ConnectionReEstablished
+        eventSharedFlow.emit(chatEvent)
+        advanceUntilIdle()
+        verify(awsClient, times(1)).getTranscript(anyOrNull())
+    }
+
     @Test
     fun test_sendMessageReceipt_success() = runTest {
         val messageId = "messageId123"
@@ -615,7 +666,7 @@ class ChatServiceImplTest {
         // Add message in internal transcript
         val transcriptItem = Message(id = "1", timeStamp = "mockedTimestamp", participant = "user",
             contentType = "text/plain", text = "Hello")
-        (chatService as ChatServiceImpl).internalTranscript.add(0, transcriptItem)
+        chatService.internalTranscript.add(0, transcriptItem)
 
         // Execute reset
         chatService.reset()
@@ -623,7 +674,7 @@ class ChatServiceImplTest {
         // Validate that websocket disconnected, tokens are reset and internal transcript is deleted
         verify(webSocketManager).disconnect("Resetting ChatService")
         verify(connectionDetailsProvider).reset()
-        assertEquals(0, (chatService as ChatServiceImpl).internalTranscript.size)
+        assertEquals(0, chatService.internalTranscript.size)
     }
 
     private fun createMockConnectionDetails(token : String): ConnectionDetails {
