@@ -11,6 +11,7 @@ import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageStatus
+import com.amazon.connect.chat.sdk.model.TranscriptData
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
@@ -148,7 +149,7 @@ interface ChatSession {
     var onConnectionBroken: (() -> Unit)?
     var onDeepHeartBeatFailure: (() -> Unit)?
     var onMessageReceived: ((TranscriptItem) -> Unit)?
-    var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)?
+    var onTranscriptUpdated: ((TranscriptData) -> Unit)?
     var onChatEnded: (() -> Unit)?
     var isChatSessionActive: Boolean
 }
@@ -161,7 +162,7 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onConnectionBroken: (() -> Unit)? = null
     override var onDeepHeartBeatFailure: (() -> Unit)? = null
     override var onMessageReceived: ((TranscriptItem) -> Unit)? = null
-    override var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)? = null
+    override var onTranscriptUpdated: ((TranscriptData) -> Unit)? = null
     override var onChatEnded: (() -> Unit)? = null
     override var onChatSessionStateChanged: ((Boolean) -> Unit)? = null
     override var isChatSessionActive: Boolean = false
@@ -205,11 +206,11 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
         }
 
         transcriptListCollectionJob = coroutineScope.launch {
-            chatService.transcriptListPublisher.collect { transcriptList ->
-                if (transcriptList.isNotEmpty()) {
+            chatService.transcriptListPublisher.collect { transcriptData ->
+                if (transcriptData.transcriptList.isNotEmpty()) {
                     // Make sure it runs on main thread
                     coroutineScope.launch {
-                        onTranscriptUpdated?.invoke(transcriptList)
+                        onTranscriptUpdated?.invoke(transcriptData)
                     }
                 }
             }

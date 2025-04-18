@@ -91,7 +91,7 @@ From here, you are now ready to interact with the chat via the `ChatSession` obj
 The Amazon Connect Chat SDK for Android provides two methods to receive messages.
 
 1. Use [ChatSession.onTranscriptUpdated](#chatsessionontranscriptupdated)
-  * This event will pass back the entire transcript every time the transcript is updated. This will return the transcript via a List of [TranscriptItem](#transcriptitem)
+  * This event will pass back the entire transcript every time the transcript is updated. This will return the transcript inside the [TranscriptData](#transcriptdata) object.
 
 2. Use [ChatSession.onMessageReceived](#chatsessiononmessagereceived)
   * This event will pass back each message that is received by the WebSocket.  The event handler will be passed a single [TranscriptItem](#transcriptitem).
@@ -420,10 +420,10 @@ var onMessageReceived: ((TranscriptItem) -> Unit)?
 --------------------
 
 #### `ChatSession.onTranscriptUpdated`
-Callback for when the transcript is updated. See [TranscriptItem](#transcriptitem)
+Callback for when the transcript is updated. See [TranscriptData](#transcriptdata)
 
 ```
-var onTranscriptUpdated: ((List<TranscriptItem>) -> Unit)?
+var onTranscriptUpdated: ((TranscriptData) -> Unit)?
 ```
 
 --------------------
@@ -645,6 +645,23 @@ open class TranscriptItem(
 * `serializedContent`
   * The raw JSON format of the received WebSocket message
   * Type: Map of `String?`
+
+--------
+### TranscriptData
+This is the object that is passed back to the registered [ChatSession.onTranscriptUpdated](#chatsessionontranscriptupdated) event handler
+
+```
+data class TranscriptData(
+    val transcriptList: List<TranscriptItem>,
+    val previousTranscriptNextToken: String?
+)
+```
+* `transcriptList`
+  * The current in-memory transcript list.
+  * Type: Array of `TranscriptItem` (See [TranscriptItem](#transcriptitem))
+* `previousTranscriptNextToken`
+  * This is a next token that is used as a `getTranscript` argument to retrieve older messages.  This will be `null` if there are no more available messages to fetch from the top of the currently loaded transcript.
+  * Type: `String`
 
 --------
 ### Message (extends [TranscriptItem](#transcriptitem))
