@@ -52,22 +52,10 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import junit.framework.TestCase.fail
 import kotlinx.coroutines.Dispatchers
-<<<<<<< HEAD
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.setMain
-import org.mockito.kotlin.any
-=======
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.setMain
-import org.mockito.Mockito.spy
-import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
->>>>>>> 1d017c2 (Implementing previousTranscriptNextToken)
 import java.util.UUID
 import java.net.URL
 
