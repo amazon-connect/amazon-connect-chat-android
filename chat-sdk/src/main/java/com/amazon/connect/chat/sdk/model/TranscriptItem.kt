@@ -44,3 +44,8 @@ open class TranscriptItem(
     }
 }
 
+data class TranscriptData(
+    val transcriptList: List<TranscriptItem>,
+    val previousTranscriptNextToken: String?
+)
+

@@ -5,6 +5,7 @@ package com.amazon.connect.chat.sdk.repository
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
@@ -20,6 +21,7 @@ import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.MetricName
+import com.amazon.connect.chat.sdk.model.TranscriptData
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
@@ -31,6 +33,7 @@ import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.TranscriptItemUtils
 import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
+import com.amazonaws.services.connectparticipant.model.Item
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import com.amazonaws.services.connectparticipant.model.StartPosition
@@ -39,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -157,7 +161,7 @@ interface ChatService {
 
     val eventPublisher: SharedFlow<ChatEvent>
     val transcriptPublisher: SharedFlow<TranscriptItem>
-    val transcriptListPublisher: SharedFlow<List<TranscriptItem>>
+    val transcriptListPublisher: SharedFlow<TranscriptData>
     val chatSessionStatePublisher: SharedFlow<Boolean>
 }
 
@@ -181,8 +185,8 @@ class ChatServiceImpl @Inject constructor(
     override val transcriptPublisher: SharedFlow<TranscriptItem> get() = _transcriptPublisher
     private var transcriptCollectionJob: Job? = null
 
-    private val _transcriptListPublisher = MutableSharedFlow<List<TranscriptItem>>()
-    override val transcriptListPublisher: SharedFlow<List<TranscriptItem>> get() = _transcriptListPublisher
+    private val _transcriptListPublisher = MutableSharedFlow<TranscriptData>()
+    override val transcriptListPublisher: SharedFlow<TranscriptData> get() = _transcriptListPublisher
 
     private val _chatSessionStatePublisher = MutableSharedFlow<Boolean>()
     override val chatSessionStatePublisher: SharedFlow<Boolean> get() = _chatSessionStatePublisher
@@ -192,10 +196,14 @@ class ChatServiceImpl @Inject constructor(
     private var transcriptDict = mutableMapOf<String, TranscriptItem>()
     @VisibleForTesting
     internal var internalTranscript = mutableListOf<TranscriptItem>()
+    @VisibleForTesting
+    internal var previousTranscriptNextToken: String? = null
 
     private var typingIndicatorTimer: Timer? = null
     private var throttleTypingEventTimer: Timer? = null
     private var throttleTypingEvent: Boolean = false
+
+    private var debounceTranscriptListPublisherEvent: Job? = null
 
     // Dictionary to map attachment IDs to temporary message IDs
     private val attachmentIdToTempMessageId = mutableMapOf<String, String>()
@@ -347,7 +355,7 @@ class ChatServiceImpl @Inject constructor(
         // Send the updated transcript list to subscribers if items removed
         if (transcriptDict.size != initialCount) {
             coroutineScope.launch {
-                _transcriptListPublisher.emit(internalTranscript)
+                _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
             }
         }
     }
@@ -405,7 +413,11 @@ class ChatServiceImpl @Inject constructor(
                 }
             }
 
-            _transcriptListPublisher.emit(internalTranscript)
+            debounceTranscriptListPublisherEvent?.cancel()
+            debounceTranscriptListPublisherEvent = coroutineScope.launch {
+                delay(300)
+                _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+            }
         }
     }
 
@@ -422,7 +434,7 @@ class ChatServiceImpl @Inject constructor(
                 internalTranscript.removeAll { it.id == oldId }
                 // Send out updated transcript
                 coroutineScope.launch {
-                    _transcriptListPublisher.emit(internalTranscript)
+                    _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
                 }
             } else {
                 // Update the placeholder message's ID to the new ID
@@ -553,7 +565,7 @@ class ChatServiceImpl @Inject constructor(
         transcriptDict.remove(messageId)
         // Send out updated transcript with old message removed
         coroutineScope.launch {
-            _transcriptListPublisher.emit(internalTranscript)
+            _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
         }
 
         // as the next step, attempt to resend the message based on its type
@@ -781,6 +793,33 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             val response = awsClient.getTranscript(request).getOrThrow()
             val transcriptItems = response.transcript
+
+            val isStartPositionDefined = request.startPosition != null && (
+                    request.startPosition.id != null ||
+                    request.startPosition.absoluteTime != null ||
+                    request.startPosition.mostRecent != null
+                    )
+
+            if ((request.scanDirection == ScanDirection.BACKWARD.toString()) && !(isStartPositionDefined && transcriptItems.isEmpty())) {
+                if (internalTranscript.isEmpty() || transcriptItems.isEmpty()) {
+                    previousTranscriptNextToken = response.nextToken
+                    _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+                } else {
+                    val oldestInternalTranscriptItem = internalTranscript.first()
+                    val oldestTranscriptItem: Item;
+                    if (request.sortOrder == SortKey.ASCENDING.toString()) {
+                        oldestTranscriptItem = transcriptItems.first()
+                    } else {
+                        oldestTranscriptItem = transcriptItems.last()
+                    }
+                    val oldestInternalTranscriptItemTimeStamp = oldestInternalTranscriptItem.timeStamp
+                    val oldestTranscriptItemTimeStamp = oldestTranscriptItem.absoluteTime
+                    if (oldestTranscriptItemTimeStamp <= oldestInternalTranscriptItemTimeStamp) {
+                        previousTranscriptNextToken = response.nextToken
+                    }
+                }
+            }
+
             // Format and process transcript items
             val formattedItems = transcriptItems.mapNotNull { transcriptItem ->
                 TranscriptItemUtils.serializeTranscriptItem(transcriptItem)?.let { serializedItem ->
