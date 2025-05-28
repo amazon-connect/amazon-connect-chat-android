@@ -630,11 +630,12 @@ open class TranscriptItem(
     id: String = "",
     timeStamp: String,
     override var contentType: String,
-    override var serializedContent: String? = null
+    override var serializedContent: String? = null,
+    persistentId: String = ""
 )
 ```
 * `id`
-  * Id for the message. Unique to each message in the transcript.
+  * Id for the message. Unique to each message in the transcript. Id can be used only for the ACPS APIs requests.
   * Type: `String`
 * `timeStamp`
   * Time when the message or event was sent. Formatted in ISO 8601 (e.g. `yyyy-MM-ddThh:mm:ss.SSSZ` or ` 2019-11-08T02:41:28.172Z`)
@@ -645,6 +646,9 @@ open class TranscriptItem(
 * `serializedContent`
   * The raw JSON format of the received WebSocket message
   * Type: Map of `String?`
+* `persistentId`
+  * Id for the message, Unique to each message throughout chat session. This can be used only for tracking purposes by the client.
+  * Type: `String`
 
 --------
 ### TranscriptData
