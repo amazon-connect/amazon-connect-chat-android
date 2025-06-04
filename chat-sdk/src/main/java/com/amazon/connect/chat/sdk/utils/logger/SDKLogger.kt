@@ -9,4 +9,8 @@ object SDKLogger {
     fun configureLogger(logger: ChatSDKLogger) {
         this.logger = logger
     }
+
+    fun setLoggingEnabled(enabled: Boolean) {
+        this.logger.setLoggingEnabled(enabled)
+    }
 }
