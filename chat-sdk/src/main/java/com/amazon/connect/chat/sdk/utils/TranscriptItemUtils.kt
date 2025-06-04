@@ -3,7 +3,6 @@
 
 package com.amazon.connect.chat.sdk.utils
 
-import android.util.Log
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
@@ -11,6 +10,7 @@ import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazonaws.services.connectparticipant.model.Item
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import org.json.JSONObject
 import java.util.UUID
 
@@ -115,7 +115,7 @@ object TranscriptItemUtils {
 
             json.optString("content")
         } catch (e: Exception) {
-            Log.e("TranscriptItemUtils", "Failed to process transcript item: ${e.message}")
+            SDKLogger.logger.logError{"TranscriptItemUtils: Failed to process transcript item: ${e.message}"}
             null
         }
     }
