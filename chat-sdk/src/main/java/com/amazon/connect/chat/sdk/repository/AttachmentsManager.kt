@@ -6,12 +6,12 @@ package com.amazon.connect.chat.sdk.repository
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.util.Log
 import com.amazon.connect.chat.sdk.network.api.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import javax.inject.Inject
 import java.util.*
 import com.amazon.connect.chat.sdk.utils.Constants
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
 import kotlinx.coroutines.CoroutineScope
@@ -38,7 +38,7 @@ class AttachmentsManager @Inject constructor(
                 createStartAttachmentUploadRequest(connectionToken, fileUri)
             val fileExtension = getFileExtension(startAttachmentUploadRequest.attachmentName)
             if (!Constants.attachmentTypeMap.containsKey(fileExtension)) {
-                Log.d("AttachmentsManager", "Unsupported file type: $fileExtension")
+                SDKLogger.logger.logDebug{"AttachmentsManager: Unsupported file type: $fileExtension"}
                 throw Exception("Unsupported file type")
             }
 
@@ -62,7 +62,7 @@ class AttachmentsManager @Inject constructor(
                         completeAttachmentUpload(connectionToken, attachmentId)
                     } else {
                         val exception = response?.message()
-                        println("Error occurred: $exception")
+                        SDKLogger.logger.logError{"AttachmentsManager: Error occurred: $exception"}
                     }
                     file.deleteRecursively()
                 }
@@ -82,7 +82,7 @@ class AttachmentsManager @Inject constructor(
         val completeAttachmentUploadResponse = completeAttachmentUploadResult.getOrNull()
         if (completeAttachmentUploadResponse == null) {
             val exception = completeAttachmentUploadResult.exceptionOrNull()
-            println("Error occurred: ${exception?.message}")
+            SDKLogger.logger.logError{"AttachmentsManager: Error occurred: ${exception?.message}"}
             return
         }
     }
@@ -122,7 +122,7 @@ class AttachmentsManager @Inject constructor(
         return getAttachmentDownloadUrl(connectionToken, attachmentId).mapCatching { url ->
             downloadFile(url, fileName).getOrThrow()
         }.onFailure {
-            Log.e("AttachmentsManager", "Error occurred during downloadAttachment: ${it.message}")
+            SDKLogger.logger.logError{"AttachmentsManager: Error occurred during downloadAttachment: ${it.message}"}
         }
     }
 
@@ -131,7 +131,7 @@ class AttachmentsManager @Inject constructor(
             val response = awsClient.getAttachment(connectionToken, attachmentId)
             URL(response.getOrNull()?.url ?: throw IOException("Invalid URL"))
         }.onFailure {
-            Log.e("AttachmentsManager", "Error occurred during getAttachmentDownloadUrl: ${it.message}")
+            SDKLogger.logger.logError{"AttachmentsManager: Error occurred during getAttachmentDownloadUrl: ${it.message}"}
         }
     }
 
@@ -163,15 +163,14 @@ class AttachmentsManager @Inject constructor(
             }
 
             tempFilePath.also {
-                Log.d("AttachmentsManager", "File successfully downloaded to: ${it.absolutePath}")
+                SDKLogger.logger.logDebug{"AttachmentsManager: File successfully downloaded to: ${it.absolutePath}"}
             }.toURI().toURL()
         }.onFailure {
-            Log.e("AttachmentsManager", "Error occurred during downloadFile: ${it.message}")
+            SDKLogger.logger.logError{"AttachmentsManager: Error occurred during downloadFile: ${it.message}"}
         }
     }
 
     fun fileFromContentUri(contentUri: Uri, fileExtension: String?): File {
-
         val fileName = "temp_file" + if (fileExtension != null) ".$fileExtension" else ""
 
         val tempFile = File(context.cacheDir, fileName)

@@ -11,4 +11,5 @@ interface ChatSDKLogger {
     fun logDebug(message: () -> String)
     fun logWarn(message: () -> String)
     fun logError(message: () -> String)
+    fun setLoggingEnabled(enabled: Boolean)
 }

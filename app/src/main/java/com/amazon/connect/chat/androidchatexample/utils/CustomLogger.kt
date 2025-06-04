@@ -7,7 +7,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,8 +24,16 @@ class CustomLogger : ChatSDKLogger {
     private val currentTimeMillis = System.currentTimeMillis()
     private val loggerCreationDateAndTime = CommonUtils.formatDate(currentTimeMillis, false)
 
+    private var loggingEnabled: Boolean = true
+
+    //Custom logging logic
+    override fun setLoggingEnabled(enabled: Boolean) {
+        this.loggingEnabled = enabled
+    }
+
     override fun logVerbose(message: () -> String) {
         // Custom logging logic
+        if (!loggingEnabled) return
         val logMessage = "VERBOSE: ${message()}"
         println(logMessage)
         coroutineScope.launch {
@@ -36,6 +43,7 @@ class CustomLogger : ChatSDKLogger {
 
     override fun logInfo(message: () -> String) {
         // Custom logging logic
+        if (!loggingEnabled) return
         val logMessage = "INFO: ${message()}"
         println(logMessage)
         coroutineScope.launch {
@@ -45,16 +53,17 @@ class CustomLogger : ChatSDKLogger {
 
     override fun logDebug(message: () -> String) {
         // Custom logging logic
+        if (!loggingEnabled) return
         val logMessage = "DEBUG: ${message()}"
         println(logMessage)
         coroutineScope.launch {
             writeToAppTempFile(logMessage)
         }
-
     }
 
     override fun logWarn(message: () -> String) {
         // Custom logging logic
+        if (!loggingEnabled) return
         val logMessage = "WARN: ${message()}"
         println(logMessage)
         coroutineScope.launch {
@@ -64,6 +73,7 @@ class CustomLogger : ChatSDKLogger {
 
     override fun logError(message: () -> String) {
         // Custom logging logic
+        if (!loggingEnabled) return
         val logMessage = "ERROR: ${message()}"
         println(logMessage)
         coroutineScope.launch {
