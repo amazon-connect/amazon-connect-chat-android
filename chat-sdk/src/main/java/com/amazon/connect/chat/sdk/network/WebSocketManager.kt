@@ -3,7 +3,6 @@
 
 package com.amazon.connect.chat.sdk.network
 
-import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -82,7 +81,6 @@ class WebSocketManagerImpl @Inject constructor(
             _isReconnecting.value = value.value
         }
 
-
     private var heartbeatManager: HeartbeatManager = HeartbeatManager(
         sendHeartbeatCallback = ::sendHeartbeat,
         missedHeartbeatCallback = ::onHeartbeatMissed
@@ -120,7 +118,7 @@ class WebSocketManagerImpl @Inject constructor(
                     reestablishConnectionIfChatActive()
                 } else {
                     isConnectedToNetwork = false
-                    Log.d("WebSocketManager", "Network connection lost")
+                    SDKLogger.logger.logInfo{"WebSocket: Network connection lost"}
                 }
             }
         }
@@ -129,11 +127,11 @@ class WebSocketManagerImpl @Inject constructor(
         val lifecycleObserver = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
-                    Log.d("AppLifecycleObserver", "App in Foreground")
+                    SDKLogger.logger.logInfo{"WebSocket: App in Foreground"}
                     reestablishConnectionIfChatActive()
                 }
                 Lifecycle.Event.ON_STOP -> {
-                    Log.d("AppLifecycleObserver", "App in Background")
+                    SDKLogger.logger.logInfo{"WebSocket: App in Background"}
                     if (isChatActive) {
                         CoroutineScope(Dispatchers.IO).launch {
                             closeWebSocket("App Backgrounded", 4000)
@@ -148,7 +146,6 @@ class WebSocketManagerImpl @Inject constructor(
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
     }
-
 
     // --- Initialization and Connection Management ---
 
@@ -199,16 +196,16 @@ class WebSocketManagerImpl @Inject constructor(
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-            Log.i("WebSocket", "WebSocket is closing with code: $code, reason: $reason")
+            SDKLogger.logger.logInfo{"WebSocket: WebSocket is closing with code: $code, reason: $reason"}
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            Log.i("WebSocket", "WebSocket is closed with code: $code, reason: $reason")
+            SDKLogger.logger.logInfo{"WebSocket: WebSocket is closed with code: $code, reason: $reason"}
             handleWebSocketClosed(code, reason)
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            Log.e("WebSocket", "WebSocket failure: ${t.message}")
+            SDKLogger.logger.logError{"WebSocket: WebSocket failure: ${t.message}"}
             handleWebSocketFailure(t)
         }
     }
@@ -226,7 +223,7 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun handleWebSocketClosed(code: Int, reason: String) {
-        Log.i("WebSocket", "WebSocket closed with code: $code, reason: $reason")
+        SDKLogger.logger.logInfo{"WebSocket: WebSocket closed with code: $code, reason: $reason"}
         if (code == 1000) {
             isChatActive = false
         } else if (code != 4000) {
@@ -235,7 +232,7 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun handleWebSocketFailure(t: Throwable) {
-        Log.e("WebSocket", "WebSocket failure: ${t.message}")
+        SDKLogger.logger.logError{"WebSocket: WebSocket failure: ${t.message}"}
         if (t is IOException && t.message == "Software caused connection abort") {
             reestablishConnectionIfChatActive()
         }
@@ -247,17 +244,15 @@ class WebSocketManagerImpl @Inject constructor(
         if (statusCode == 200 && statusContent == "OK") {
             deepHeartbeatManager.heartbeatReceived()
         } else {
-            Log.w("WebSocket", "Deep heartbeat failed. Status: $statusCode, StatusContent: $statusContent")
+            SDKLogger.logger.logWarn{"WebSocket: Deep heartbeat failed. Status: $statusCode, StatusContent: $statusContent"}
         }
     }
-
-    // --- Message Processing ---
 
     private suspend fun processJsonContent(text: String) {
         val json = try {
             JSONObject(text)
         } catch (e: JSONException) {
-            Log.e("WebSocket", "Failed to parse JSON message: $text", e)
+            SDKLogger.logger.logError{"WebSocket: Failed to parse JSON message: $text and error $e"}
             return
         }
 
@@ -266,10 +261,10 @@ class WebSocketManagerImpl @Inject constructor(
             "aws/ping" -> handlePing(json)
             "aws/heartbeat" -> handleHeartbeat()
             "aws/chat" -> {
-                SDKLogger.logger.logDebug { "Received chat message from websocket $json" }
+                SDKLogger.logger.logDebug{"WebSocket: Received chat message from websocket $json"}
                 handleWebsocketMessage(json.optString("content"))
             }
-            else -> Log.i("WebSocket", "Unhandled topic: $topic")
+            else -> SDKLogger.logger.logInfo{"WebSocket: Unhandled topic: $topic"}
         }
     }
 
@@ -279,10 +274,10 @@ class WebSocketManagerImpl @Inject constructor(
             if (transcriptItem != null) {
                 this._transcriptPublisher.emit(transcriptItem)
             } else {
-                Log.i("WebSocket", "Received unrecognized or unsupported content.")
+                SDKLogger.logger.logInfo{"WebSocket: Received unrecognized or unsupported content."}
             }
         } ?: run {
-            Log.w("WebSocket", "Received null or empty content in chat message")
+            SDKLogger.logger.logWarn{"WebSocket: Received null or empty content in chat message"}
         }
     }
 
@@ -290,7 +285,7 @@ class WebSocketManagerImpl @Inject constructor(
         val json = try {
             JSONObject(jsonString)
         } catch (e: JSONException) {
-            Log.e("WebSocket", "Failed to parse inner JSON content: $jsonString", e)
+            SDKLogger.logger.logError{"WebSocket: Failed to parse inner JSON content: $jsonString: ${e.message}"}
             return null
         }
 
@@ -308,7 +303,7 @@ class WebSocketManagerImpl @Inject constructor(
                         ContentType.TYPING -> handleTyping(jsonObject, jsonString)
                         ContentType.ENDED -> handleChatEnded(jsonObject, jsonString)
                         else -> {
-                            Log.w("WebSocket", "Unknown event: $eventType")
+                            SDKLogger.logger.logWarn{"WebSocket: Unknown event: $eventType"}
                             null
                         }
                     }
@@ -316,7 +311,7 @@ class WebSocketManagerImpl @Inject constructor(
                 WebSocketMessageType.ATTACHMENT -> handleAttachment(jsonObject, jsonString)
                 WebSocketMessageType.MESSAGE_METADATA -> handleMetadata(jsonObject, jsonString)
                 else -> {
-                    Log.w("WebSocket", "Unknown websocket message type: $type")
+                    SDKLogger.logger.logWarn{"WebSocket: Unknown websocket message type: $type"}
                     null
                 }
             }
@@ -350,9 +345,9 @@ class WebSocketManagerImpl @Inject constructor(
 
     private fun onHeartbeatMissed() {
         if (isConnectedToNetwork) {
-            Log.w("WebSocket", "Heartbeat missed")
-        }else {
-            Log.w("WebSocket", "Heartbeat missed, no internet connection")
+            SDKLogger.logger.logWarn{"WebSocket: Heartbeat missed"}
+        } else {
+            SDKLogger.logger.logWarn{"WebSocket: Heartbeat missed, no internet connection"}
         }
     }
 
@@ -360,33 +355,31 @@ class WebSocketManagerImpl @Inject constructor(
         this._eventPublisher.emit(ChatEvent.DeepHeartBeatFailure)
         if (isConnectedToNetwork) {
             reestablishConnectionIfChatActive()
-            Log.w("WebSocket", "Deep Heartbeat missed, retrying connection")
+            SDKLogger.logger.logWarn{"WebSocket: Deep Heartbeat missed, retrying connection"}
         } else {
-            Log.w("WebSocket", "Deep Heartbeat missed, no internet connection")
+            SDKLogger.logger.logWarn{"WebSocket: Deep Heartbeat missed, no internet connection"}
         }
         val success = this._eventPublisher.tryEmit(ChatEvent.ConnectionBroken)
         if (!success) {
-            Log.d("WebSocket", "Failed to emit ConnectionBroken event, " +
-                    "no subscribers and no buffer capacity")
+            SDKLogger.logger.logDebug{"WebSocket: Failed to emit ConnectionBroken event, no subscribers and no buffer capacity"}
         }
     }
 
-    // --- Helper Methods ---
     private fun reestablishConnectionIfChatActive() {
         if (!isChatActive) {
-            Log.d("WebSocket", "Re-connection aborted due to inactive chat session")
+            SDKLogger.logger.logDebug{"WebSocket: Re-connection aborted due to inactive chat session"}
             return
         }
         if (!isConnectedToNetwork) {
-            Log.d("WebSocket", "Re-connection aborted due to missing network connectivity")
+            SDKLogger.logger.logDebug{"WebSocket: Re-connection aborted due to missing network connectivity"}
             return
         }
         if (isChatSuspended) {
-            Log.d("WebSocket", "Re-connection aborted due to suspended chat session.")
+            SDKLogger.logger.logDebug{"WebSocket: Re-connection aborted due to suspended chat session."}
             return
         }
         if (_isReconnecting.value) {
-            Log.d("WebSocket", "Re-connection aborted due to ongoing reconnection attempt.")
+            SDKLogger.logger.logDebug{"WebSocket: Re-connection aborted due to ongoing reconnection attempt."}
             return
         }
 
@@ -456,7 +449,7 @@ class WebSocketManagerImpl @Inject constructor(
 
         val event = Event(
             timeStamp = time,
-            contentType =  innerJson.getString("ContentType"),
+            contentType = innerJson.getString("ContentType"),
             id = eventId,
             displayName = displayName,
             participant = participantRole,
@@ -469,9 +462,8 @@ class WebSocketManagerImpl @Inject constructor(
         val time = innerJson.getString("AbsoluteTime")
         val eventId = innerJson.getString("Id")
         val isFromPastSession = innerJson.optBoolean("isFromPastSession", false)
-
+        // Current session event: Reset state and update session
         if (!isFromPastSession) {
-            // Current session event: Reset state and update session
             resetHeartbeatManagers()
             this._eventPublisher.emit(ChatEvent.ChatEnded)
             connectionDetailsProvider.setChatSessionState(false)
@@ -479,7 +471,7 @@ class WebSocketManagerImpl @Inject constructor(
 
         val event = Event(
             timeStamp = time,
-            contentType =  innerJson.getString("ContentType"),
+            contentType = innerJson.getString("ContentType"),
             id = eventId,
             eventDirection = MessageDirection.COMMON,
             serializedContent = rawData
@@ -519,10 +511,9 @@ class WebSocketManagerImpl @Inject constructor(
         val displayName = innerJson.getString("DisplayName")
         val messageId = innerJson.getString("Id")
 
-        // Access the attachments array using getJSONArray and safely convert it to a list of JSONObjects
         val attachmentsArray = innerJson.optJSONArray("Attachments") ?: return null
         if (attachmentsArray.length() == 0) {
-            println("No attachments found")
+            SDKLogger.logger.logInfo{"WebSocket: No attachments found"}
             return null
         }
 
@@ -534,9 +525,8 @@ class WebSocketManagerImpl @Inject constructor(
         val contentType = firstAttachment.optString("ContentType")
         val attachmentId = firstAttachment.optString("AttachmentId")
 
-        // Check if any required fields are missing
         if (attachmentName == null || contentType == null || attachmentId == null) {
-            println("Failed to access attachments")
+            SDKLogger.logger.logError{"WebSocket: Failed to access attachments"}
             return null
         }
 

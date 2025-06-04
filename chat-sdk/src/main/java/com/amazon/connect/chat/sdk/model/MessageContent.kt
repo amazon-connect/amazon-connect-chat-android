@@ -4,6 +4,7 @@
 package com.amazon.connect.chat.sdk.model
 
 import com.amazon.connect.chat.sdk.utils.Constants
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -72,7 +73,7 @@ data class QuickReplyContent(
                 val subtitle = quickReply.data.content.subtitle ?: "" // Fallback to empty string if null
                 QuickReplyContent(title, subtitle, options)
             } catch (e: Exception) {
-                println("Error decoding QuickReplyContent: ${e.message}")
+                SDKLogger.logger.logError{"MessageContent: Error decoding QuickReplyContent: ${e.message}"}
                 null
             }
         }
@@ -130,13 +131,12 @@ data class ListPickerContent(
                 val imageUrl = listPicker.data.content.imageData ?: ""
                 ListPickerContent(title, subtitle, imageUrl, options)
             } catch (e: Exception) {
-                println("Error decoding ListPickerContent: ${e.message}")
+                SDKLogger.logger.logError{"MessageContent: Error decoding ListPickerContent: ${e.message}"}
                 null
             }
         }
     }
 }
-
 
 // Time Picker
 @Serializable
@@ -202,7 +202,7 @@ data class TimePickerContent(
                     timeslots = contentData.timeslots
                 )
             } catch (e: SerializationException) {
-                println("Error decoding TimePickerContent: ${e.localizedMessage}")
+                SDKLogger.logger.logError{"MessageContent: Error decoding TimePickerContent: ${e.localizedMessage}"}
                 null
             }
         }
@@ -251,7 +251,7 @@ data class CarouselContent(
                     elements = contentData.elements
                 )
             } catch (e: SerializationException) {
-                println("Error decoding CarouselContent: ${e.localizedMessage}")
+                SDKLogger.logger.logError{"MessageContent: Error decoding CarouselContent: ${e.localizedMessage}"}
                 null
             }
         }
@@ -314,7 +314,7 @@ data class PanelContent(
                     options = contentData.elements
                 )
             } catch (e: SerializationException) {
-                println("Error decoding PanelContent: ${e.localizedMessage}")
+                SDKLogger.logger.logError{"MessageContent: Error decoding PanelContent: ${e.localizedMessage}"}
                 null
             }
         }

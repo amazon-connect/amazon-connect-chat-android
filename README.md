@@ -151,6 +151,16 @@ interface ChatSDKLogger {
     fun logDebug(message: () -> String)
     fun logWarn(message: () -> String)
     fun logError(message: () -> String)
+    fun setLoggingEnabled(enabled: Boolean)
+}
+```
+
+#### `SDKLogger.setLoggingEnabled`
+This API will allow you to enable and disable logging.
+
+```
+fun setLoggingEnabled(enabled: Boolean) {
+   this.logger.setLoggingEnabled(enabled)
 }
 ```
 
