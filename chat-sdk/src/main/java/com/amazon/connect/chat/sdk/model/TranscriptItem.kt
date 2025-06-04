@@ -8,19 +8,24 @@ interface TranscriptItemProtocol {
     val timeStamp: String
     var contentType: String
     var serializedContent: String?
+    var persistentId: String?
 }
 
 open class TranscriptItem(
     override var id: String,
     override var timeStamp: String,
     override var contentType: String,
-    override var serializedContent: String? = null
+    override var serializedContent: String? = null,
+    override var persistentId: String? = null
 ) : TranscriptItemProtocol {
 
     internal fun updateId(newId: String) {
         this.id = newId
     }
 
+    internal fun updatePersistentId() {
+        this.persistentId = this.id
+    }
     internal fun updateTimeStamp(newTimeStamp: String) {
         this.timeStamp = newTimeStamp
     }

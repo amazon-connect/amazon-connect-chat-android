@@ -395,6 +395,7 @@ class ChatServiceImpl @Inject constructor(
                 // already have that item in our internalTranscript, so we will just apply existing
                 // metadata to new item.
                 if (existingItem is Message && item is Message) {
+                    item.persistentId = existingItem.persistentId
                     if (existingItem.metadata != null && item.metadata == null) {
                         item.metadata = existingItem.metadata
                     }
@@ -432,6 +433,7 @@ class ChatServiceImpl @Inject constructor(
             if (transcriptDict[newId] != null) {
                 transcriptDict.remove(oldId)
                 internalTranscript.removeAll { it.id == oldId }
+                transcriptDict[newId]?.persistentId = oldId
                 // Send out updated transcript
                 coroutineScope.launch {
                     _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
@@ -440,6 +442,7 @@ class ChatServiceImpl @Inject constructor(
                 // Update the placeholder message's ID to the new ID
                 (placeholderMessage as TranscriptItem).updateId(newId)
                 placeholderMessage.metadata?.status = MessageStatus.Sent
+                placeholderMessage.persistentId = oldId
                 transcriptDict.remove(oldId)
                 transcriptDict[newId] = placeholderMessage
             }
@@ -457,6 +460,7 @@ class ChatServiceImpl @Inject constructor(
         tempMessage.text = message.text
         tempMessage.contentType = message.contentType
         tempMessage.attachmentId = message.attachmentId
+        tempMessage.updatePersistentId()
         currentDict.remove(tempMessage.id)
         currentDict[message.id] = tempMessage
         handleTranscriptItemUpdate(tempMessage)

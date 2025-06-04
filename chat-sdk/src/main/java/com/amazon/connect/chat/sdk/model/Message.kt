@@ -31,7 +31,8 @@ data class Message(
     override var displayName: String? = null,
     override var messageDirection: MessageDirection? = null,
     var attachmentId: String? = null,
-    override var metadata: MessageMetadataProtocol? = null
+    override var metadata: MessageMetadataProtocol? = null,
+    override var persistentId: String? = null,
 ) : TranscriptItem(id, timeStamp, contentType, serializedContent), MessageProtocol {
 
     val content: MessageContent?
