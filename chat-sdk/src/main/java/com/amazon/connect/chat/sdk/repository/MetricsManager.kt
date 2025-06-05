@@ -22,7 +22,7 @@ class MetricsManager @Inject constructor(
     private var timer: Timer? = null
     private var shouldRetry: Boolean = true
     private var _isCsmDisabled: Boolean = false
-
+    
     init {
         if (!_isCsmDisabled) {
             monitorAndSendMetrics()
@@ -39,24 +39,32 @@ class MetricsManager @Inject constructor(
         isMonitoring = true
 
         timer = timer(initialDelay = 10000, period = 10000) {
-            if (metricList.isNotEmpty()) {
-                val metricRequestBody = createMetricRequestBody()
-                apiClient.sendMetrics(metricRequestBody) { response ->
-                    if (response != null && response.isSuccessful) {
-                        metricList = mutableListOf()
-                        isMonitoring = false
-                        timer?.cancel()
-                    } else {
-                        // We should retry once after 10s delay, otherwise we will send the missed
-                        // payload with the next batch of metrics
-                        if (shouldRetry) {
-                            shouldRetry = false
-                        } else {
-                            isMonitoring = false
-                            shouldRetry = true
-                            timer?.cancel()
+            synchronized(this) {
+                if (metricList.isNotEmpty()) {
+                    val metricRequestBody = createMetricRequestBody()
+                    apiClient.sendMetrics(metricRequestBody) { response ->
+                        synchronized(this) {
+                            if (response != null && response.isSuccessful) {
+                                metricList.clear()
+                                isMonitoring = false
+                                shouldRetry = true
+                                timer?.cancel()
+                            } else {
+                                // We should retry once after 10s delay, otherwise we will send the missed
+                                // payload with the next batch of metrics
+                                if (shouldRetry) {
+                                    shouldRetry = false
+                                } else {
+                                    isMonitoring = false
+                                    shouldRetry = true
+                                    timer?.cancel()
+                                }
+                            }
                         }
                     }
+                } else {
+                    isMonitoring = false
+                    timer?.cancel()
                 }
             }
         }
@@ -99,7 +107,9 @@ class MetricsManager @Inject constructor(
             return
         }
 
-        metricList.add(0, metric)
-        monitorAndSendMetrics()
+        synchronized(this) {
+            metricList.add(0, metric)
+            monitorAndSendMetrics()
+        }
     }
 }
