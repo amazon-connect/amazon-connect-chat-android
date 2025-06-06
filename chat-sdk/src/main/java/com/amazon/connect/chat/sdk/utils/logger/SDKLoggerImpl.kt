@@ -5,24 +5,46 @@ package com.amazon.connect.chat.sdk.utils.logger
 
 import android.util.Log
 
-class SDKLoggerImpl (private val tag: String = "ChatSDK"): ChatSDKLogger {
+class SDKLoggerImpl(
+    private val tag: String = "ChatSDK",
+ ) : ChatSDKLogger {
+    private var loggingEnabled: Boolean = true
+
+    /**
+     * Sets whether logging is enabled for this logger instance.
+     * @param enabled true to enable logging, false to disable.
+     */
+    override fun setLoggingEnabled(enabled: Boolean) {
+        this.loggingEnabled = enabled
+    }
+
     override fun logVerbose(message: () -> String) {
-        Log.v(tag, message())
+        if (loggingEnabled) {
+            Log.v(tag, message())
+        }
     }
 
     override fun logInfo(message: () -> String) {
-        Log.i(tag, message())
+        if (loggingEnabled) {
+            Log.i(tag, message())
+        }
     }
 
     override fun logDebug(message: () -> String) {
-        Log.d(tag, message())
+        if (loggingEnabled) {
+            Log.d(tag, message())
+        }
     }
 
     override fun logWarn(message: () -> String) {
-        Log.w(tag, message())
+        if (loggingEnabled) {
+            Log.w(tag, message())
+        }
     }
 
     override fun logError(message: () -> String) {
-        Log.e(tag, message())
+        if (loggingEnabled) {
+            Log.e(tag, message())
+        }
     }
 }
