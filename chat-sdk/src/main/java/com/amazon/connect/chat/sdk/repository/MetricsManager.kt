@@ -20,52 +20,86 @@ class MetricsManager @Inject constructor(
     private var metricList: MutableList<Metric> = mutableListOf()
     private var isMonitoring: Boolean = false
     private var timer: Timer? = null
-    private var shouldRetry: Boolean = true
+    private var retryCount: Int = 0
     private var _isCsmDisabled: Boolean = false
+    private val maxRetries = 3
+    private val monitoringPeriod = 10000L // 10 seconds
+    private val initialDelay = 1000L // 1 second
+
+    companion object {
+        private const val METRIC_NAMESPACE = "chat-widget"
+    }
 
     init {
         if (!_isCsmDisabled) {
-            monitorAndSendMetrics()
+            startMonitoring()
         }
     }
 
     fun configure(config: GlobalConfig) {
+        val wasDisabled = _isCsmDisabled
         _isCsmDisabled = config.disableCsm
+
+        if (wasDisabled && !_isCsmDisabled) {
+            startMonitoring()
+        } else if (!wasDisabled && _isCsmDisabled) {
+            stopMonitoring()
+        }
     }
 
     @Synchronized
-    private fun monitorAndSendMetrics() {
+    private fun startMonitoring() {
         if (isMonitoring) return
         isMonitoring = true
+        retryCount = 0
 
-        timer = timer(initialDelay = 10000, period = 10000) {
+        timer = timer(initialDelay = initialDelay, period = monitoringPeriod) {
             if (metricList.isNotEmpty()) {
-                val metricRequestBody = createMetricRequestBody()
-                apiClient.sendMetrics(metricRequestBody) { response ->
-                    if (response != null && response.isSuccessful) {
-                        metricList = mutableListOf()
-                        isMonitoring = false
-                        timer?.cancel()
-                    } else {
-                        // We should retry once after 10s delay, otherwise we will send the missed
-                        // payload with the next batch of metrics
-                        if (shouldRetry) {
-                            shouldRetry = false
-                        } else {
-                            isMonitoring = false
-                            shouldRetry = true
-                            timer?.cancel()
-                        }
-                    }
-                }
+                sendMetrics()
             }
         }
     }
 
-    private fun createMetricRequestBody(): MetricRequestBody {
+    private fun stopMonitoring() {
+        timer?.cancel()
+        timer = null
+        isMonitoring = false
+    }
+
+    private fun sendMetrics() {
+        val currentMetrics = synchronized(metricList) {
+            val metrics = metricList.toList()
+            metricList.clear()
+            metrics
+        }
+
+        if (currentMetrics.isEmpty()) return
+
+        val metricRequestBody = createMetricRequestBody(currentMetrics)
+        apiClient.sendMetrics(metricRequestBody) { response ->
+            if (response != null && response.isSuccessful) {
+                retryCount = 0
+            } else {
+                handleMetricSendFailure(currentMetrics)
+            }
+        }
+    }
+
+    private fun handleMetricSendFailure(failedMetrics: List<Metric>) {
+        if (retryCount < maxRetries) {
+            retryCount++
+            synchronized(metricList) {
+                metricList.addAll(0, failedMetrics)
+            }
+        } else {
+            retryCount = 0
+        }
+    }
+
+    private fun createMetricRequestBody(metrics: List<Metric>): MetricRequestBody {
         return MetricRequestBody(
-            metricNamespace = "chat-widget",
-            metricList = metricList
+            metricNamespace = METRIC_NAMESPACE,
+            metricList = metrics
         )
     }
 
@@ -79,27 +113,26 @@ class MetricsManager @Inject constructor(
     }
 
     fun addCountMetric(metricName: MetricName) {
+        if (_isCsmDisabled) return
+
         val currentTime = MetricsUtils.getCurrentMetricTimestamp()
         val countMetricDimensions = getCountMetricDimensions()
         val countMetric = Metric(
             dimensions = countMetricDimensions,
             metricName = metricName.name,
-            namespace = "chat-widget",
+            namespace = METRIC_NAMESPACE,
             optionalDimensions = emptyList(),
             timestamp = currentTime,
             unit = "Count",
             value = 1
         )
 
-        addMetric(countMetric)
-    }
-
-    private fun addMetric(metric: Metric) {
-        if (_isCsmDisabled) {
-            return
+        synchronized(metricList) {
+            metricList.add(countMetric)
         }
 
-        metricList.add(0, metric)
-        monitorAndSendMetrics()
+        if (!isMonitoring) {
+            startMonitoring()
+        }
     }
 }
