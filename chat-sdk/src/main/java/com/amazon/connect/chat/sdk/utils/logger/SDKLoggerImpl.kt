@@ -8,7 +8,7 @@ import android.util.Log
 class SDKLoggerImpl(
     private val tag: String = "ChatSDK",
  ) : ChatSDKLogger {
-    private var loggingEnabled: Boolean = true
+    private var loggingEnabled: Boolean = false
 
     /**
      * Sets whether logging is enabled for this logger instance.
