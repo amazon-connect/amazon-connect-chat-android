@@ -76,7 +76,14 @@ class MetricsManagerTest {
         // Add a metric to the list
         metricsManager.addCountMetric(metricName)
 
-        val requestBody = invokePrivateMethod(metricsManager, "createMetricRequestBody") as MetricRequestBody
+        // Get the metrics list to pass to createMetricRequestBody
+        val metricList = getPrivateField(metricsManager, "metricList") as MutableList<Metric>
+
+        val requestBody = invokePrivateMethod(
+            metricsManager,
+            "createMetricRequestBody",
+            metricList.toList()
+        ) as MetricRequestBody
 
         assert(requestBody.metricNamespace == "chat-widget")
         assert(requestBody.metricList.size == 1)
@@ -97,8 +104,24 @@ class MetricsManagerTest {
     }
 
     private fun invokePrivateMethod(obj: Any, methodName: String, vararg args: Any?): Any? {
-        val method = obj.javaClass.getDeclaredMethod(methodName)
-        method.isAccessible = true
-        return method.invoke(obj, *args)
+        val matchingMethods = obj.javaClass.declaredMethods.filter { it.name == methodName }
+        
+        if (matchingMethods.isEmpty()) {
+            throw NoSuchMethodException("$methodName not found in ${obj.javaClass.name}")
+        }
+        
+        val methodsWithMatchingParamCount = matchingMethods.filter { it.parameterCount == args.size }
+        
+        for (method in methodsWithMatchingParamCount) {
+            try {
+                method.isAccessible = true
+                return method.invoke(obj, *args)
+            } catch (e: IllegalArgumentException) {
+                // Continue to next method
+            }
+        }
+        
+        throw NoSuchMethodException("No suitable method $methodName found for given arguments")
     }
+
 }
