@@ -11,7 +11,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.serialization)
     id("com.spotify.ruler")
-    id("kotlin-kapt")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -93,8 +93,8 @@ dependencies {
     //Hilt
     compileOnly(libs.hiltAndroid)
     compileOnly(libs.lifecycleProcess)
-    kapt(libs.hiltCompiler)
-    kapt(libs.hiltAndroidCompiler)
+    ksp(libs.hiltCompiler)
+    ksp(libs.hiltAndroidCompiler)
 
     // AWS
     api(libs.awsSdkCore)
