@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.serialization)
     id("com.spotify.ruler")
-    id("kotlin-kapt") // Add this for kapt
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -94,9 +94,9 @@ dependencies {
     //Hilt
     implementation(libs.hiltAndroid)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    kapt(libs.hiltCompiler)
+    ksp(libs.hiltCompiler)
     implementation("androidx.navigation:navigation-compose:2.7.7")
-    kapt(libs.hiltAndroidCompiler)
+    ksp(libs.hiltAndroidCompiler)
 
     // AWS
     implementation(libs.awsSdkCore)
