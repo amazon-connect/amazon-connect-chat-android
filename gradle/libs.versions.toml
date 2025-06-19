@@ -3,6 +3,7 @@ accompanistSwiperefresh = "0.32.0"
 androidGradlePlugin = "8.5.2"
 hiltAndroid = "2.49"
 kotlin = "1.9.20"
+ksp = "1.9.20-1.0.14"
 hilt = "2.49"
 materialIconsExtended = "1.7.0"
 mockk = "1.13.16"
@@ -98,6 +99,7 @@ coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+devtoolsKsp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 androidLibrary = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
