@@ -653,7 +653,7 @@ class ChatServiceImpl @Inject constructor(
                 setupWebSocket(connectionDetails.websocketUrl, true)
             } else {
                 val error = result.exceptionOrNull()
-                if (error?.message == "Access denied") {
+                if (error?.message?.contains("403") == true) {
                     // Handle chat ended scenario
                     val endedEvent = TranscriptItemUtils.createDummyEndedEvent()
                     updateTranscriptDict(endedEvent)
