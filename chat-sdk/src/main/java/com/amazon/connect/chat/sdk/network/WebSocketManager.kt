@@ -3,6 +3,8 @@
 
 package com.amazon.connect.chat.sdk.network
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -145,8 +147,14 @@ class WebSocketManagerImpl @Inject constructor(
         }
 
         // Ensure lifecycle observer registration happens on main thread
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Already on main thread, no need to post
             ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
+        } else {
+            // Not on main thread, post to main thread
+            Handler(Looper.getMainLooper()).post {
+                ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
+            }
         }
     }
 
