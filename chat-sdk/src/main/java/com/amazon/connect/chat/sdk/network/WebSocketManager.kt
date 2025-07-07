@@ -144,7 +144,10 @@ class WebSocketManagerImpl @Inject constructor(
             }
         }
 
-        ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
+        // Ensure lifecycle observer registration happens on main thread
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver)
+        }
     }
 
     // --- Initialization and Connection Management ---

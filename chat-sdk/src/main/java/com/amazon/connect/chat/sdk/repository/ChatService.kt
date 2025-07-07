@@ -613,8 +613,10 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private fun registerNotificationListeners() {
-        // Observe lifecycle events
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        // Observe lifecycle events - ensure this happens on main thread
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(this@ChatServiceImpl)
+        }
 
         coroutineScope.launch {
             webSocketManager.requestNewWsUrlFlow.collect {
