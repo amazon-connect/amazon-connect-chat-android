@@ -294,10 +294,8 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    private fun triggerTranscriptListUpdate() {
-        coroutineScope.launch {
-            _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
-        }
+    private suspend fun triggerTranscriptListUpdate() {
+        _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
     }
 
     private fun updateTranscriptDict(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
@@ -418,7 +416,7 @@ class ChatServiceImpl @Inject constructor(
             }
 
             if (shouldTriggerTranscriptListUpdate) {
-                _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+                triggerTranscriptListUpdate()
             }
         }
     }
