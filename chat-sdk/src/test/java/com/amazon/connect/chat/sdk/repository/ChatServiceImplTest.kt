@@ -721,6 +721,7 @@ class ChatServiceImplTest {
 
     @Test
     fun test_transcriptListPublisher_emitsTranscriptList() = runTest {
+        var assertCalled = false
         var emissionCount = 0
         val chatDetails = ChatDetails(participantToken = "token")
         chatService.createChatSession(chatDetails)
@@ -744,6 +745,7 @@ class ChatServiceImplTest {
                         assertEquals(2, transcriptData.transcriptList.size)
                         assertEquals(transcriptItem1, transcriptData.transcriptList[0])
                         assertEquals(transcriptItem2, transcriptData.transcriptList[1])
+                        assertCalled = true
                     }
                 }
             }
@@ -757,8 +759,11 @@ class ChatServiceImplTest {
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
 
-        // Verify we got exactly 2 emissions
+        // Verify we got exactly 2 emissions and the final assertion was called
         assertEquals(2, emissionCount)
+        if (!assertCalled) {
+            fail("chatService.transcriptListPublisher.onEach was not triggered for final emission")
+        }
     }
 
     @Test
