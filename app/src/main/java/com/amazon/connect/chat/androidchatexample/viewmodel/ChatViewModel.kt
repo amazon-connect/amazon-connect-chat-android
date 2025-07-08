@@ -29,19 +29,25 @@ import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.URL
 import javax.inject.Inject
+import javax.inject.Provider
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatSession: ChatSession, // Injected ChatSession instance
+    private val chatSessionProvider: Provider<ChatSession>, // Changed to lazy injection using Provider
     private val chatRepository: ChatRepository, // Chat repository for API calls
     private val sharedPreferences: SharedPreferences // Shared preferences for storing participant token
 ) : ViewModel() {
 
     // If you are not using Hilt, you can initialize ChatSession like this
     // private val chatSession = ChatSessionProvider.getChatSession(context)
+
+    // Public getter for testing lifecycle observer threading issue
+    fun getChatSession(): ChatSession = chatSessionProvider.get() // Now uses lazy injection
 
     // Configuration instance for chat settings
     private val chatConfiguration = Config
@@ -110,9 +116,18 @@ class ChatViewModel @Inject constructor(
 
     // Configure the chat session with global settings
     private suspend fun configureChatSession() {
-        val globalConfig = GlobalConfig(region = chatConfiguration.region)
-        chatSession.configure(globalConfig)
-        setupChatHandlers(chatSession)
+        // Force background thread access to trigger the threading bug
+        withContext(Dispatchers.IO) {
+            Log.d("ChatViewModel", "Configuring chat session on thread: ${Thread.currentThread().name}")
+
+            // This line will trigger ChatServiceImpl construction on background thread
+            // causing the lifecycle observer registration to fail
+            val chatSession = chatSessionProvider.get()
+
+            val globalConfig = GlobalConfig(region = chatConfiguration.region)
+            chatSession.configure(globalConfig)
+            setupChatHandlers(chatSession)
+        }
     }
 
     // Setup event handlers for the chat session
@@ -135,7 +150,7 @@ class ChatViewModel @Inject constructor(
         }
 
         chatSession.onChatEnded = {
-           Log.d("ChatViewModel", "Chat ended.")
+            Log.d("ChatViewModel", "Chat ended.")
             _isChatActive.value = false
         }
 
@@ -181,7 +196,7 @@ class ChatViewModel @Inject constructor(
     fun resendFailedMessage(messageId: String) {
         viewModelScope.launch {
             if (messageId.isNotEmpty()) {
-                val result = chatSession.resendFailedMessage(messageId)
+                val result = chatSessionProvider.get().resendFailedMessage(messageId)
                 result.onSuccess {
                     // Handle success - update UI or state as needed
                 }.onFailure { exception ->
@@ -241,7 +256,7 @@ class ChatViewModel @Inject constructor(
     private fun createParticipantConnection(chatDetails: ChatDetails) {
         viewModelScope.launch {
             _isLoading.value = true // Set loading state
-            val result = chatSession.connect(chatDetails) // Attempt connection
+            val result = chatSessionProvider.get().connect(chatDetails) // Attempt connection
             _isLoading.value = false // Clear loading state
 
             if (result.isSuccess) {
@@ -273,7 +288,7 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(text: String) {
         viewModelScope.launch {
             if (text.isNotEmpty()) {
-                val result = chatSession.sendMessage(ContentType.RICH_TEXT, text)
+                val result = chatSessionProvider.get().sendMessage(ContentType.RICH_TEXT, text)
                 result.onSuccess {
                     // Handle success - update UI or state as needed
                 }.onFailure { exception ->
@@ -287,7 +302,7 @@ class ChatViewModel @Inject constructor(
     // Send an event through the chat session
     fun sendEvent(content: String = "", contentType: ContentType) {
         viewModelScope.launch {
-            val result = chatSession.sendEvent(contentType, content)
+            val result = chatSessionProvider.get().sendEvent(contentType, content)
             result.onSuccess {
                 // Handle success - update UI or state as needed
             }.onFailure { exception ->
@@ -299,13 +314,13 @@ class ChatViewModel @Inject constructor(
 
     // Send a read receipt for a message when it appears
     suspend fun sendReadEventOnAppear(message: Message) {
-        chatSession.sendMessageReceipt(message, MessageReceiptType.MESSAGE_READ)
+        chatSessionProvider.get().sendMessageReceipt(message, MessageReceiptType.MESSAGE_READ)
     }
 
     // Fetch the chat transcript
     fun fetchTranscript(onCompletion: (Boolean) -> Unit, nextToken: String? = null) {
         viewModelScope.launch {
-            chatSession.getTranscript(
+            chatSessionProvider.get().getTranscript(
                 ScanDirection.BACKWARD,
                 SortKey.DESCENDING,
                 15,
@@ -326,7 +341,7 @@ class ChatViewModel @Inject constructor(
     fun endChat() {
         clearParticipantToken()
         viewModelScope.launch {
-            chatSession.disconnect() // Disconnect from chat session
+            chatSessionProvider.get().disconnect() // Disconnect from chat session
         }
     }
 
@@ -350,12 +365,12 @@ class ChatViewModel @Inject constructor(
     // Upload a selected attachment to the chat session
     fun uploadAttachment(fileUri: Uri) {
         viewModelScope.launch {
-            chatSession.sendAttachment(fileUri)
+            chatSessionProvider.get().sendAttachment(fileUri)
         }
     }
 
     // Download an attachment using its ID and file name
     suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL> {
-        return chatSession.downloadAttachment(attachmentId, fileName)
+        return chatSessionProvider.get().downloadAttachment(attachmentId, fileName)
     }
 }
