@@ -162,11 +162,6 @@ interface ChatService {
     val transcriptPublisher: SharedFlow<TranscriptItem>
     val transcriptListPublisher: SharedFlow<TranscriptData>
     val chatSessionStatePublisher: SharedFlow<Boolean>
-    
-    /**
-     * Triggers transcript list update manually
-     */
-    fun triggerTranscriptListUpdate()
 }
 
 class ChatServiceImpl @Inject constructor(
@@ -299,7 +294,7 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    override fun triggerTranscriptListUpdate() {
+    private fun triggerTranscriptListUpdate() {
         coroutineScope.launch {
             _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
         }
