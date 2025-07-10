@@ -85,7 +85,7 @@ class ChatServiceImplTest {
 
     private lateinit var chatService: ChatServiceImpl
     private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
-    private lateinit var transcriptSharedFlow: MutableSharedFlow<TranscriptItem>
+    private lateinit var transcriptSharedFlow: MutableSharedFlow<Pair<TranscriptItem, Boolean>>
     private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
     private lateinit var newWsUrlFlow: MutableSharedFlow<Unit>
 
@@ -556,8 +556,8 @@ class ChatServiceImplTest {
         // Add items to the internal transcript
         val transcriptItem1 = Message(id = "1", timeStamp = "2024-01-01T00:00:00Z", participant = "user", contentType = "text/plain", text = "Hello")
         val transcriptItem2 = Message(id = "2", timeStamp = "2025-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
-        transcriptSharedFlow.emit(transcriptItem1)
-        transcriptSharedFlow.emit(transcriptItem2)
+        transcriptSharedFlow.emit(Pair(transcriptItem1, true))
+        transcriptSharedFlow.emit(Pair(transcriptItem2, true))
         advanceUntilIdle()
 
         // Expect previousTranscriptNextToken to persist when items are added
@@ -709,7 +709,7 @@ class ChatServiceImplTest {
             .launchIn(this)
 
         // Emit the transcript item
-        transcriptSharedFlow.emit(transcriptItem)
+        transcriptSharedFlow.emit(Pair(transcriptItem, true))
         advanceUntilIdle()
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
@@ -722,6 +722,7 @@ class ChatServiceImplTest {
     @Test
     fun test_transcriptListPublisher_emitsTranscriptList() = runTest {
         var assertCalled = false
+        var emissionCount = 0
         val chatDetails = ChatDetails(participantToken = "token")
         chatService.createChatSession(chatDetails)
         advanceUntilIdle()
@@ -732,23 +733,36 @@ class ChatServiceImplTest {
         // Launch the flow collection within the test's coroutine scope
         val job = chatService.transcriptListPublisher
             .onEach { transcriptData ->
-                assertEquals(transcriptData.transcriptList.size, 2)
-                assertEquals(transcriptData.transcriptList[0], transcriptItem1)
-                assertEquals(transcriptData.transcriptList[1], transcriptItem2)
-                assertCalled = true
+                emissionCount++
+                when (emissionCount) {
+                    1 -> {
+                        // First emission should have 1 item
+                        assertEquals(1, transcriptData.transcriptList.size)
+                        assertEquals(transcriptItem1, transcriptData.transcriptList[0])
+                    }
+                    2 -> {
+                        // Second emission should have 2 items
+                        assertEquals(2, transcriptData.transcriptList.size)
+                        assertEquals(transcriptItem1, transcriptData.transcriptList[0])
+                        assertEquals(transcriptItem2, transcriptData.transcriptList[1])
+                        assertCalled = true
+                    }
+                }
             }
             .launchIn(this)
 
-        // Emit the transcript list
-        transcriptSharedFlow.emit(transcriptItem1)
-        transcriptSharedFlow.emit(transcriptItem2)
+        // Emit the transcript items
+        transcriptSharedFlow.emit(Pair(transcriptItem1, true))
+        transcriptSharedFlow.emit(Pair(transcriptItem2, true))
         advanceUntilIdle()
 
         // Cancel the job after testing to ensure the coroutine completes
         job.cancel()
 
+        // Verify we got exactly 2 emissions and the final assertion was called
+        assertEquals(2, emissionCount)
         if (!assertCalled) {
-            fail("chatService.transcriptPublisher.onEach was not triggered")
+            fail("chatService.transcriptListPublisher.onEach was not triggered for final emission")
         }
     }
 

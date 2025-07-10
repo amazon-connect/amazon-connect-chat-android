@@ -47,7 +47,7 @@ object EventTypes {
 
 interface WebSocketManager {
     val eventPublisher: SharedFlow<ChatEvent>
-    val transcriptPublisher: SharedFlow<TranscriptItem>
+    val transcriptPublisher: SharedFlow<Pair<TranscriptItem, Boolean>>
     val requestNewWsUrlFlow: MutableSharedFlow<Unit>
     var isReconnecting: MutableStateFlow<Boolean>
     suspend fun connect(wsUrl: String, isReconnectFlow: Boolean = false)
@@ -96,11 +96,11 @@ class WebSocketManagerImpl @Inject constructor(
     )
     override val eventPublisher: SharedFlow<ChatEvent> get() = _eventPublisher
 
-    private val _transcriptPublisher = MutableSharedFlow<TranscriptItem>(
+    private val _transcriptPublisher = MutableSharedFlow<Pair<TranscriptItem, Boolean>>(
         replay = 0,
         extraBufferCapacity = 10
     )
-    override val transcriptPublisher: SharedFlow<TranscriptItem> get() = _transcriptPublisher
+    override val transcriptPublisher: SharedFlow<Pair<TranscriptItem, Boolean>> get() = _transcriptPublisher
     override val requestNewWsUrlFlow = MutableSharedFlow<Unit>()
 
     init {
@@ -272,7 +272,7 @@ class WebSocketManagerImpl @Inject constructor(
         content?.let {
             val transcriptItem = parseTranscriptItemFromJson(it)
             if (transcriptItem != null) {
-                this._transcriptPublisher.emit(transcriptItem)
+                this._transcriptPublisher.emit(Pair(transcriptItem, true))
             } else {
                 SDKLogger.logger.logInfo{"WebSocket: Received unrecognized or unsupported content."}
             }

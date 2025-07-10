@@ -42,7 +42,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
@@ -203,8 +202,6 @@ class ChatServiceImpl @Inject constructor(
     private var throttleTypingEventTimer: Timer? = null
     private var throttleTypingEvent: Boolean = false
 
-    private var debounceTranscriptListPublisherEvent: Job? = null
-
     // Dictionary to map attachment IDs to temporary message IDs
     private val attachmentIdToTempMessageId = mutableMapOf<String, String>()
 
@@ -285,8 +282,8 @@ class ChatServiceImpl @Inject constructor(
         }
 
         transcriptCollectionJob = coroutineScope.launch {
-            webSocketManager.transcriptPublisher.collect { transcriptItem ->
-                updateTranscriptDict(transcriptItem)
+            webSocketManager.transcriptPublisher.collect { (transcriptItem, shouldTriggerTranscriptListUpdate) ->
+                updateTranscriptDict(transcriptItem, shouldTriggerTranscriptListUpdate)
             }
         }
 
@@ -297,7 +294,11 @@ class ChatServiceImpl @Inject constructor(
         }
     }
 
-    private fun updateTranscriptDict(item: TranscriptItem) {
+    private suspend fun triggerTranscriptListUpdate() {
+        _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+    }
+
+    private fun updateTranscriptDict(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
         when (item) {
             is MessageMetadata -> {
                 // Associate metadata with message based on its ID
@@ -333,7 +334,7 @@ class ChatServiceImpl @Inject constructor(
         }
 
         transcriptDict[item.id]?.let {
-            handleTranscriptItemUpdate(it)
+            handleTranscriptItemUpdate(it, shouldTriggerTranscriptListUpdate)
         }
 
     }
@@ -380,7 +381,7 @@ class ChatServiceImpl @Inject constructor(
     }
 
 
-    private fun handleTranscriptItemUpdate(item: TranscriptItem) {
+    private fun handleTranscriptItemUpdate(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
         // Send out the individual transcript item to subscribers
         coroutineScope.launch {
             _transcriptPublisher.emit(item)
@@ -414,10 +415,8 @@ class ChatServiceImpl @Inject constructor(
                 }
             }
 
-            debounceTranscriptListPublisherEvent?.cancel()
-            debounceTranscriptListPublisherEvent = coroutineScope.launch {
-                delay(300)
-                _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+            if (shouldTriggerTranscriptListUpdate) {
+                triggerTranscriptListUpdate()
             }
         }
     }
@@ -824,14 +823,17 @@ class ChatServiceImpl @Inject constructor(
                 }
             }
 
-            // Format and process transcript items
+            // Process transcript items without triggering individual updates
             val formattedItems = transcriptItems.mapNotNull { transcriptItem ->
                 TranscriptItemUtils.serializeTranscriptItem(transcriptItem)?.let { serializedItem ->
                     webSocketManager.parseTranscriptItemFromJson(serializedItem)?.also { parsedItem ->
-                        updateTranscriptDict(parsedItem)
+                        updateTranscriptDict(parsedItem, shouldTriggerTranscriptListUpdate = false)
                     }
                 }
             }
+            
+            // Trigger single transcript list update after all items are processed
+            triggerTranscriptListUpdate()
 
             SDKLogger.logger.logDebug { "Transcript fetched successfully" }
             SDKLogger.logger.logDebug { "Transcript Items: $formattedItems" }
