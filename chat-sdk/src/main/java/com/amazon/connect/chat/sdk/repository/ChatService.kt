@@ -5,6 +5,8 @@ package com.amazon.connect.chat.sdk.repository
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -612,8 +614,16 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private fun registerNotificationListeners() {
-        // Observe lifecycle events
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        // Observe lifecycle events - ensure this happens on main thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Already on main thread, no need to post
+            ProcessLifecycleOwner.get().lifecycle.addObserver(this@ChatServiceImpl)
+        } else {
+            // Not on main thread, post to main thread
+            Handler(Looper.getMainLooper()).post {
+                ProcessLifecycleOwner.get().lifecycle.addObserver(this@ChatServiceImpl)
+            }
+        }
 
         coroutineScope.launch {
             webSocketManager.requestNewWsUrlFlow.collect {
