@@ -14,18 +14,28 @@ import java.util.TimeZone
 object CommonUtils {
 
     fun formatTime(timeStamp: String): String {
+        // Return empty string for empty timestamps (sending messages)
+        if (timeStamp.isEmpty()) {
+            return ""
+        }
+        
         val utcFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
 
-        val date = utcFormatter.parse(timeStamp)
-        return if (date != null) {
-            val localFormatter = SimpleDateFormat("HH:mm", Locale.getDefault()).apply {
-                timeZone = TimeZone.getDefault()
+        return try {
+            val date = utcFormatter.parse(timeStamp)
+            if (date != null) {
+                val localFormatter = SimpleDateFormat("HH:mm", Locale.getDefault()).apply {
+                    timeZone = TimeZone.getDefault()
+                }
+                localFormatter.format(date)
+            } else {
+                ""
             }
-            localFormatter.format(date)
-        } else {
-            timeStamp
+        } catch (e: Exception) {
+            // Return empty string if parsing fails
+            ""
         }
     }
 
