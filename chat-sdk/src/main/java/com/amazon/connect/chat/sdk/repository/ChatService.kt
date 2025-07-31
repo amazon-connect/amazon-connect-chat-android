@@ -297,7 +297,7 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private suspend fun triggerTranscriptListUpdate() {
-        _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+        _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
     }
 
     private fun updateTranscriptDict(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
@@ -358,7 +358,7 @@ class ChatServiceImpl @Inject constructor(
         // Send the updated transcript list to subscribers if items removed
         if (transcriptDict.size != initialCount) {
             coroutineScope.launch {
-                _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+                _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
             }
         }
     }
@@ -437,7 +437,7 @@ class ChatServiceImpl @Inject constructor(
                 transcriptDict[newId]?.persistentId = oldId
                 // Send out updated transcript
                 coroutineScope.launch {
-                    _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+                    _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
                 }
             } else {
                 // Update the placeholder message's ID to the new ID
@@ -570,7 +570,7 @@ class ChatServiceImpl @Inject constructor(
         transcriptDict.remove(messageId)
         // Send out updated transcript with old message removed
         coroutineScope.launch {
-            _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+            _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
         }
 
         // as the next step, attempt to resend the message based on its type
@@ -816,7 +816,7 @@ class ChatServiceImpl @Inject constructor(
             if ((request.scanDirection == ScanDirection.BACKWARD.toString()) && !(isStartPositionDefined && transcriptItems.isEmpty())) {
                 if (internalTranscript.isEmpty() || transcriptItems.isEmpty()) {
                     previousTranscriptNextToken = response.nextToken
-                    _transcriptListPublisher.emit(TranscriptData(internalTranscript, previousTranscriptNextToken))
+                    _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
                 } else {
                     val oldestInternalTranscriptItem = internalTranscript.first()
                     val oldestTranscriptItem: Item;

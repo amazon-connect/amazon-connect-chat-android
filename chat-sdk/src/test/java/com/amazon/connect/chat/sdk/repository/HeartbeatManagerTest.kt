@@ -51,11 +51,13 @@ class HeartbeatManagerTest {
 
     @Test
     fun `test stopHeartbeat cancels timer`() = runTest {
+        // Set pendingResponse to true to simulate heartbeat being sent
         heartbeatManager.startHeartbeat()
+        setPrivateField(heartbeatManager, "pendingResponse", true)
 
         heartbeatManager.stopHeartbeat()
 
-        // PendingResponse should be false and timer should be null
+        // PendingResponse should be false after stopHeartbeat, regardless of previous state
         val pendingResponse = getPrivateField(heartbeatManager, "pendingResponse") as Boolean
         assert(!pendingResponse) { "Expected pendingResponse to be false after stopHeartbeat" }
 
