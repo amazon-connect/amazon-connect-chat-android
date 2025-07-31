@@ -37,7 +37,7 @@ object TranscriptItemUtils {
         attachmentId: String? = null,
         displayName: String
     ): Message {
-        val deviceTime = CommonUtils.getCurrentISOTime()
+        val isoTime = CommonUtils.getCurrentISOTime()
         val randomId = UUID.randomUUID().toString()
 
         return Message(
@@ -45,7 +45,7 @@ object TranscriptItemUtils {
             text = content,
             contentType = contentType,
             messageDirection = MessageDirection.OUTGOING,
-            timeStamp = deviceTime,
+            timeStamp = isoTime,
             attachmentId = attachmentId,
             id = randomId,
             displayName = displayName,
@@ -53,7 +53,7 @@ object TranscriptItemUtils {
             metadata = MessageMetadata(
                 id = randomId,
                 status = status,
-                timeStamp = deviceTime,
+                timeStamp = isoTime,
                 contentType = contentType,
                 eventDirection = MessageDirection.OUTGOING,
                 serializedContent = ""
