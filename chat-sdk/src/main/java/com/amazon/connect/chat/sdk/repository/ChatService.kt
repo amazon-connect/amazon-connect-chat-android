@@ -408,11 +408,20 @@ class ChatServiceImpl @Inject constructor(
                 internalTranscript[existingIndex] = item
             } else {
                 // If the item is new, determine where to insert it in the list based on its timestamp
-                if (internalTranscript.isEmpty() || item.timeStamp < internalTranscript.first().timeStamp) {
-                    // If the list is empty or the new item is older than the first item, add it to the beginning
+                val isSendingMessage = (item as? Message)?.metadata?.status == MessageStatus.Sending
+
+                if (isSendingMessage) {
+                    // Sending messages always go to the end (most recent) regardless of timestamp
+                    internalTranscript.add(item)
+                } else if (internalTranscript.isEmpty()) {
+                    // If the list is empty, add it to the beginning
+                    internalTranscript.add(0, item)
+                } else if (item.timeStamp.isNotEmpty() && internalTranscript.first().timeStamp.isNotEmpty() &&
+                    item.timeStamp < internalTranscript.first().timeStamp) {
+                    // If both timestamps are valid and the new item is older, add it to the beginning
                     internalTranscript.add(0, item)
                 } else {
-                    // Otherwise, add it to the end of the list
+                    // Default: add to the end
                     internalTranscript.add(item)
                 }
             }
@@ -461,6 +470,10 @@ class ChatServiceImpl @Inject constructor(
         tempMessage.text = message.text
         tempMessage.contentType = message.contentType
         tempMessage.attachmentId = message.attachmentId
+        
+        tempMessage.metadata?.status = MessageStatus.Delivered
+        (tempMessage.metadata as? MessageMetadata)?.updateTimeStamp(message.timeStamp)
+        
         tempMessage.updatePersistentId()
         currentDict.remove(tempMessage.id)
         currentDict[message.id] = tempMessage
@@ -582,7 +595,7 @@ class ChatServiceImpl @Inject constructor(
             (ContentType.fromType(oldMessage.contentType))?.let { contentType ->
                 return sendMessage(contentType, oldMessage.text)
             } ?:
-                return Result.failure(Exception("Unable to find the failed message"))
+            return Result.failure(Exception("Unable to find the failed message"))
         }
     }
 
@@ -646,7 +659,8 @@ class ChatServiceImpl @Inject constructor(
     private fun getRecentDisplayName(): String {
         val recentCustomerMessage = transcriptDict.values
             .filterIsInstance<Message>()
-            .filter { it.participant == "CUSTOMER" }.maxByOrNull { it.timeStamp }
+            .filter { it.participant == "CUSTOMER" }
+            .maxByOrNull { it.timeStamp }
         return recentCustomerMessage?.displayName ?: ""
     }
 
@@ -809,8 +823,8 @@ class ChatServiceImpl @Inject constructor(
 
             val isStartPositionDefined = request.startPosition != null && (
                     request.startPosition.id != null ||
-                    request.startPosition.absoluteTime != null ||
-                    request.startPosition.mostRecent != null
+                            request.startPosition.absoluteTime != null ||
+                            request.startPosition.mostRecent != null
                     )
 
             if ((request.scanDirection == ScanDirection.BACKWARD.toString()) && !(isStartPositionDefined && transcriptItems.isEmpty())) {
@@ -827,7 +841,8 @@ class ChatServiceImpl @Inject constructor(
                     }
                     val oldestInternalTranscriptItemTimeStamp = oldestInternalTranscriptItem.timeStamp
                     val oldestTranscriptItemTimeStamp = oldestTranscriptItem.absoluteTime
-                    if (oldestTranscriptItemTimeStamp <= oldestInternalTranscriptItemTimeStamp) {
+                    if (oldestTranscriptItemTimeStamp.isNotEmpty() && oldestInternalTranscriptItemTimeStamp.isNotEmpty() &&
+                        oldestTranscriptItemTimeStamp <= oldestInternalTranscriptItemTimeStamp) {
                         previousTranscriptNextToken = response.nextToken
                     }
                 }
@@ -841,7 +856,7 @@ class ChatServiceImpl @Inject constructor(
                     }
                 }
             }
-            
+
             // Trigger single transcript list update after all items are processed
             triggerTranscriptListUpdate()
 
