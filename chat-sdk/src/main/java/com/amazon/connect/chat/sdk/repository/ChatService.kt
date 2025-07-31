@@ -411,7 +411,7 @@ class ChatServiceImpl @Inject constructor(
                 val isSendingMessage = (item as? Message)?.metadata?.status == MessageStatus.Sending
 
                 if (isSendingMessage) {
-                    // Sending messages (empty timestamps) go to the end (most recent)
+                    // Sending messages always go to the end (most recent) regardless of timestamp
                     internalTranscript.add(item)
                 } else if (internalTranscript.isEmpty()) {
                     // If the list is empty, add it to the beginning
@@ -659,7 +659,7 @@ class ChatServiceImpl @Inject constructor(
     private fun getRecentDisplayName(): String {
         val recentCustomerMessage = transcriptDict.values
             .filterIsInstance<Message>()
-            .filter { it.participant == "CUSTOMER" && it.timeStamp.isNotEmpty() }
+            .filter { it.participant == "CUSTOMER" }
             .maxByOrNull { it.timeStamp }
         return recentCustomerMessage?.displayName ?: ""
     }
