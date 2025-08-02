@@ -15,6 +15,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
+import com.amazon.connect.chat.sdk.model.ChatEventPayload
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
@@ -43,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -160,7 +162,7 @@ interface ChatService {
      */
     suspend fun sendMessageReceipt(messageReceiptType: MessageReceiptType, messageId: String) : Result<Unit>
 
-    val eventPublisher: SharedFlow<ChatEvent>
+    val eventPublisher: SharedFlow<ChatEventPayload>
     val transcriptPublisher: SharedFlow<TranscriptItem>
     val transcriptListPublisher: SharedFlow<TranscriptData>
     val chatSessionStatePublisher: SharedFlow<Boolean>
@@ -178,8 +180,8 @@ class ChatServiceImpl @Inject constructor(
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
-    private val _eventPublisher = MutableSharedFlow<ChatEvent>()
-    override val eventPublisher: SharedFlow<ChatEvent> get() = _eventPublisher
+    private val _eventPublisher = MutableSharedFlow<ChatEventPayload>()
+    override val eventPublisher: SharedFlow<ChatEventPayload> get() = _eventPublisher
     private var eventCollectionJob: Job? = null
 
     private val _transcriptPublisher = MutableSharedFlow<TranscriptItem>()
@@ -250,8 +252,8 @@ class ChatServiceImpl @Inject constructor(
         clearSubscriptionsAndPublishers()
 
         eventCollectionJob = coroutineScope.launch {
-            webSocketManager.eventPublisher.collect { event ->
-                when (event) {
+            webSocketManager.eventPublisher.collect { eventWithData ->
+                when (eventWithData.chatEvent) {
                     ChatEvent.ConnectionEstablished -> {
                         connectionDetailsProvider.setChatSessionState(true)
                         SDKLogger.logger.logDebug { "Connection Established" }
@@ -278,8 +280,13 @@ class ChatServiceImpl @Inject constructor(
                     ChatEvent.DeepHeartBeatFailure -> {
                         SDKLogger.logger.logDebug { "Deep Heartbeat Failure" }
                     }
+                    else -> {
+                        // Other ChatEvents (Typing, MessageDelivered, MessageRead, ParticipantActive, etc.) 
+                        // are handled by the ChatSession layer, no specific action needed here
+                        SDKLogger.logger.logDebug { "Received event: ${eventWithData.chatEvent}" }
+                    }
                 }
-                _eventPublisher.emit(event)
+                _eventPublisher.emit(eventWithData)
             }
         }
 
@@ -498,7 +505,7 @@ class ChatServiceImpl @Inject constructor(
                 .getOrThrow()
             SDKLogger.logger.logDebug { "Participant Disconnected" }
             webSocketManager.disconnect("Customer ended the chat")
-            _eventPublisher.emit(ChatEvent.ChatEnded)
+            _eventPublisher.emit(ChatEventPayload(ChatEvent.ChatEnded))
             connectionDetailsProvider.setChatSessionState(false)
             true
         }.onFailure { exception ->
@@ -680,7 +687,7 @@ class ChatServiceImpl @Inject constructor(
                     // Handle chat ended scenario
                     val endedEvent = TranscriptItemUtils.createDummyEndedEvent()
                     updateTranscriptDict(endedEvent)
-                    _eventPublisher.emit(ChatEvent.ChatEnded)
+                    _eventPublisher.emit(ChatEventPayload(ChatEvent.ChatEnded))
                 }
                 SDKLogger.logger.logError { "CreateParticipantConnection failed: $error" }
             }
@@ -847,14 +854,24 @@ class ChatServiceImpl @Inject constructor(
                     }
                 }
             }
-
             // Process transcript items without triggering individual updates
-            val formattedItems = transcriptItems.mapNotNull { transcriptItem ->
-                TranscriptItemUtils.serializeTranscriptItem(transcriptItem)?.let { serializedItem ->
-                    webSocketManager.parseTranscriptItemFromJson(serializedItem)?.also { parsedItem ->
-                        updateTranscriptDict(parsedItem, shouldTriggerTranscriptListUpdate = false)
+            val formattedItems = coroutineScope {
+                transcriptItems.mapIndexed { index, transcriptItem ->
+                    async {
+                        val serializedItem = TranscriptItemUtils.serializeTranscriptItem(transcriptItem)
+                        serializedItem?.let { item ->
+                            try {
+                                val parsedItem = webSocketManager.parseTranscriptItemFromJson(item)
+                                parsedItem?.also { parsed ->
+                                    updateTranscriptDict(parsed, shouldTriggerTranscriptListUpdate = (index == transcriptItems.size - 1))
+                                }
+                            } catch (e: Exception) {
+                                SDKLogger.logger.logError { "Exception at index $index: $e" }
+                                throw e
+                            }
+                        }
                     }
-                }
+                }.awaitAll().filterNotNull()
             }
 
             // Trigger single transcript list update after all items are processed

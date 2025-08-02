@@ -9,6 +9,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.amazon.connect.chat.sdk.model.ChatEvent
+import com.amazon.connect.chat.sdk.model.ChatEventPayload
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.Message
@@ -48,7 +49,7 @@ object EventTypes {
 }
 
 interface WebSocketManager {
-    val eventPublisher: SharedFlow<ChatEvent>
+    val eventPublisher: SharedFlow<ChatEventPayload>
     val transcriptPublisher: SharedFlow<Pair<TranscriptItem, Boolean>>
     val requestNewWsUrlFlow: MutableSharedFlow<Unit>
     var isReconnecting: MutableStateFlow<Boolean>
@@ -92,11 +93,11 @@ class WebSocketManagerImpl @Inject constructor(
         missedHeartbeatCallback = ::onDeepHeartbeatMissed
     )
 
-    private val _eventPublisher = MutableSharedFlow<ChatEvent>(
+    private val _eventPublisher = MutableSharedFlow<ChatEventPayload>(
         replay = 0,
         extraBufferCapacity = 5
     )
-    override val eventPublisher: SharedFlow<ChatEvent> get() = _eventPublisher
+    override val eventPublisher: SharedFlow<ChatEventPayload> get() = _eventPublisher
 
     private val _transcriptPublisher = MutableSharedFlow<Pair<TranscriptItem, Boolean>>(
         replay = 0,
@@ -227,9 +228,9 @@ class WebSocketManagerImpl @Inject constructor(
         _isReconnecting.value = false // Reconnection successful, reset flag
         isChatActive = true
         if (isReconnectFlow) {
-            this._eventPublisher.emit(ChatEvent.ConnectionReEstablished)
+            this._eventPublisher.emit(ChatEventPayload(ChatEvent.ConnectionReEstablished))
         } else {
-            this._eventPublisher.emit(ChatEvent.ConnectionEstablished)
+            this._eventPublisher.emit(ChatEventPayload(ChatEvent.ConnectionEstablished))
         }
     }
 
@@ -308,13 +309,21 @@ class WebSocketManagerImpl @Inject constructor(
                 WebSocketMessageType.MESSAGE -> handleMessage(jsonObject, jsonString)
                 WebSocketMessageType.EVENT -> {
                     val eventTypeString = jsonObject.optString("ContentType")
-                    when (val eventType = ContentType.fromType(eventTypeString)) {
-                        ContentType.JOINED -> handleParticipantEvent(jsonObject, jsonString)
-                        ContentType.LEFT -> handleParticipantEvent(jsonObject, jsonString)
-                        ContentType.TYPING -> handleTyping(jsonObject, jsonString)
-                        ContentType.ENDED -> handleChatEnded(jsonObject, jsonString)
+                    val contentType = ContentType.fromType(eventTypeString)
+                    
+                    triggerEventCallback(contentType, jsonObject, jsonString)
+                    
+                    when (contentType) {
+                        ContentType.CONNECTION_ACKNOWLEDGED ->
+                            null // Connection establishment is handled in handleWebSocketOpen
+                        ContentType.JOINED, ContentType.LEFT ->
+                            handleParticipantEvent(jsonObject, jsonString)
+                        ContentType.TYPING ->
+                            handleTyping(jsonObject, jsonString)
+                        ContentType.ENDED ->
+                            handleChatEnded(jsonObject, jsonString)
                         else -> {
-                            SDKLogger.logger.logWarn{"WebSocket: Unknown event: $eventType"}
+                            SDKLogger.logger.logWarn{"WebSocket: Unknown event: $contentType"}
                             null
                         }
                     }
@@ -363,14 +372,14 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private suspend fun onDeepHeartbeatMissed() {
-        this._eventPublisher.emit(ChatEvent.DeepHeartBeatFailure)
+        this._eventPublisher.emit(ChatEventPayload(ChatEvent.DeepHeartBeatFailure))
         if (isConnectedToNetwork) {
             reestablishConnectionIfChatActive()
             SDKLogger.logger.logWarn{"WebSocket: Deep Heartbeat missed, retrying connection"}
         } else {
             SDKLogger.logger.logWarn{"WebSocket: Deep Heartbeat missed, no internet connection"}
         }
-        val success = this._eventPublisher.tryEmit(ChatEvent.ConnectionBroken)
+        val success = this._eventPublisher.tryEmit(ChatEventPayload(ChatEvent.ConnectionBroken))
         if (!success) {
             SDKLogger.logger.logDebug{"WebSocket: Failed to emit ConnectionBroken event, no subscribers and no buffer capacity"}
         }
@@ -412,7 +421,65 @@ class WebSocketManagerImpl @Inject constructor(
 
     // --- Helper Methods for websocket data ---
 
-    private fun handleMessage(innerJson: JSONObject, rawData: String): TranscriptItem {
+    private suspend fun triggerEventCallback(contentType: ContentType?, jsonObject: JSONObject, rawData: String) {
+        contentType?.let { type ->
+            // Check if this is from a past session - only trigger callbacks for current session events
+            val isFromPastSession = jsonObject.optBoolean("isFromPastSession", false)
+            if (isFromPastSession) {
+                return
+            }
+            
+            // Create Event object for callbacks that require it (excluding MESSAGE_DELIVERED and MESSAGE_READ)
+            val eventObject = when (type) {
+                ContentType.TYPING,
+                ContentType.PARTICIPANT_ACTIVE,
+                ContentType.PARTICIPANT_INACTIVE,
+                ContentType.PARTICIPANT_IDLE,
+                ContentType.PARTICIPANT_RETURNED,
+                ContentType.PARTICIPANT_INVITED,
+                ContentType.AUTO_DISCONNECTION,
+                ContentType.CHAT_REHYDRATED,
+                ContentType.JOINED,
+                ContentType.LEFT,
+                ContentType.ENDED -> {
+                    Event(
+                        participant = jsonObject.optString("ParticipantRole"),
+                        text = jsonObject.optString("Content"),
+                        displayName = jsonObject.optString("DisplayName"),
+                        eventDirection = MessageDirection.COMMON,
+                        timeStamp = jsonObject.optString("AbsoluteTime"),
+                        contentType = jsonObject.optString("ContentType"),
+                        id = jsonObject.optString("Id"),
+                        serializedContent = rawData
+                    )
+                }
+                else -> null
+            }
+            
+            // Map ContentType to ChatEvent and emit through existing eventPublisher (excluding MESSAGE_DELIVERED and MESSAGE_READ)
+            val chatEvent = when (type) {
+                ContentType.TYPING -> ChatEvent.Typing
+                ContentType.PARTICIPANT_ACTIVE -> ChatEvent.ParticipantActive
+                ContentType.PARTICIPANT_INACTIVE -> ChatEvent.ParticipantInactive
+                ContentType.PARTICIPANT_IDLE -> ChatEvent.ParticipantIdle
+                ContentType.PARTICIPANT_RETURNED -> ChatEvent.ParticipantReturned
+                ContentType.PARTICIPANT_INVITED -> ChatEvent.ParticipantInvited
+                ContentType.AUTO_DISCONNECTION -> ChatEvent.AutoDisconnection
+                ContentType.CHAT_REHYDRATED -> ChatEvent.ChatRehydrated
+                ContentType.JOINED -> ChatEvent.ParticipantJoined
+                ContentType.LEFT -> ChatEvent.ParticipantLeft
+                ContentType.ENDED -> ChatEvent.ChatEnded
+                else -> null
+            }
+            
+            chatEvent?.let { event ->
+                _eventPublisher.emit(ChatEventPayload(event, eventObject))
+                SDKLogger.logger.logDebug{"WebSocket: Emitted ChatEvent: $event for ContentType: ${type.type}"}
+            }
+        }
+    }
+
+    private suspend fun handleMessage(innerJson: JSONObject, rawData: String): TranscriptItem {
         val participantRole = innerJson.getString("ParticipantRole")
         val messageId = innerJson.getString("Id")
         val messageText = innerJson.getString("Content")
@@ -430,6 +497,7 @@ class WebSocketManagerImpl @Inject constructor(
             metadata = if (innerJson.has("MessageMetadata"))
                     (handleMetadata(innerJson, rawData) as? MessageMetadataProtocol) else null
         )
+
         return message
     }
 
@@ -476,7 +544,6 @@ class WebSocketManagerImpl @Inject constructor(
         // Current session event: Reset state and update session
         if (!isFromPastSession) {
             resetHeartbeatManagers()
-            this._eventPublisher.emit(ChatEvent.ChatEnded)
             connectionDetailsProvider.setChatSessionState(false)
         }
 
@@ -490,7 +557,7 @@ class WebSocketManagerImpl @Inject constructor(
         return event
     }
 
-    private fun handleMetadata(innerJson: JSONObject, rawData: String): TranscriptItem {
+    private suspend fun handleMetadata(innerJson: JSONObject, rawData: String): TranscriptItem {
         val messageMetadata = innerJson.getJSONObject("MessageMetadata")
         val messageId = messageMetadata.getString("MessageId")
         val receipts = messageMetadata.optJSONArray("Receipts")
@@ -505,6 +572,37 @@ class WebSocketManagerImpl @Inject constructor(
                 }
             }
         }
+
+        // Emit appropriate events based on message status
+        val eventObject = Event(
+            participant = receipts?.optJSONObject(0)?.optString("RecipientParticipantId"),
+            text = null,
+            displayName = null,
+            eventDirection = MessageDirection.COMMON,
+            timeStamp = time,
+            contentType = innerJson.getString("ContentType"),
+            id = messageId,
+            serializedContent = rawData
+        )
+
+        val isFromPastSession = innerJson.optBoolean("isFromPastSession", false)
+        if (!isFromPastSession) {
+            when (status) {
+                MessageStatus.Delivered -> {
+                    _eventPublisher.tryEmit(ChatEventPayload(ChatEvent.MessageDelivered, eventObject))
+                    SDKLogger.logger.logDebug{"WebSocket: Emitted ChatEvent: MessageDelivered for metadata"}
+                }
+                MessageStatus.Read -> {
+                    _eventPublisher.tryEmit(ChatEventPayload(ChatEvent.MessageRead, eventObject))
+                    SDKLogger.logger.logDebug{"WebSocket: Emitted ChatEvent: MessageRead for metadata"}
+                }
+                else -> {
+                    // Don't emit events for other status types (Sending, Failed, Sent, Unknown)
+                    SDKLogger.logger.logDebug{"WebSocket: No event emission for metadata status: $status"}
+                }
+            }
+        }
+
         val metadata = MessageMetadata(
             contentType = innerJson.getString("ContentType"),
             eventDirection = MessageDirection.OUTGOING,

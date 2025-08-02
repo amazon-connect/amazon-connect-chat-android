@@ -439,10 +439,10 @@ var onTranscriptUpdated: ((TranscriptData) -> Unit)?
 --------------------
 
 #### `ChatSession.onChatEnded`
-Callback for when the chat ends.
+Callback for when the chat ends. See [Event](#event).
 
 ```
-var onChatEnded: (() -> Unit)?
+var onChatEnded: ((Event?) -> Unit)?
 ```
 
 --------------------
@@ -451,6 +451,97 @@ Callback for when the connection is re-established.
 
 ```
 var onConnectionReEstablished: (() -> Unit)?
+```
+--------------------
+#### `ChatSession.onDeepHeartBeatFailure`
+Callback for when the deep heartbeat fails.
+
+```
+var onDeepHeartBeatFailure: (() -> Unit)?
+```
+--------------------
+#### `ChatSession.onTyping`
+Callback for when a typing event is received. See [Event](#event).
+
+```
+var onTyping: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onMessageDelivered`
+Callback for when a message delivery receipt is received. See [Event](#event).
+
+```
+var onMessageDelivered: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onMessageRead`
+Callback for when a message read receipt is received. See [Event](#event).
+
+```
+var onMessageRead: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantActive`
+Callback for when a participant becomes active. See [Event](#event).
+
+```
+var onParticipantActive: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantInactive`
+Callback for when a participant becomes inactive. See [Event](#event).
+
+```
+var onParticipantInactive: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantIdle`
+Callback for when a participant becomes idle. See [Event](#event).
+
+```
+var onParticipantIdle: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantReturned`
+Callback for when a participant returns from idle/inactive state. See [Event](#event).
+
+```
+var onParticipantReturned: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantInvited`
+Callback for when a participant is invited to the chat. See [Event](#event).
+
+```
+var onParticipantInvited: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onAutoDisconnection`
+Callback for when an auto-disconnection occurs. See [Event](#event).
+
+```
+var onAutoDisconnection: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onChatRehydrated`
+Callback for when the chat is rehydrated after a reconnection. See [Event](#event).
+
+```
+var onChatRehydrated: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantJoined`
+Callback for when a participant joins the chat. See [Event](#event).
+
+```
+var onParticipantJoined: ((Event?) -> Unit)?
+```
+--------------------
+#### `ChatSession.onParticipantLeft`
+Callback for when a participant leaves the chat. See [Event](#event).
+
+```
+var onParticipantLeft: ((Event?) -> Unit)?
 ```
 --------------------
 

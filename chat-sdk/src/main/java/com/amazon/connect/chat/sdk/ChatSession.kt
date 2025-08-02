@@ -6,6 +6,7 @@ package com.amazon.connect.chat.sdk
 import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
@@ -150,7 +151,19 @@ interface ChatSession {
     var onDeepHeartBeatFailure: (() -> Unit)?
     var onMessageReceived: ((TranscriptItem) -> Unit)?
     var onTranscriptUpdated: ((TranscriptData) -> Unit)?
-    var onChatEnded: (() -> Unit)?
+    var onTyping: ((Event?) -> Unit)?
+    var onMessageDelivered: ((Event?) -> Unit)?
+    var onMessageRead: ((Event?) -> Unit)?
+    var onParticipantActive: ((Event?) -> Unit)?
+    var onParticipantInactive: ((Event?) -> Unit)?
+    var onParticipantIdle: ((Event?) -> Unit)?
+    var onParticipantReturned: ((Event?) -> Unit)?
+    var onParticipantInvited: ((Event?) -> Unit)?
+    var onAutoDisconnection: ((Event?) -> Unit)?
+    var onChatRehydrated: ((Event?) -> Unit)?
+    var onParticipantJoined: ((Event?) -> Unit)?
+    var onParticipantLeft: ((Event?) -> Unit)?
+    var onChatEnded: ((Event?) -> Unit)?
     var isChatSessionActive: Boolean
 }
 
@@ -163,7 +176,19 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onDeepHeartBeatFailure: (() -> Unit)? = null
     override var onMessageReceived: ((TranscriptItem) -> Unit)? = null
     override var onTranscriptUpdated: ((TranscriptData) -> Unit)? = null
-    override var onChatEnded: (() -> Unit)? = null
+    override var onTyping: ((Event?) -> Unit)? = null
+    override var onMessageDelivered: ((Event?) -> Unit)? = null
+    override var onMessageRead: ((Event?) -> Unit)? = null
+    override var onParticipantActive: ((Event?) -> Unit)? = null
+    override var onParticipantInactive: ((Event?) -> Unit)? = null
+    override var onParticipantIdle: ((Event?) -> Unit)? = null
+    override var onParticipantReturned: ((Event?) -> Unit)? = null
+    override var onParticipantInvited: ((Event?) -> Unit)? = null
+    override var onAutoDisconnection: ((Event?) -> Unit)? = null
+    override var onChatRehydrated: ((Event?) -> Unit)? = null
+    override var onParticipantJoined: ((Event?) -> Unit)? = null
+    override var onParticipantLeft: ((Event?) -> Unit)? = null
+    override var onChatEnded: ((Event?) -> Unit)? = null
     override var onChatSessionStateChanged: ((Boolean) -> Unit)? = null
     override var isChatSessionActive: Boolean = false
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
@@ -178,12 +203,12 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
 
         // Set up new subscriptions
         eventCollectionJob = coroutineScope.launch {
-            chatService.eventPublisher.collect { event ->
-                when (event) {
+            chatService.eventPublisher.collect { eventWithData ->
+                when (eventWithData.chatEvent) {
                     ChatEvent.ConnectionEstablished -> onConnectionEstablished?.invoke()
                     ChatEvent.ConnectionReEstablished -> onConnectionReEstablished?.invoke()
                     ChatEvent.ChatEnded -> {
-                        onChatEnded?.invoke()
+                        onChatEnded?.invoke(eventWithData.eventObject)
                         coroutineScope.launch {
                             // Provide some time for transcript to update and surface end event to user.
                             delay(500)
@@ -192,6 +217,42 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                     }
                     ChatEvent.ConnectionBroken -> onConnectionBroken?.invoke()
                     ChatEvent.DeepHeartBeatFailure -> onDeepHeartBeatFailure?.invoke()
+                    ChatEvent.Typing -> {
+                        onTyping?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.MessageDelivered -> {
+                        onMessageDelivered?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.MessageRead -> {
+                        onMessageRead?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantActive -> {
+                        onParticipantActive?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantInactive -> {
+                        onParticipantInactive?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantIdle -> {
+                        onParticipantIdle?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantReturned -> {
+                        onParticipantReturned?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantInvited -> {
+                        onParticipantInvited?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.AutoDisconnection -> {
+                        onAutoDisconnection?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ChatRehydrated -> {
+                        onChatRehydrated?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantJoined -> {
+                        onParticipantJoined?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.ParticipantLeft -> {
+                        onParticipantLeft?.invoke(eventWithData.eventObject)
+                    }
                 }
             }
         }
