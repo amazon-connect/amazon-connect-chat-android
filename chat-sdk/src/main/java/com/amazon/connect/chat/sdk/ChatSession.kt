@@ -163,6 +163,8 @@ interface ChatSession {
     var onChatRehydrated: ((Event?) -> Unit)?
     var onParticipantJoined: ((Event?) -> Unit)?
     var onParticipantLeft: ((Event?) -> Unit)?
+    var onTransferSucceeded: ((Event?) -> Unit)?
+    var onTransferFailed: ((Event?) -> Unit)?
     var onChatEnded: ((Event?) -> Unit)?
     var isChatSessionActive: Boolean
 }
@@ -188,6 +190,8 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onChatRehydrated: ((Event?) -> Unit)? = null
     override var onParticipantJoined: ((Event?) -> Unit)? = null
     override var onParticipantLeft: ((Event?) -> Unit)? = null
+    override var onTransferSucceeded: ((Event?) -> Unit)? = null
+    override var onTransferFailed: ((Event?) -> Unit)? = null
     override var onChatEnded: ((Event?) -> Unit)? = null
     override var onChatSessionStateChanged: ((Boolean) -> Unit)? = null
     override var isChatSessionActive: Boolean = false
@@ -252,6 +256,12 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                     }
                     ChatEvent.ParticipantLeft -> {
                         onParticipantLeft?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.TransferSucceeded -> {
+                        onTransferSucceeded?.invoke(eventWithData.eventObject)
+                    }
+                    ChatEvent.TransferFailed -> {
+                        onTransferFailed?.invoke(eventWithData.eventObject)
                     }
                 }
             }
@@ -355,17 +365,13 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
 
     override suspend fun downloadAttachment(attachmentId: String, filename: String): Result<URL> {
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.downloadAttachment(attachmentId, filename).getOrThrow()
-            }
+            chatService.downloadAttachment(attachmentId, filename)
         }
     }
 
     override suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL> {
         return withContext(Dispatchers.IO) {
-            runCatching {
-                chatService.getAttachmentDownloadUrl(attachmentId).getOrThrow()
-            }
+            chatService.getAttachmentDownloadUrl(attachmentId)
         }
     }
 

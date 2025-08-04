@@ -441,7 +441,9 @@ class WebSocketManagerImpl @Inject constructor(
                 ContentType.CHAT_REHYDRATED,
                 ContentType.JOINED,
                 ContentType.LEFT,
-                ContentType.ENDED -> {
+                ContentType.ENDED,
+                ContentType.TRANSFER_SUCCEEDED,
+                ContentType.TRANSFER_FAILED -> {
                     Event(
                         participant = jsonObject.optString("ParticipantRole"),
                         text = jsonObject.optString("Content"),
@@ -469,6 +471,8 @@ class WebSocketManagerImpl @Inject constructor(
                 ContentType.JOINED -> ChatEvent.ParticipantJoined
                 ContentType.LEFT -> ChatEvent.ParticipantLeft
                 ContentType.ENDED -> ChatEvent.ChatEnded
+                ContentType.TRANSFER_SUCCEEDED -> ChatEvent.TransferSucceeded
+                ContentType.TRANSFER_FAILED -> ChatEvent.TransferFailed
                 else -> null
             }
             

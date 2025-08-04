@@ -70,6 +70,8 @@ enum class ChatEvent {
     ChatRehydrated,
     ParticipantJoined,
     ParticipantLeft,
+    TransferSucceeded,
+    TransferFailed,
 }
 
 data class ChatEventPayload(

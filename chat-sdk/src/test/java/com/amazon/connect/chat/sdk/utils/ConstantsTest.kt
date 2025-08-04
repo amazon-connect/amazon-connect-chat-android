@@ -54,7 +54,7 @@ class ConstantsTest {
     @Test
     fun testAttachmentTypeMap() {
         // Test the size of the map
-        assertEquals(16, Constants.attachmentTypeMap.size)
+        assertEquals(17, Constants.attachmentTypeMap.size)
 
         // Test some key mappings
         assertEquals("text/csv", Constants.attachmentTypeMap["csv"])

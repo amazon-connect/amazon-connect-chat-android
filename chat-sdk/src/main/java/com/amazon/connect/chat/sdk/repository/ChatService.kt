@@ -745,20 +745,28 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            attachmentsManager.downloadAttachment(connectionDetails.connectionToken, attachmentId, fileName).getOrThrow()
-        }.onFailure { exception ->
-            SDKLogger.logger.logError { "Failed to download attachment for attachmentId $attachmentId. Error: ${exception.message}" }
-        }
+            attachmentsManager.downloadAttachment(connectionDetails.connectionToken, attachmentId, fileName)
+        }.fold(
+            onSuccess = { it },
+            onFailure = { exception ->
+                SDKLogger.logger.logError { "Failed to download attachment for attachmentId $attachmentId. Error: ${exception.message}" }
+                Result.failure(exception)
+            }
+        )
     }
 
     override suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL> {
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            attachmentsManager.getAttachmentDownloadUrl(attachmentId, connectionDetails.connectionToken).getOrThrow()
-        }.onFailure { exception ->
-            SDKLogger.logger.logError { "Failed to retrieve attachment download URL for attachment $attachmentId. Error: ${exception.message}" }
-        }
+            attachmentsManager.getAttachmentDownloadUrl(attachmentId, connectionDetails.connectionToken)
+        }.fold(
+            onSuccess = { it },
+            onFailure = { exception ->
+                SDKLogger.logger.logError { "Failed to retrieve attachment download URL for attachment $attachmentId. Error: ${exception.message}" }
+                Result.failure(exception)
+            }
+        )
     }
 
     private suspend fun fetchReconnectedTranscript() {

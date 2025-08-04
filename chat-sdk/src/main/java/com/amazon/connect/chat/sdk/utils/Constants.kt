@@ -39,6 +39,7 @@ object Constants {
         "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "heic" to "image/heic",
         "jpg" to "image/jpeg",
+        "jpeg" to "image/jpeg",
         "mov" to "video/quicktime",
         "mp4" to "video/mp4",
         "pdf" to "application/pdf",
