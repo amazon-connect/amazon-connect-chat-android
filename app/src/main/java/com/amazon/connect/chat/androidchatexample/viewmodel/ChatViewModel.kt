@@ -169,14 +169,6 @@ class ChatViewModel @Inject constructor(
             Log.d("ChatViewModel", "onMessageRead: $event")
         }
 
-        chatSession.onParticipantActive = { event ->
-            Log.d("ChatViewModel", "onParticipantActive: $event")
-        }
-
-        chatSession.onParticipantInactive = { event ->
-            Log.d("ChatViewModel", "onParticipantInactive: $event")
-        }
-
         chatSession.onParticipantIdle = { event ->
             Log.d("ChatViewModel", "onParticipantIdle: $event")
         }

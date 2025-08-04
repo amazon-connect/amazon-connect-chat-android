@@ -280,8 +280,6 @@ class ChatSessionImplTest {
             "onTyping" to { callback: (Event?) -> Unit -> chatSession.onTyping = callback },
             "onMessageDelivered" to { callback: (Event?) -> Unit -> chatSession.onMessageDelivered = callback },
             "onMessageRead" to { callback: (Event?) -> Unit -> chatSession.onMessageRead = callback },
-            "onParticipantActive" to { callback: (Event?) -> Unit -> chatSession.onParticipantActive = callback },
-            "onParticipantInactive" to { callback: (Event?) -> Unit -> chatSession.onParticipantInactive = callback },
             "onParticipantIdle" to { callback: (Event?) -> Unit -> chatSession.onParticipantIdle = callback },
             "onParticipantReturned" to { callback: (Event?) -> Unit -> chatSession.onParticipantReturned = callback },
             "onParticipantInvited" to { callback: (Event?) -> Unit -> chatSession.onParticipantInvited = callback },
@@ -307,8 +305,6 @@ class ChatSessionImplTest {
                 "onTyping" -> chatSession.onTyping?.invoke(testEvent)
                 "onMessageDelivered" -> chatSession.onMessageDelivered?.invoke(testEvent)
                 "onMessageRead" -> chatSession.onMessageRead?.invoke(testEvent)
-                "onParticipantActive" -> chatSession.onParticipantActive?.invoke(testEvent)
-                "onParticipantInactive" -> chatSession.onParticipantInactive?.invoke(testEvent)
                 "onParticipantIdle" -> chatSession.onParticipantIdle?.invoke(testEvent)
                 "onParticipantReturned" -> chatSession.onParticipantReturned?.invoke(testEvent)
                 "onParticipantInvited" -> chatSession.onParticipantInvited?.invoke(testEvent)
