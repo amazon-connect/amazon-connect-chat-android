@@ -134,8 +134,8 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        chatSession.onChatEnded = {
-           Log.d("ChatViewModel", "Chat ended.")
+        chatSession.onChatEnded = { event ->
+            Log.d("ChatViewModel", "Chat ended.")
             _isChatActive.value = false
         }
 
@@ -155,6 +155,54 @@ class ChatViewModel @Inject constructor(
 
         chatSession.onDeepHeartBeatFailure = {
             Log.d("ChatViewModel", "Deep heartbeat failure")
+        }
+
+        chatSession.onTyping = { event ->
+            Log.d("ChatViewModel", "onTyping: $event")
+        }
+
+        chatSession.onMessageDelivered = { event ->
+            Log.d("ChatViewModel", "onMessageDelivered: $event")
+        }
+
+        chatSession.onMessageRead = { event ->
+            Log.d("ChatViewModel", "onMessageRead: $event")
+        }
+
+        chatSession.onParticipantActive = { event ->
+            Log.d("ChatViewModel", "onParticipantActive: $event")
+        }
+
+        chatSession.onParticipantInactive = { event ->
+            Log.d("ChatViewModel", "onParticipantInactive: $event")
+        }
+
+        chatSession.onParticipantIdle = { event ->
+            Log.d("ChatViewModel", "onParticipantIdle: $event")
+        }
+
+        chatSession.onParticipantReturned = { event ->
+            Log.d("ChatViewModel", "onParticipantReturned: $event")
+        }
+
+        chatSession.onParticipantInvited = { event ->
+            Log.d("ChatViewModel", "onParticipantInvited: $event")
+        }
+
+        chatSession.onAutoDisconnection = { event ->
+            Log.d("ChatViewModel", "onAutoDisconnection: $event")
+        }
+
+        chatSession.onChatRehydrated = { event ->
+            Log.d("ChatViewModel", "onChatRehydrated: $event")
+        }
+
+        chatSession.onParticipantJoined = { event ->
+            Log.d("ChatViewModel", "onParticipantJoined: $event")
+        }
+
+        chatSession.onParticipantLeft = { event ->
+            Log.d("ChatViewModel", "onParticipantLeft: $event")
         }
     }
 

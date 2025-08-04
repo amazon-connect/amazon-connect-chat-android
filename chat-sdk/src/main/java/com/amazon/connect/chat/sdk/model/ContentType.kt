@@ -58,4 +58,23 @@ enum class ChatEvent {
     ChatEnded,
     ConnectionBroken,
     DeepHeartBeatFailure,
+    Typing,
+    MessageDelivered,
+    MessageRead,
+    ParticipantActive,
+    ParticipantInactive,
+    ParticipantIdle,
+    ParticipantReturned,
+    ParticipantInvited,
+    AutoDisconnection,
+    ChatRehydrated,
+    ParticipantJoined,
+    ParticipantLeft,
+    TransferSucceeded,
+    TransferFailed,
 }
+
+data class ChatEventPayload(
+    val chatEvent: ChatEvent,
+    val eventObject: Event? = null
+)

@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ChatEvent
+import com.amazon.connect.chat.sdk.model.ChatEventPayload
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
@@ -84,7 +85,7 @@ class ChatServiceImplTest {
     private lateinit var messageReceiptsManager: MessageReceiptsManager
 
     private lateinit var chatService: ChatServiceImpl
-    private lateinit var eventSharedFlow: MutableSharedFlow<ChatEvent>
+    private lateinit var eventSharedFlow: MutableSharedFlow<ChatEventPayload>
     private lateinit var transcriptSharedFlow: MutableSharedFlow<Pair<TranscriptItem, Boolean>>
     private lateinit var chatSessionStateFlow: MutableStateFlow<Boolean>
     private lateinit var newWsUrlFlow: MutableSharedFlow<Unit>
@@ -628,7 +629,7 @@ class ChatServiceImplTest {
         val transcriptItem2 = Message(id = "2", timeStamp = "2025-01-01T00:01:00Z", participant = "agent", contentType = "text/plain", text = "Hi")
         chatService.internalTranscript.add(transcriptItem1)
         chatService.internalTranscript.add(transcriptItem2)
-        val chatEvent = ChatEvent.ConnectionReEstablished
+        val chatEvent = ChatEventPayload(ChatEvent.ConnectionReEstablished)
         eventSharedFlow.emit(chatEvent)
         advanceUntilIdle()
         verify(awsClient, times(1)).getTranscript(anyOrNull())
@@ -669,18 +670,18 @@ class ChatServiceImplTest {
         chatService.createChatSession(chatDetails)
         advanceUntilIdle()
 
-        val chatEvent = ChatEvent.ChatEnded
+        val chatEventPayload = ChatEventPayload(ChatEvent.ChatEnded)
 
         // Launch the flow collection within the test's coroutine scope
         val job = chatService.eventPublisher
-            .onEach { event ->
-                assertEquals(chatEvent, event)
+            .onEach { eventPayload ->
+                assertEquals(ChatEvent.ChatEnded, eventPayload.chatEvent)
                 assertCalled = true
             }
             .launchIn(this)
 
         // Emit the event
-        eventSharedFlow.emit(chatEvent)
+        eventSharedFlow.emit(chatEventPayload)
         advanceUntilIdle()
 
         // Cancel the job after testing to ensure the coroutine completes
