@@ -432,8 +432,6 @@ class WebSocketManagerImpl @Inject constructor(
             // Create Event object for callbacks that require it (excluding MESSAGE_DELIVERED and MESSAGE_READ)
             val eventObject = when (type) {
                 ContentType.TYPING,
-                ContentType.PARTICIPANT_ACTIVE,
-                ContentType.PARTICIPANT_INACTIVE,
                 ContentType.PARTICIPANT_IDLE,
                 ContentType.PARTICIPANT_RETURNED,
                 ContentType.PARTICIPANT_INVITED,
@@ -461,8 +459,6 @@ class WebSocketManagerImpl @Inject constructor(
             // Map ContentType to ChatEvent and emit through existing eventPublisher (excluding MESSAGE_DELIVERED and MESSAGE_READ)
             val chatEvent = when (type) {
                 ContentType.TYPING -> ChatEvent.Typing
-                ContentType.PARTICIPANT_ACTIVE -> ChatEvent.ParticipantActive
-                ContentType.PARTICIPANT_INACTIVE -> ChatEvent.ParticipantInactive
                 ContentType.PARTICIPANT_IDLE -> ChatEvent.ParticipantIdle
                 ContentType.PARTICIPANT_RETURNED -> ChatEvent.ParticipantReturned
                 ContentType.PARTICIPANT_INVITED -> ChatEvent.ParticipantInvited

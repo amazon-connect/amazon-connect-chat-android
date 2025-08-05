@@ -61,8 +61,6 @@ enum class ChatEvent {
     Typing,
     MessageDelivered,
     MessageRead,
-    ParticipantActive,
-    ParticipantInactive,
     ParticipantIdle,
     ParticipantReturned,
     ParticipantInvited,

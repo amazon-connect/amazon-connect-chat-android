@@ -154,8 +154,6 @@ interface ChatSession {
     var onTyping: ((Event?) -> Unit)?
     var onMessageDelivered: ((Event?) -> Unit)?
     var onMessageRead: ((Event?) -> Unit)?
-    var onParticipantActive: ((Event?) -> Unit)?
-    var onParticipantInactive: ((Event?) -> Unit)?
     var onParticipantIdle: ((Event?) -> Unit)?
     var onParticipantReturned: ((Event?) -> Unit)?
     var onParticipantInvited: ((Event?) -> Unit)?
@@ -181,8 +179,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
     override var onTyping: ((Event?) -> Unit)? = null
     override var onMessageDelivered: ((Event?) -> Unit)? = null
     override var onMessageRead: ((Event?) -> Unit)? = null
-    override var onParticipantActive: ((Event?) -> Unit)? = null
-    override var onParticipantInactive: ((Event?) -> Unit)? = null
     override var onParticipantIdle: ((Event?) -> Unit)? = null
     override var onParticipantReturned: ((Event?) -> Unit)? = null
     override var onParticipantInvited: ((Event?) -> Unit)? = null
@@ -229,12 +225,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
                     }
                     ChatEvent.MessageRead -> {
                         onMessageRead?.invoke(eventWithData.eventObject)
-                    }
-                    ChatEvent.ParticipantActive -> {
-                        onParticipantActive?.invoke(eventWithData.eventObject)
-                    }
-                    ChatEvent.ParticipantInactive -> {
-                        onParticipantInactive?.invoke(eventWithData.eventObject)
                     }
                     ChatEvent.ParticipantIdle -> {
                         onParticipantIdle?.invoke(eventWithData.eventObject)

@@ -862,24 +862,22 @@ class ChatServiceImpl @Inject constructor(
                     }
                 }
             }
-            // Process transcript items without triggering individual updates
-            val formattedItems = coroutineScope {
-                transcriptItems.mapIndexed { index, transcriptItem ->
-                    async {
-                        val serializedItem = TranscriptItemUtils.serializeTranscriptItem(transcriptItem)
-                        serializedItem?.let { item ->
-                            try {
-                                val parsedItem = webSocketManager.parseTranscriptItemFromJson(item)
-                                parsedItem?.also { parsed ->
-                                    updateTranscriptDict(parsed, shouldTriggerTranscriptListUpdate = (index == transcriptItems.size - 1))
-                                }
-                            } catch (e: Exception) {
-                                SDKLogger.logger.logError { "Exception at index $index: $e" }
-                                throw e
-                            }
+            // Process transcript items sequentially without triggering individual updates
+            val formattedItems = mutableListOf<TranscriptItem?>()
+            transcriptItems.forEachIndexed { index, transcriptItem ->
+                val serializedItem = TranscriptItemUtils.serializeTranscriptItem(transcriptItem)
+                serializedItem?.let { item ->
+                    try {
+                        val parsedItem = webSocketManager.parseTranscriptItemFromJson(item)
+                        parsedItem?.also { parsed ->
+                            updateTranscriptDict(parsed, shouldTriggerTranscriptListUpdate = (index == transcriptItems.size - 1))
+                            formattedItems.add(parsed)
                         }
+                    } catch (e: Exception) {
+                        SDKLogger.logger.logError { "Exception at index $index: $e" }
+                        throw e
                     }
-                }.awaitAll().filterNotNull()
+                }
             }
 
             // Trigger single transcript list update after all items are processed
@@ -892,7 +890,7 @@ class ChatServiceImpl @Inject constructor(
             TranscriptResponse(
                 initialContactId = response.initialContactId.orEmpty(),
                 nextToken = response.nextToken.orEmpty(),
-                transcript = formattedItems
+                transcript = formattedItems.filterNotNull()
             )
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to get transcript: ${exception.message}" }
