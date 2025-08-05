@@ -481,20 +481,6 @@ Callback for when a message read receipt is received. See [Event](#event).
 var onMessageRead: ((Event?) -> Unit)?
 ```
 --------------------
-#### `ChatSession.onParticipantActive`
-Callback for when a participant becomes active. See [Event](#event).
-
-```
-var onParticipantActive: ((Event?) -> Unit)?
-```
---------------------
-#### `ChatSession.onParticipantInactive`
-Callback for when a participant becomes inactive. See [Event](#event).
-
-```
-var onParticipantInactive: ((Event?) -> Unit)?
-```
---------------------
 #### `ChatSession.onParticipantIdle`
 Callback for when a participant becomes idle. See [Event](#event).
 
