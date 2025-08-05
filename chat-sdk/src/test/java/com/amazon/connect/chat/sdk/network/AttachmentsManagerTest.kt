@@ -214,7 +214,14 @@ class AttachmentsManagerTest {
             .`when`(awsClient)
             .getAttachment(mockConnectionToken, mockAttachmentId)
 
+        // Stub downloadFile to avoid actual file I/O and return a successful result
+        doReturn(Result.success(URL(mockUrl)))
+            .`when`(attachmentsManager)
+            .downloadFile(URL(mockUrl), mockFilename)
+
+        // Await the completion of downloadAttachment
         attachmentsManager.downloadAttachment(mockConnectionToken, mockAttachmentId, mockFilename)
+        
         verify(awsClient).getAttachment(mockConnectionToken, mockAttachmentId)
         verify(attachmentsManager).getAttachmentDownloadUrl(mockConnectionToken, mockAttachmentId)
         verify(attachmentsManager).downloadFile(URL(mockUrl), mockFilename)
