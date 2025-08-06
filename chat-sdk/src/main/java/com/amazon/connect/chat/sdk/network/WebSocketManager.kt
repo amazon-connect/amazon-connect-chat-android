@@ -322,6 +322,11 @@ class WebSocketManagerImpl @Inject constructor(
                             handleTyping(jsonObject, jsonString)
                         ContentType.ENDED ->
                             handleChatEnded(jsonObject, jsonString)
+                        ContentType.TRANSFER_SUCCEEDED, ContentType.TRANSFER_FAILED,
+                        ContentType.PARTICIPANT_IDLE, ContentType.PARTICIPANT_RETURNED,
+                        ContentType.PARTICIPANT_INVITED, ContentType.AUTO_DISCONNECTION,
+                        ContentType.CHAT_REHYDRATED ->
+                            handleCommonChatEvent(jsonObject, jsonString)
                         else -> {
                             SDKLogger.logger.logWarn{"WebSocket: Unknown event: $contentType"}
                             null
@@ -477,6 +482,26 @@ class WebSocketManagerImpl @Inject constructor(
                 SDKLogger.logger.logDebug{"WebSocket: Emitted ChatEvent: $event for ContentType: ${type.type}"}
             }
         }
+    }
+
+    private fun handleCommonChatEvent(innerJson: JSONObject, rawData: String): TranscriptItem {
+        val contentType = innerJson.optString("ContentType", "")
+        val participantRole = innerJson.optString("ParticipantRole", "")
+        val time = innerJson.optString("AbsoluteTime", "")
+        val displayName = innerJson.optString("DisplayName", "")
+        val messageId = innerJson.optString("Id", "")
+        val text = innerJson.optString("Content", "")
+
+        return Event(
+            participant = participantRole,
+            text = text,
+            displayName = displayName,
+            eventDirection = MessageDirection.COMMON,
+            timeStamp = time,
+            contentType = contentType,
+            id = messageId,
+            serializedContent = rawData
+        )
     }
 
     private suspend fun handleMessage(innerJson: JSONObject, rawData: String): TranscriptItem {
