@@ -322,6 +322,11 @@ class WebSocketManagerImpl @Inject constructor(
                             handleTyping(jsonObject, jsonString)
                         ContentType.ENDED ->
                             handleChatEnded(jsonObject, jsonString)
+                        ContentType.TRANSFER_SUCCEEDED, ContentType.TRANSFER_FAILED,
+                        ContentType.PARTICIPANT_IDLE, ContentType.PARTICIPANT_RETURNED,
+                        ContentType.PARTICIPANT_INVITED, ContentType.AUTO_DISCONNECTION,
+                        ContentType.CHAT_REHYDRATED ->
+                            createCommonEvent(jsonObject, jsonString)
                         else -> {
                             SDKLogger.logger.logWarn{"WebSocket: Unknown event: $contentType"}
                             null
@@ -441,18 +446,7 @@ class WebSocketManagerImpl @Inject constructor(
                 ContentType.LEFT,
                 ContentType.ENDED,
                 ContentType.TRANSFER_SUCCEEDED,
-                ContentType.TRANSFER_FAILED -> {
-                    Event(
-                        participant = jsonObject.optString("ParticipantRole"),
-                        text = jsonObject.optString("Content"),
-                        displayName = jsonObject.optString("DisplayName"),
-                        eventDirection = MessageDirection.COMMON,
-                        timeStamp = jsonObject.optString("AbsoluteTime"),
-                        contentType = jsonObject.optString("ContentType"),
-                        id = jsonObject.optString("Id"),
-                        serializedContent = rawData
-                    )
-                }
+                ContentType.TRANSFER_FAILED -> createCommonEvent(jsonObject, rawData)
                 else -> null
             }
             
@@ -477,6 +471,19 @@ class WebSocketManagerImpl @Inject constructor(
                 SDKLogger.logger.logDebug{"WebSocket: Emitted ChatEvent: $event for ContentType: ${type.type}"}
             }
         }
+    }
+
+    private fun createCommonEvent(jsonObject: JSONObject, rawData: String): Event {
+        return Event(
+            participant = jsonObject.optString("ParticipantRole", ""),
+            text = jsonObject.optString("Content", ""),
+            displayName = jsonObject.optString("DisplayName", ""),
+            eventDirection = MessageDirection.COMMON,
+            timeStamp = jsonObject.optString("AbsoluteTime", ""),
+            contentType = jsonObject.optString("ContentType", ""),
+            id = jsonObject.optString("Id", ""),
+            serializedContent = rawData
+        )
     }
 
     private suspend fun handleMessage(innerJson: JSONObject, rawData: String): TranscriptItem {
