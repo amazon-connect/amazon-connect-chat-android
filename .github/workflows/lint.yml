@@ -1,0 +1,32 @@
+name: Lint Code
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      
+    - name: Check for println() statements
+      run: |
+        echo "Checking for println() statements in Kotlin/Java files..."
+        
+        # Find all Kotlin and Java files and check for println() statements
+        # Exclude app directory (example code), .git, .gradle, and build directories
+        if grep -r "println(" --include="*.kt" --include="*.java" . --exclude-dir=".git" --exclude-dir=".gradle" --exclude-dir="build" --exclude-dir="app"; then
+          echo "❌ ERROR: Found println() statements in Kotlin/Java files"
+          echo "Please use proper logging (Log.d, Log.i, etc.) instead of println() for logging"
+          echo "Example: SDKLogger.logger.logDebug { \"Your message\" }"
+          exit 1
+        else
+          echo "✅ No println() statements found in SDK code"
+        fi

@@ -14,6 +14,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Lint - Check for println() statements
+        run: |
+          echo "Checking for println() statements in Kotlin/Java files..."
+          if grep -r "println(" --include="*.kt" --include="*.java" . --exclude-dir=".git" --exclude-dir=".gradle" --exclude-dir="build" --exclude-dir="app"; then
+            echo "❌ ERROR: Found println() statements in Kotlin/Java files"
+            echo "Please use proper logging (Log.d, Log.i, etc.) instead of println() for logging"
+            echo "Example: SDKLogger.logger.logDebug { \"Your message\" }"
+            exit 1
+          else
+            echo "✅ No println() statements found in SDK code"
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v1
         with:
