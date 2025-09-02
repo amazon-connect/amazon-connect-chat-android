@@ -1,6 +1,7 @@
 package com.amazon.connect.chat.sdk.network
 
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -112,10 +113,10 @@ class WebSocketManagerTest {
                     it.set(obj, value)
                 }
             } catch (ex: Exception) {
-                println("Error setting fallback field $fieldName: ${ex.message}")
+                SDKLogger.logger.logDebug { "Error setting fallback field $fieldName: ${ex.message}" }
             }
         } catch (e: Exception) {
-            println("Error setting field $fieldName: ${e.message}")
+            SDKLogger.logger.logDebug { "Error setting field $fieldName: ${e.message}" }
         }
     }
 
@@ -125,7 +126,7 @@ class WebSocketManagerTest {
             field.isAccessible = true
             field.get(obj)
         } catch (e: Exception) {
-            println("Error getting field $fieldName: ${e.message}")
+            SDKLogger.logger.logDebug { "Error getting field $fieldName: ${e.message}" }
             null
         }
     }

@@ -13,11 +13,6 @@ object Constants {
     const val SYSTEM = "SYSTEM"
     const val UNKNOWN = "UNKNOWN"
     const val MESSAGE = "MESSAGE"
-    
-    // TODO: Remove this println statement - added to test linting failure
-    fun testPrint() {
-        println("This should fail the linting check")
-    }
     const val ATTACHMENT = "ATTACHMENT"
     const val EVENT = "EVENT"
     const val MESSAGE_RECEIPT_THROTTLE_TIME = 5.0
