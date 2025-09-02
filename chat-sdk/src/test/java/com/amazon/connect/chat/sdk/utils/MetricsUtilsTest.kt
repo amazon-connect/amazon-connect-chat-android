@@ -1,5 +1,6 @@
 package com.amazon.connect.chat.sdk.utils
 
+import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,7 +15,7 @@ class MetricsUtilsTest {
         val timestamp = MetricsUtils.getCurrentMetricTimestamp()
 
         // Print the timestamp to see its actual format
-        println("Timestamp: $timestamp")
+        SDKLogger.logger.logDebug { "Timestamp: $timestamp" }
 
         // Verify the timestamp can be parsed back using the same formatter
         val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.getDefault())
