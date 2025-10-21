@@ -688,6 +688,7 @@ class ChatServiceImpl @Inject constructor(
                     val endedEvent = TranscriptItemUtils.createDummyEndedEvent()
                     updateTranscriptDict(endedEvent)
                     _eventPublisher.emit(ChatEventPayload(ChatEvent.ChatEnded))
+                    connectionDetailsProvider.setChatSessionState(false)
                 }
                 SDKLogger.logger.logError { "CreateParticipantConnection failed: $error" }
             }
