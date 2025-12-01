@@ -59,7 +59,9 @@ class WebSocketManagerTest {
 
         setPrivateField(webSocketManager, "client", mockOkHttpClient)
         setPrivateField(webSocketManager, "isConnectedToNetwork", true)
-        setPrivateField(webSocketManager, "isChatActive", false)
+
+        // Mock global chat session state (replaces local isChatActive)
+        Mockito.`when`(mockConnectionDetailsProvider.isChatSessionActive()).thenReturn(false)
     }
 
     @Test
@@ -92,11 +94,74 @@ class WebSocketManagerTest {
     }
 
     @Test
-    fun `resumeWebSocketConnection does not change state when chat is already active`() {
-        setPrivateField(webSocketManager, "isChatActive", true)
+    fun `resumeWebSocketConnection sets isChatSuspended to false regardless of chat session state`() {
+        // Mock chat session as active
+        Mockito.`when`(mockConnectionDetailsProvider.isChatSessionActive()).thenReturn(true)
+
+        setPrivateField(webSocketManager, "isChatSuspended", true)
         webSocketManager.resumeWebSocketConnection()
         val isChatSuspended = getPrivateField(webSocketManager, "isChatSuspended") as Boolean
         assertFalse(isChatSuspended)
+    }
+
+    @Test
+    fun `reestablishConnectionIfChatActive uses global chat session state`() = runTest {
+        // Set up conditions for reconnection attempt
+        setPrivateField(webSocketManager, "isConnectedToNetwork", true)
+        setPrivateField(webSocketManager, "isChatSuspended", false)
+        setPrivateField(webSocketManager, "_isReconnecting", MutableStateFlow(false))
+
+        // Test: Chat session inactive - should not attempt reconnection
+        Mockito.`when`(mockConnectionDetailsProvider.isChatSessionActive()).thenReturn(false)
+
+        // Use reflection to call private method
+        val method = webSocketManager.javaClass.getDeclaredMethod("reestablishConnectionIfChatActive")
+        method.isAccessible = true
+        method.invoke(webSocketManager)
+
+        // Verify reconnection state wasn't changed (no reconnection attempt)
+        val isReconnecting = getPrivateField(webSocketManager, "_isReconnecting") as MutableStateFlow<*>
+        assertFalse(isReconnecting.value as Boolean)
+    }
+
+    @Test
+    fun `reestablishConnectionIfChatActive attempts reconnection when chat session is active`() = runTest {
+        // Set up conditions for successful reconnection attempt
+        setPrivateField(webSocketManager, "isConnectedToNetwork", true)
+        setPrivateField(webSocketManager, "isChatSuspended", false)
+        setPrivateField(webSocketManager, "_isReconnecting", MutableStateFlow(false))
+
+        // Test: Chat session active - should attempt reconnection
+        Mockito.`when`(mockConnectionDetailsProvider.isChatSessionActive()).thenReturn(true)
+
+        // Use reflection to call private method
+        val method = webSocketManager.javaClass.getDeclaredMethod("reestablishConnectionIfChatActive")
+        method.isAccessible = true
+        method.invoke(webSocketManager)
+
+        // Verify reconnection was initiated
+        val isReconnecting = getPrivateField(webSocketManager, "_isReconnecting") as MutableStateFlow<*>
+        assertTrue(isReconnecting.value as Boolean)
+    }
+
+    @Test
+    fun `reestablishConnectionIfChatActive respects network connectivity`() = runTest {
+        // Set up conditions - chat active but no network
+        setPrivateField(webSocketManager, "isConnectedToNetwork", false)
+        setPrivateField(webSocketManager, "isChatSuspended", false)
+        setPrivateField(webSocketManager, "_isReconnecting", MutableStateFlow(false))
+
+        // Chat session is active but no network
+        Mockito.`when`(mockConnectionDetailsProvider.isChatSessionActive()).thenReturn(true)
+
+        // Use reflection to call private method
+        val method = webSocketManager.javaClass.getDeclaredMethod("reestablishConnectionIfChatActive")
+        method.isAccessible = true
+        method.invoke(webSocketManager)
+
+        // Verify no reconnection attempt due to missing network
+        val isReconnecting = getPrivateField(webSocketManager, "_isReconnecting") as MutableStateFlow<*>
+        assertFalse(isReconnecting.value as Boolean)
     }
 
     // Reflection helper methods

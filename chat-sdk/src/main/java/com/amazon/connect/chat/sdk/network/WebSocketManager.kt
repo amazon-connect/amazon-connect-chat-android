@@ -74,7 +74,6 @@ class WebSocketManagerImpl @Inject constructor(
 
     private var webSocket: WebSocket? = null
     private var isConnectedToNetwork: Boolean = false
-    private var isChatActive: Boolean = false
     private var isChatSuspended: Boolean = false
 
     private val _isReconnecting = MutableStateFlow(false)
@@ -117,11 +116,12 @@ class WebSocketManagerImpl @Inject constructor(
         CoroutineScope(Dispatchers.IO).launch {
             networkConnectionManager.isNetworkAvailable.collect { isAvailable ->
                 if (isAvailable) {
+                    SDKLogger.logger.logInfo{"WebSocket: Network connection restored"}
                     isConnectedToNetwork = true
                     reestablishConnectionIfChatActive()
                 } else {
-                    isConnectedToNetwork = false
                     SDKLogger.logger.logInfo{"WebSocket: Network connection lost"}
+                    isConnectedToNetwork = false
                 }
             }
         }
@@ -130,12 +130,12 @@ class WebSocketManagerImpl @Inject constructor(
         val lifecycleObserver = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
-                    SDKLogger.logger.logInfo{"WebSocket: App in Foreground"}
+                    SDKLogger.logger.logInfo{"WebSocket: App resumed to foreground"}
                     reestablishConnectionIfChatActive()
                 }
                 Lifecycle.Event.ON_STOP -> {
-                    SDKLogger.logger.logInfo{"WebSocket: App in Background"}
-                    if (isChatActive) {
+                    SDKLogger.logger.logInfo{"WebSocket: App moving to background"}
+                    if (connectionDetailsProvider.isChatSessionActive()) {
                         CoroutineScope(Dispatchers.IO).launch {
                             closeWebSocket("App Backgrounded", 4000)
                         }
@@ -169,10 +169,8 @@ class WebSocketManagerImpl @Inject constructor(
 
     private fun closeWebSocket(reason: String? = null, code: Int = 1000) {
         CoroutineScope(Dispatchers.IO).launch {
-            // 4000 = disconnect websocket due to backgrounding.
-            if (code != 4000) {
-                isChatActive = false
-            }
+            SDKLogger.logger.logInfo{"WebSocket: Closing connection with code: $code, reason: $reason"}
+
             resetHeartbeatManagers()
             webSocket?.close(code, reason)
         }
@@ -213,11 +211,15 @@ class WebSocketManagerImpl @Inject constructor(
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             SDKLogger.logger.logInfo{"WebSocket: WebSocket is closed with code: $code, reason: $reason"}
+            // Reset reconnection state on any closure
+            _isReconnecting.value = false
             handleWebSocketClosed(code, reason)
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             SDKLogger.logger.logError{"WebSocket: WebSocket failure: ${t.message}"}
+            // Reset reconnection state on failure
+            _isReconnecting.value = false
             handleWebSocketFailure(t)
         }
     }
@@ -226,19 +228,19 @@ class WebSocketManagerImpl @Inject constructor(
         sendMessage(EventTypes.subscribe)
         startHeartbeats()
         _isReconnecting.value = false // Reconnection successful, reset flag
-        isChatActive = true
         if (isReconnectFlow) {
             this._eventPublisher.emit(ChatEventPayload(ChatEvent.ConnectionReEstablished))
         } else {
             this._eventPublisher.emit(ChatEventPayload(ChatEvent.ConnectionEstablished))
         }
+
+        SDKLogger.logger.logInfo{"WebSocket: Connection successfully established"}
     }
 
     private fun handleWebSocketClosed(code: Int, reason: String) {
         SDKLogger.logger.logInfo{"WebSocket: WebSocket closed with code: $code, reason: $reason"}
-        if (code == 1000) {
-            isChatActive = false
-        } else if (code != 4000) {
+        // Only attempt reconnection for non-normal closures (excluding background disconnection)
+        if (code != 1000 && code != 4000) {
             reestablishConnectionIfChatActive()
         }
     }
@@ -391,7 +393,16 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun reestablishConnectionIfChatActive() {
-        if (!isChatActive) {
+        val isChatSessionActive = connectionDetailsProvider.isChatSessionActive()
+        SDKLogger.logger.logInfo{
+            "WebSocket: Reconnection check - " +
+            "isChatSessionActive: $isChatSessionActive, " +
+            "isConnectedToNetwork: $isConnectedToNetwork, " +
+            "isChatSuspended: $isChatSuspended, " +
+            "isReconnecting: ${_isReconnecting.value}"
+        }
+
+        if (!isChatSessionActive) {
             SDKLogger.logger.logDebug{"WebSocket: Re-connection aborted due to inactive chat session"}
             return
         }
@@ -404,10 +415,11 @@ class WebSocketManagerImpl @Inject constructor(
             return
         }
         if (_isReconnecting.value) {
-            SDKLogger.logger.logDebug{"WebSocket: Re-connection aborted due to ongoing reconnection attempt."}
+            SDKLogger.logger.logWarn{"WebSocket: Re-connection aborted due to ongoing reconnection attempt."}
             return
         }
 
+        SDKLogger.logger.logInfo{"WebSocket: Starting reconnection attempt"}
         _isReconnecting.value = true
         requestNewWsUrl()
     }
