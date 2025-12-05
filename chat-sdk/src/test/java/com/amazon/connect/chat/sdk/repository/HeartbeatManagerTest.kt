@@ -51,10 +51,16 @@ class HeartbeatManagerTest {
 
     @Test
     fun `test stopHeartbeat cancels timer`() = runTest {
-        // Set pendingResponse to true to simulate heartbeat being sent
+        // Start heartbeat and wait for it to complete
         heartbeatManager.startHeartbeat()
+
+        // Add a small delay to ensure timer is fully initialized
+        kotlinx.coroutines.delay(50)
+
+        // Manually set pendingResponse to true to simulate heartbeat being sent
         setPrivateField(heartbeatManager, "pendingResponse", true)
 
+        // Stop heartbeat - this should reset pendingResponse to false
         heartbeatManager.stopHeartbeat()
 
         // PendingResponse should be false after stopHeartbeat, regardless of previous state
