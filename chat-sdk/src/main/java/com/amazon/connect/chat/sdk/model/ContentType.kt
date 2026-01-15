@@ -14,6 +14,7 @@ enum class ContentType(val type: String){
     ENDED("application/vnd.amazonaws.connect.event.chat.ended"),
     PLAIN_TEXT("text/plain"),
     RICH_TEXT("text/markdown"),
+    APPLICATION_JSON("application/json"),
     INTERACTIVE_TEXT("application/vnd.amazonaws.connect.message.interactive"),
     INTERACTIVE_RESPONSE("application/vnd.amazonaws.connect.message.interactive.response"),
     AUTHENTICATION_INITIATED("application/vnd.amazonaws.connect.event.authentication.initiated"),
