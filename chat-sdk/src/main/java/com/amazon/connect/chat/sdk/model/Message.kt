@@ -39,15 +39,11 @@ data class Message(
         get() = when (contentType) {
             ContentType.PLAIN_TEXT.type -> PlainTextContent.decode(text)
             ContentType.RICH_TEXT.type -> PlainTextContent.decode(text) // Replace with a rich text class later
+            ContentType.APPLICATION_JSON.type -> PlainTextContent.decode(text)
             ContentType.INTERACTIVE_TEXT.type -> decodeInteractiveContent(text)
             else -> {
-                if (attachmentId != null){
-                    // Placeholder for a future rich text content class
-                    PlainTextContent.decode(text)
-                } else {
-                    logUnsupportedContentType(contentType)
-                    null
-                }
+                logUnsupportedContentType(contentType)
+                PlainTextContent.decode(text)
             }
         }
 
