@@ -170,13 +170,22 @@ interface ChatService {
 
 class ChatServiceImpl @Inject constructor(
     private val context: Context,
-    private val awsClient: AWSClient,
+    private val defaultAwsClient: AWSClient,
     private val connectionDetailsProvider: ConnectionDetailsProvider,
     private val webSocketManager: WebSocketManager,
     private val metricsManager: MetricsManager,
     private val attachmentsManager: AttachmentsManager,
     private val messageReceiptsManager: MessageReceiptsManager
 ) : ChatService, DefaultLifecycleObserver {
+
+    private var globalConfig: GlobalConfig? = null
+
+    /**
+     * Returns the appropriate AWSClient - custom client if configured, otherwise default.
+     */
+    private fun getClient(): AWSClient {
+        return globalConfig?.customAWSClient ?: defaultAwsClient
+    }
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
@@ -213,8 +222,12 @@ class ChatServiceImpl @Inject constructor(
     private val tempMessageIdToFileUrl = mutableMapOf<String, Uri>()
 
     override fun configure(config: GlobalConfig) {
-        awsClient.configure(config)
+        globalConfig = config
+        // Configure both default and custom client (if provided)
+        defaultAwsClient.configure(config)
+        config.customAWSClient?.configure(config)
         metricsManager.configure(config)
+        attachmentsManager.configure(config)
     }
 
     override fun getConnectionDetailsProvider(): ConnectionDetailsProvider {
@@ -230,10 +243,15 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             connectionDetailsProvider.updateChatDetails(chatDetails)
             val connectionDetails =
-                awsClient.createParticipantConnection(chatDetails.participantToken).getOrThrow()
+                getClient().createParticipantConnection(chatDetails.participantToken).getOrThrow()
             metricsManager.addCountMetric(MetricName.CreateParticipantConnection)
             connectionDetailsProvider.updateConnectionDetails(connectionDetails)
-            setupWebSocket(connectionDetails.websocketUrl)
+            
+            // Apply WebSocket URL transformation if custom provider is configured
+            val websocketUrl = globalConfig?.customWebSocketURLProvider?.invoke(connectionDetails.websocketUrl)
+                ?: connectionDetails.websocketUrl
+            
+            setupWebSocket(websocketUrl)
             SDKLogger.logger.logDebug { "Participant Connected" }
             true
         }.onFailure { exception ->
@@ -501,7 +519,7 @@ class ChatServiceImpl @Inject constructor(
             // Proceed with the disconnection logic
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            awsClient.disconnectParticipantConnection(connectionDetails.connectionToken)
+            getClient().disconnectParticipantConnection(connectionDetails.connectionToken)
                 .getOrThrow()
             SDKLogger.logger.logDebug { "Participant Disconnected" }
             webSocketManager.disconnect("Customer ended the chat")
@@ -558,7 +576,7 @@ class ChatServiceImpl @Inject constructor(
         sendSingleUpdateToClient(recentlySentMessage)
 
         return runCatching {
-            val response = awsClient.sendMessage(
+            val response = getClient().sendMessage(
                 connectionToken = connectionDetails.connectionToken,
                 contentType = contentType,
                 message = message
@@ -626,7 +644,7 @@ class ChatServiceImpl @Inject constructor(
         return runCatching {
             val connectionDetails = connectionDetailsProvider.getConnectionDetails()
                 ?: throw Exception("No connection details available")
-            awsClient.sendEvent(connectionDetails.connectionToken, contentType, content).getOrThrow()
+            getClient().sendEvent(connectionDetails.connectionToken, contentType, content).getOrThrow()
             true
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to send event: ${exception.message}" }
@@ -676,11 +694,16 @@ class ChatServiceImpl @Inject constructor(
 
         val chatDetails = connectionDetailsProvider.getChatDetails()
         chatDetails?.let {
-            val result = awsClient.createParticipantConnection(it.participantToken)
+            val result = getClient().createParticipantConnection(it.participantToken)
             if (result.isSuccess) {
                 val connectionDetails = result.getOrNull()
                 connectionDetailsProvider.updateConnectionDetails(connectionDetails!!)
-                setupWebSocket(connectionDetails.websocketUrl, true)
+                
+                // Apply WebSocket URL transformation if custom provider is configured
+                val websocketUrl = globalConfig?.customWebSocketURLProvider?.invoke(connectionDetails.websocketUrl)
+                    ?: connectionDetails.websocketUrl
+                
+                setupWebSocket(websocketUrl, true)
             } else {
                 val error = result.exceptionOrNull()
                 if (error?.message?.contains("403") == true) {
@@ -757,17 +780,13 @@ class ChatServiceImpl @Inject constructor(
     }
 
     override suspend fun getAttachmentDownloadUrl(attachmentId: String): Result<URL> {
-        return runCatching {
-            val connectionDetails = connectionDetailsProvider.getConnectionDetails()
-                ?: throw Exception("No connection details available")
-            attachmentsManager.getAttachmentDownloadUrl(attachmentId, connectionDetails.connectionToken)
-        }.fold(
-            onSuccess = { it },
-            onFailure = { exception ->
+        val connectionDetails = connectionDetailsProvider.getConnectionDetails()
+            ?: return Result.failure(Exception("No connection details available"))
+        
+        return attachmentsManager.getAttachmentDownloadUrl(attachmentId, connectionDetails.connectionToken)
+            .onFailure { exception ->
                 SDKLogger.logger.logError { "Failed to retrieve attachment download URL for attachment $attachmentId. Error: ${exception.message}" }
-                Result.failure(exception)
             }
-        )
     }
 
     private suspend fun fetchReconnectedTranscript() {
@@ -834,7 +853,7 @@ class ChatServiceImpl @Inject constructor(
         }
 
         return runCatching {
-            val response = awsClient.getTranscript(request).getOrThrow()
+            val response = getClient().getTranscript(request).getOrThrow()
             val transcriptItems = response.transcript
 
             val isStartPositionDefined = request.startPosition != null && (

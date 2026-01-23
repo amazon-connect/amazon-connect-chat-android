@@ -1,10 +1,13 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.provider
 
 import android.content.Context
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.ChatSessionImpl
 import com.amazon.connect.chat.sdk.di.ChatModule
-import com.amazon.connect.chat.sdk.network.AWSClientImpl
+import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
 import com.amazon.connect.chat.sdk.network.RetrofitServiceCreator.createService
 import com.amazon.connect.chat.sdk.network.WebSocketManagerImpl
@@ -85,7 +88,7 @@ object ChatSessionProvider {
         val appContext = context.applicationContext
 
         // Step 1: Create AWS Client
-        val awsClient = AWSClientImpl.create()
+        val awsClient = AWSClient()
 
         // Step 2: Create Network Connection Manager
         val networkConnectionManager = NetworkConnectionManager(appContext)

@@ -27,24 +27,67 @@ import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequ
 import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
-interface AWSClient {
-    fun configure(config: GlobalConfig)
+/**
+ * AWSClient is an open class that provides default implementations for all Amazon Connect
+ * Participant Service (ACPS) API calls. Customers can subclass this to override specific
+ * methods for custom routing (e.g., through a backend proxy with certificate pinning).
+ *
+ * Usage patterns:
+ * 1. Partial override: Subclass and override only specific methods for logging/monitoring
+ * 2. Complete override: Subclass and override all methods for full backend proxy routing
+ *
+ * Example:
+ * ```kotlin
+ * class MyCustomClient : AWSClient() {
+ *     override suspend fun sendMessage(...): Result<SendMessageResult> {
+ *         Log.d("MyClient", "Intercepting sendMessage")
+ *         return super.sendMessage(...) // or route to your backend
+ *     }
+ * }
+ *
+ * val config = GlobalConfig(
+ *     region = Regions.US_WEST_2,
+ *     customAWSClient = MyCustomClient()
+ * )
+ * chatSession.configure(config)
+ * ```
+ */
+open class AWSClient {
+
+    companion object {
+        /**
+         * Shared singleton instance of AWSClient.
+         * This follows the iOS SDK pattern for consistency.
+         */
+        val shared: AWSClient = AWSClient()
+    }
+
+    /**
+     * Configures the AWS client with the given global configuration.
+     * @param config The global configuration containing region and other settings.
+     */
+    open fun configure(config: GlobalConfig) {
+        DefaultAWSClient.configure(config)
+    }
 
     /**
      * Creates a participant connection for the given participant token.
      * @param participantToken The participant token.
      * @return A Result containing the connection details if successful, or an exception if an error occurred.
      */
-    suspend fun createParticipantConnection(participantToken: String): Result<ConnectionDetails>
+    open suspend fun createParticipantConnection(participantToken: String): Result<ConnectionDetails> {
+        return DefaultAWSClient.createParticipantConnection(participantToken)
+    }
 
     /**
      * Disconnects the participant connection for the given connection token.
      * @param connectionToken The connection token.
      * @return A Result containing the disconnect participant result if successful, or an exception if an error occurred.
      */
-    suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult>
+    open suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult> {
+        return DefaultAWSClient.disconnectParticipantConnection(connectionToken)
+    }
 
     /**
      * Sends a message using a connection token.
@@ -53,11 +96,13 @@ interface AWSClient {
      * @param message The message content.
      * @return A Result containing the send message result if successful, or an exception if an error occurred.
      */
-    suspend fun sendMessage(
+    open suspend fun sendMessage(
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult>
+    ): Result<SendMessageResult> {
+        return DefaultAWSClient.sendMessage(connectionToken, contentType, message)
+    }
 
     /**
      * Sends an event using a connection token.
@@ -66,11 +111,13 @@ interface AWSClient {
      * @param content The event content.
      * @return A Result containing the send event result if successful, or an exception if an error occurred.
      */
-    suspend fun sendEvent(
+    open suspend fun sendEvent(
         connectionToken: String,
         contentType: ContentType,
         content: String
-    ): Result<SendEventResult>
+    ): Result<SendEventResult> {
+        return DefaultAWSClient.sendEvent(connectionToken, contentType, content)
+    }
 
     /**
      * Starts an attachment upload using a connection token.
@@ -78,7 +125,12 @@ interface AWSClient {
      * @param request The start attachment upload request.
      * @return A Result containing the start attachment upload result if successful, or an exception if an error occurred.
      */
-    suspend fun startAttachmentUpload(connectionToken: String, request: StartAttachmentUploadRequest): Result<StartAttachmentUploadResult>
+    open suspend fun startAttachmentUpload(
+        connectionToken: String,
+        request: StartAttachmentUploadRequest
+    ): Result<StartAttachmentUploadResult> {
+        return DefaultAWSClient.startAttachmentUpload(connectionToken, request)
+    }
 
     /**
      * Completes an attachment upload using a connection token.
@@ -86,7 +138,12 @@ interface AWSClient {
      * @param request The complete attachment upload request.
      * @return A Result containing the complete attachment upload result if successful, or an exception if an error occurred.
      */
-    suspend fun completeAttachmentUpload(connectionToken: String, request: CompleteAttachmentUploadRequest): Result<CompleteAttachmentUploadResult>
+    open suspend fun completeAttachmentUpload(
+        connectionToken: String,
+        request: CompleteAttachmentUploadRequest
+    ): Result<CompleteAttachmentUploadResult> {
+        return DefaultAWSClient.completeAttachmentUpload(connectionToken, request)
+    }
 
     /**
      * Retrieves an attachment using a connection token and attachment ID.
@@ -94,139 +151,169 @@ interface AWSClient {
      * @param attachmentId The attachment ID.
      * @return A Result containing the get attachment result if successful, or an exception if an error occurred.
      */
-    suspend fun getAttachment(connectionToken: String, attachmentId: String): Result<GetAttachmentResult>
+    open suspend fun getAttachment(
+        connectionToken: String,
+        attachmentId: String
+    ): Result<GetAttachmentResult> {
+        return DefaultAWSClient.getAttachment(connectionToken, attachmentId)
+    }
 
     /**
      * Retrieves a transcript using a get transcript request.
      * @param request The get transcript request.
      * @return A Result containing the get transcript result if successful, or an exception if an error occurred.
      */
-    suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult>
-
+    open suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
+        return DefaultAWSClient.getTranscript(request)
+    }
 }
 
-class AWSClientImpl @Inject constructor(
-    private val connectParticipantClient: AmazonConnectParticipantClient
-) : AWSClient {
+/**
+ * DefaultAWSClient is the internal implementation that makes actual AWS SDK calls.
+ * This object is used by the open AWSClient class for default behavior.
+ */
+internal object DefaultAWSClient {
+    private var connectParticipantClient: AmazonConnectParticipantClient? = null
 
-    companion object {
-        fun create(): AWSClient {
-            // Create an AmazonConnectParticipantClient
+    /**
+     * Sets the client instance. Primarily used for testing.
+     */
+    internal fun setClient(client: AmazonConnectParticipantClient) {
+        connectParticipantClient = client
+    }
+
+    fun configure(config: GlobalConfig) {
+        if (connectParticipantClient == null) {
             val clientConfiguration = CommonUtils.createConnectParticipantConfiguration()
-            val connectParticipantClient = AmazonConnectParticipantClient(clientConfiguration)
-            return AWSClientImpl(connectParticipantClient)
+            connectParticipantClient = AmazonConnectParticipantClient(clientConfiguration)
         }
+        connectParticipantClient?.setRegion(Region.getRegion(config.region))
     }
 
-    override fun configure(config: GlobalConfig) {
-        connectParticipantClient.setRegion(Region.getRegion(config.region))
-    }
-
-    override suspend fun createParticipantConnection(participantToken: String): Result<ConnectionDetails> {
+    suspend fun createParticipantConnection(participantToken: String): Result<ConnectionDetails> {
         return withContext(Dispatchers.IO) {
             runCatching {
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                
                 val request = CreateParticipantConnectionRequest().apply {
                     setType(Constants.ACPS_REQUEST_TYPES)
                     this.participantToken = participantToken
                 }
-                val response = connectParticipantClient.createParticipantConnection(request)
-                val connectionDetails = ConnectionDetails(
+                val response = client.createParticipantConnection(request)
+                ConnectionDetails(
                     websocketUrl = response.websocket.url,
                     connectionToken = response.connectionCredentials.connectionToken,
                     expiry = response.websocket.connectionExpiry
                 )
-                connectionDetails // Ensure this is the last expression
             }
         }
     }
 
-    override suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult> {
+    suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                
                 val request = DisconnectParticipantRequest().apply {
                     this.connectionToken = connectionToken
                 }
-                val response = connectParticipantClient.disconnectParticipant(request)
-                response
+                client.disconnectParticipant(request)
             }
         }
     }
 
-    override suspend fun sendMessage(
+    suspend fun sendMessage(
         connectionToken: String,
         contentType: ContentType,
         message: String
     ): Result<SendMessageResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                
                 val request = SendMessageRequest().apply {
                     this.connectionToken = connectionToken
                     this.contentType = contentType.type
                     this.content = message
                 }
-                val response = connectParticipantClient.sendMessage(request)
-                response
+                client.sendMessage(request)
             }
         }
     }
 
-    override suspend fun sendEvent(
+    suspend fun sendEvent(
         connectionToken: String,
         contentType: ContentType,
         content: String
     ): Result<SendEventResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                
                 val request = SendEventRequest().apply {
                     this.connectionToken = connectionToken
                     this.contentType = contentType.type
                     this.content = content
                 }
-                val response = connectParticipantClient.sendEvent(request)
-                response
+                client.sendEvent(request)
             }
         }
     }
 
-    override suspend fun startAttachmentUpload(connectionToken: String, request: StartAttachmentUploadRequest): Result<StartAttachmentUploadResult> {
+    suspend fun startAttachmentUpload(
+        connectionToken: String,
+        request: StartAttachmentUploadRequest
+    ): Result<StartAttachmentUploadResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val response = connectParticipantClient.startAttachmentUpload(request)
-                response
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                client.startAttachmentUpload(request)
             }
         }
     }
 
-    override suspend fun completeAttachmentUpload(connectionToken: String, request: CompleteAttachmentUploadRequest): Result<CompleteAttachmentUploadResult> {
+    suspend fun completeAttachmentUpload(
+        connectionToken: String,
+        request: CompleteAttachmentUploadRequest
+    ): Result<CompleteAttachmentUploadResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val response = connectParticipantClient.completeAttachmentUpload(request)
-                response
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                client.completeAttachmentUpload(request)
             }
         }
     }
 
-    override suspend fun getAttachment(
+    suspend fun getAttachment(
         connectionToken: String,
         attachmentId: String
     ): Result<GetAttachmentResult> {
-        return withContext(Dispatchers.IO){
+        return withContext(Dispatchers.IO) {
             runCatching {
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                
                 val request = GetAttachmentRequest().apply {
                     this.connectionToken = connectionToken
                     this.attachmentId = attachmentId
                 }
-                val response = connectParticipantClient.getAttachment(request)
-                response
+                client.getAttachment(request)
             }
         }
     }
 
-    override suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
+    suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val response = connectParticipantClient.getTranscript(request)
-                response
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+                client.getTranscript(request)
             }
         }
     }

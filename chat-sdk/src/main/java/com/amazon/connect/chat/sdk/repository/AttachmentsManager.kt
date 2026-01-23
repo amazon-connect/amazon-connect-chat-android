@@ -6,6 +6,7 @@ package com.amazon.connect.chat.sdk.repository
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.network.api.APIClient
 import com.amazon.connect.chat.sdk.network.AWSClient
 import javax.inject.Inject
@@ -28,9 +29,24 @@ import java.net.URL
 
 class AttachmentsManager @Inject constructor(
     private val context: Context,
-    private val awsClient: AWSClient,
+    private val defaultAwsClient: AWSClient,
     private var apiClient: APIClient
 ) {
+    private var globalConfig: GlobalConfig? = null
+
+    /**
+     * Configures the AttachmentsManager with global configuration.
+     */
+    fun configure(config: GlobalConfig) {
+        globalConfig = config
+    }
+
+    /**
+     * Returns the appropriate AWSClient - custom client if configured, otherwise default.
+     */
+    private fun getClient(): AWSClient {
+        return globalConfig?.customAWSClient ?: defaultAwsClient
+    }
 
     suspend fun sendAttachment(connectionToken: String, fileUri: Uri) : Result<String> {
         return runCatching {
@@ -43,7 +59,7 @@ class AttachmentsManager @Inject constructor(
             }
 
             val startAttachmentResult =
-                awsClient.startAttachmentUpload(connectionToken, startAttachmentUploadRequest)
+                getClient().startAttachmentUpload(connectionToken, startAttachmentUploadRequest)
 
             val startAttachmentResponse = startAttachmentResult.getOrNull()
                 ?: throw startAttachmentResult.exceptionOrNull() ?: Exception("Error starting attachment upload")
@@ -77,7 +93,7 @@ class AttachmentsManager @Inject constructor(
             this.connectionToken = connectionToken
             this.setAttachmentIds(listOf(attachmentId))
         }
-        val completeAttachmentUploadResult = awsClient.completeAttachmentUpload(connectionToken, request)
+        val completeAttachmentUploadResult = getClient().completeAttachmentUpload(connectionToken, request)
 
         val completeAttachmentUploadResponse = completeAttachmentUploadResult.getOrNull()
         if (completeAttachmentUploadResponse == null) {
@@ -119,16 +135,16 @@ class AttachmentsManager @Inject constructor(
         attachmentId: String,
         fileName: String,
     ): Result<URL> {
-        return getAttachmentDownloadUrl(connectionToken, attachmentId).mapCatching { url ->
+        return getAttachmentDownloadUrl(attachmentId, connectionToken).mapCatching { url ->
             downloadFile(url, fileName).getOrThrow()
         }.onFailure {
             SDKLogger.logger.logError{"AttachmentsManager: Error occurred during downloadAttachment: ${it.message}"}
         }
     }
 
-    suspend fun getAttachmentDownloadUrl(connectionToken: String, attachmentId: String): Result<URL> {
+    suspend fun getAttachmentDownloadUrl(attachmentId: String, connectionToken: String): Result<URL> {
         return runCatching {
-            val response = awsClient.getAttachment(connectionToken, attachmentId)
+            val response = getClient().getAttachment(connectionToken, attachmentId)
             URL(response.getOrNull()?.url ?: throw IOException("Invalid URL"))
         }.onFailure {
             SDKLogger.logger.logError{"AttachmentsManager: Error occurred during getAttachmentDownloadUrl: ${it.message}"}

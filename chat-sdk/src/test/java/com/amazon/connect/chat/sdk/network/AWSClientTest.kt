@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.network
 
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
@@ -50,7 +53,6 @@ class AWSClientTest {
     @Mock
     private lateinit var mockConnectParticipantClient: AmazonConnectParticipantClient
 
-    private lateinit var awsClient: AWSClientImpl
     private val testDispatcher = StandardTestDispatcher()
     private val testScope = TestScope(testDispatcher)
 
@@ -66,14 +68,14 @@ class AWSClientTest {
     @Before
     fun setUp() {
         MockitoAnnotations.openMocks(this)
-        awsClient = AWSClientImpl(mockConnectParticipantClient)
+        DefaultAWSClient.setClient(mockConnectParticipantClient)
     }
 
     @Test
     fun `test configure sets region on client`() {
         val config = GlobalConfig(region = testRegion)
         
-        awsClient.configure(config)
+        DefaultAWSClient.configure(config)
         
         verify(mockConnectParticipantClient).setRegion(Region.getRegion(testRegion.getName()))
     }
@@ -91,7 +93,7 @@ class AWSClientTest {
         `when`(mockResult.connectionCredentials).thenReturn(mockConnectionCredentials)
         `when`(mockConnectParticipantClient.createParticipantConnection(Mockito.any())).thenReturn(mockResult)
         
-        val result = awsClient.createParticipantConnection(testParticipantToken)
+        val result = DefaultAWSClient.createParticipantConnection(testParticipantToken)
         
         assertTrue(result.isSuccess)
         val connectionDetails = result.getOrNull()
@@ -112,7 +114,7 @@ class AWSClientTest {
         val exception = RuntimeException("Test exception")
         `when`(mockConnectParticipantClient.createParticipantConnection(Mockito.any())).thenThrow(exception)
         
-        val result = awsClient.createParticipantConnection(testParticipantToken)
+        val result = DefaultAWSClient.createParticipantConnection(testParticipantToken)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -123,7 +125,7 @@ class AWSClientTest {
         val mockResult = Mockito.mock(DisconnectParticipantResult::class.java)
         `when`(mockConnectParticipantClient.disconnectParticipant(Mockito.any())).thenReturn(mockResult)
         
-        val result = awsClient.disconnectParticipantConnection(testConnectionToken)
+        val result = DefaultAWSClient.disconnectParticipantConnection(testConnectionToken)
         
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -139,7 +141,7 @@ class AWSClientTest {
         val exception = RuntimeException("Test exception")
         `when`(mockConnectParticipantClient.disconnectParticipant(Mockito.any())).thenThrow(exception)
         
-        val result = awsClient.disconnectParticipantConnection(testConnectionToken)
+        val result = DefaultAWSClient.disconnectParticipantConnection(testConnectionToken)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -151,7 +153,7 @@ class AWSClientTest {
         `when`(mockConnectParticipantClient.sendMessage(Mockito.any())).thenReturn(mockResult)
         val contentType = ContentType.PLAIN_TEXT
         
-        val result = awsClient.sendMessage(testConnectionToken, contentType, testMessage)
+        val result = DefaultAWSClient.sendMessage(testConnectionToken, contentType, testMessage)
         
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -171,7 +173,7 @@ class AWSClientTest {
         `when`(mockConnectParticipantClient.sendMessage(Mockito.any())).thenThrow(exception)
         val contentType = ContentType.PLAIN_TEXT
         
-        val result = awsClient.sendMessage(testConnectionToken, contentType, testMessage)
+        val result = DefaultAWSClient.sendMessage(testConnectionToken, contentType, testMessage)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -183,7 +185,7 @@ class AWSClientTest {
         `when`(mockConnectParticipantClient.sendEvent(Mockito.any())).thenReturn(mockResult)
         val contentType = ContentType.TYPING
         
-        val result = awsClient.sendEvent(testConnectionToken, contentType, testContent)
+        val result = DefaultAWSClient.sendEvent(testConnectionToken, contentType, testContent)
         
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -203,7 +205,7 @@ class AWSClientTest {
         `when`(mockConnectParticipantClient.sendEvent(Mockito.any())).thenThrow(exception)
         val contentType = ContentType.TYPING
         
-        val result = awsClient.sendEvent(testConnectionToken, contentType, testContent)
+        val result = DefaultAWSClient.sendEvent(testConnectionToken, contentType, testContent)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -219,7 +221,7 @@ class AWSClientTest {
             contentType = "text/plain"
         }
         
-        val result = awsClient.startAttachmentUpload(testConnectionToken, request)
+        val result = DefaultAWSClient.startAttachmentUpload(testConnectionToken, request)
         
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -238,7 +240,7 @@ class AWSClientTest {
             contentType = "text/plain"
         }
         
-        val result = awsClient.startAttachmentUpload(testConnectionToken, request)
+        val result = DefaultAWSClient.startAttachmentUpload(testConnectionToken, request)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -253,7 +255,7 @@ class AWSClientTest {
             setAttachmentIds(listOf(testAttachmentId))
         }
 
-        val result = awsClient.completeAttachmentUpload(testConnectionToken, request)
+        val result = DefaultAWSClient.completeAttachmentUpload(testConnectionToken, request)
 
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -271,7 +273,7 @@ class AWSClientTest {
             setAttachmentIds(listOf(testAttachmentId))
         }
 
-        val result = awsClient.completeAttachmentUpload(testConnectionToken, request)
+        val result = DefaultAWSClient.completeAttachmentUpload(testConnectionToken, request)
 
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -283,7 +285,7 @@ class AWSClientTest {
         val mockResult = Mockito.mock(GetAttachmentResult::class.java)
         `when`(mockConnectParticipantClient.getAttachment(Mockito.any())).thenReturn(mockResult)
         
-        val result = awsClient.getAttachment(testConnectionToken, testAttachmentId)
+        val result = DefaultAWSClient.getAttachment(testConnectionToken, testAttachmentId)
         
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -301,7 +303,7 @@ class AWSClientTest {
         val exception = RuntimeException("Test exception")
         `when`(mockConnectParticipantClient.getAttachment(Mockito.any())).thenThrow(exception)
         
-        val result = awsClient.getAttachment(testConnectionToken, testAttachmentId)
+        val result = DefaultAWSClient.getAttachment(testConnectionToken, testAttachmentId)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
@@ -315,7 +317,7 @@ class AWSClientTest {
             connectionToken = testConnectionToken
         }
         
-        val result = awsClient.getTranscript(request)
+        val result = DefaultAWSClient.getTranscript(request)
         
         assertTrue(result.isSuccess)
         assertEquals(mockResult, result.getOrNull())
@@ -332,7 +334,7 @@ class AWSClientTest {
             connectionToken = testConnectionToken
         }
         
-        val result = awsClient.getTranscript(request)
+        val result = DefaultAWSClient.getTranscript(request)
         
         assertTrue(result.isFailure)
         assertEquals(exception, result.exceptionOrNull())
