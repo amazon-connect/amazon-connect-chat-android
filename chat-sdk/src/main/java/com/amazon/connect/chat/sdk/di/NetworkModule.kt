@@ -5,7 +5,6 @@ package com.amazon.connect.chat.sdk.di
 
 import android.content.Context
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazon.connect.chat.sdk.network.AWSClientImpl
 import com.amazon.connect.chat.sdk.network.NetworkConnectionManager
 import com.amazon.connect.chat.sdk.network.RetrofitServiceCreator
 import com.amazon.connect.chat.sdk.network.api.APIClient
@@ -16,8 +15,6 @@ import com.amazon.connect.chat.sdk.repository.MessageReceiptsManager
 import com.amazon.connect.chat.sdk.repository.MessageReceiptsManagerImpl
 import com.amazon.connect.chat.sdk.repository.MetricsManager
 import com.amazon.connect.chat.sdk.utils.MetricsUtils.getMetricsEndpoint
-import com.amazon.connect.chat.sdk.utils.CommonUtils
-import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -107,27 +104,14 @@ object NetworkModule {
     }
 
     /**
-     * Provides a singleton instance of AmazonConnectParticipantClient.
-     *
-     * @return An instance of AmazonConnectParticipantClient.
-     */
-    @Provides
-    @Singleton
-    fun provideAmazonConnectParticipantClient(): AmazonConnectParticipantClient {
-        val clientConfiguration = CommonUtils.createConnectParticipantConfiguration()
-        return AmazonConnectParticipantClient(clientConfiguration)
-    }
-
-    /**
      * Provides a singleton instance of AWSClient.
      *
-     * @param connectParticipantClient The AmazonConnectParticipantClient instance for AWS SDK calls.
-     * @return An instance of AWSClientImpl.
+     * @return An instance of AWSClient (the default implementation).
      */
     @Provides
     @Singleton
-    fun provideAWSClient(connectParticipantClient: AmazonConnectParticipantClient): AWSClient {
-        return AWSClientImpl(connectParticipantClient)
+    fun provideAWSClient(): AWSClient {
+        return AWSClient()
     }
 
     /**

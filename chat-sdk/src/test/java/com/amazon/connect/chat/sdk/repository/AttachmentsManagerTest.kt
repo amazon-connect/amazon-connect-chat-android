@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.amazon.connect.chat.sdk.repository
 
 import android.content.ContentResolver
@@ -140,7 +143,7 @@ class AttachmentsManagerTest {
         val mockResult = Result.success(getAttachmentResult)
         `when`(awsClient.getAttachment(mockConnectionToken, mockAttachmentId)).thenReturn(mockResult)
 
-        val result = attachmentsManager.getAttachmentDownloadUrl(mockConnectionToken, mockAttachmentId)
+        val result = attachmentsManager.getAttachmentDownloadUrl(mockAttachmentId, mockConnectionToken)
 
         assertTrue(result.isSuccess)
         assertEquals(URL(mockUrl), result.getOrNull())
@@ -152,7 +155,7 @@ class AttachmentsManagerTest {
         val mockResult = Result.failure<GetAttachmentResult>(exception)
         `when`(awsClient.getAttachment(mockConnectionToken, mockAttachmentId)).thenReturn(mockResult)
 
-        val result = attachmentsManager.getAttachmentDownloadUrl(mockConnectionToken, mockAttachmentId)
+        val result = attachmentsManager.getAttachmentDownloadUrl(mockAttachmentId, mockConnectionToken)
 
         assertTrue(result.isFailure)
         assertEquals("Invalid URL", result.exceptionOrNull()?.message)

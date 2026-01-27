@@ -18,6 +18,8 @@ import com.amazon.connect.chat.androidchatexample.models.StartChatResponse
 import com.amazon.connect.chat.androidchatexample.network.Resource
 import com.amazon.connect.chat.androidchatexample.repository.ChatRepository
 import com.amazon.connect.chat.androidchatexample.utils.CommonUtils
+import com.amazon.connect.chat.androidchatexample.models.PartialCustomClient
+import com.amazon.connect.chat.androidchatexample.models.CompleteCustomClient
 import com.amazon.connect.chat.sdk.ChatSession
 import com.amazon.connect.chat.sdk.model.ChatDetails
 import com.amazon.connect.chat.sdk.model.ContentType
@@ -110,7 +112,24 @@ class ChatViewModel @Inject constructor(
 
     // Configure the chat session with global settings
     private suspend fun configureChatSession() {
-        val globalConfig = GlobalConfig(region = chatConfiguration.region)
+        // Toggle to test custom client functionality (see CustomClientExamples.kt)
+        val useCustomClient = false  // Set to true to test custom client
+        val useCompleteClient = false  // true = CompleteCustomClient, false = PartialCustomClient
+        
+        val globalConfig = if (useCustomClient) {
+            val customClient = if (useCompleteClient) {
+                CompleteCustomClient()
+            } else {
+                PartialCustomClient()
+            }
+            GlobalConfig(
+                region = chatConfiguration.region,
+                customAWSClient = customClient
+            )
+        } else {
+            GlobalConfig(region = chatConfiguration.region)
+        }
+        
         chatSession.configure(globalConfig)
         setupChatHandlers(chatSession)
     }

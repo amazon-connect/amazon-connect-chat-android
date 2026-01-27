@@ -109,6 +109,8 @@ data class GlobalConfig(
     var region: Regions = defaultRegion,
     var features: Features = Features.defaultFeatures,
     var disableCsm: Boolean = false,
+    var customAWSClient: AWSClient? = null,
+    var customWebSocketURLProvider: ((String) -> String)? = null
 )
 ```
 * `region`
@@ -120,6 +122,14 @@ data class GlobalConfig(
 * `disableCsm`
   * This property acts as a setting to enable or disable our client side metric service. Client side metrics can provide insights into the real performance and usability, it helps us to understand how customers are actually using the SDK and what UI experiences they prefer.
   * Default: `false`
+* `customAWSClient`
+  * Optional custom AWSClient implementation for routing API calls through a backend proxy with certificate pinning. See [Custom AWSClient](#custom-awsclient) for more details.
+  * Type: `AWSClient?`
+  * Default: `null`
+* `customWebSocketURLProvider`
+  * Optional function to transform WebSocket URLs (e.g., to route through a proxy).
+  * Type: `((String) -> String)?`
+  * Default: `null`
  
 #### Updating configuration
 If you have set the `GlobalConfig` object or want to update the configurations, you can call `ChatSession.configure` to update the config object.
@@ -128,6 +138,111 @@ If you have set the `GlobalConfig` object or want to update the configurations, 
 val globalConfig = GlobalConfig(region = chatConfiguration.region)
 chatSession.configure(globalConfig)
 ```
+
+### Custom AWSClient
+
+The SDK supports custom client implementations to enable advanced networking scenarios such as:
+
+- Custom endpoint routing through proxy servers or API gateways
+- Custom header injection for authentication tokens or security headers
+- Certificate pinning for enhanced security in enterprise environments
+- Request/response transformation for compliance or monitoring requirements
+
+#### Overview
+
+By default, the SDK uses the standard AWS SDK HTTP client to communicate directly with Amazon Connect Participant Service APIs. For organizations requiring custom networking behavior, the SDK provides an inheritance-based system that allows you to subclass `AWSClient` and selectively override only the methods you need.
+
+#### Creating a Custom Client
+
+Subclass `AWSClient` and override the methods you need:
+
+**Option A: Partial Override**
+```kotlin
+// Only override the methods you need to customize
+class MyCustomClient : AWSClient() {
+    
+    override suspend fun sendMessage(
+        connectionToken: String,
+        contentType: ContentType,
+        message: String
+    ): Result<SendMessageResult> {
+        // Add custom logging/monitoring
+        Log.d("CustomClient", "sendMessage called: $message")
+        // Call parent implementation to use default AWS behavior
+        return super.sendMessage(connectionToken, contentType, message)
+    }
+    
+    // Other methods automatically use parent AWSClient implementation
+}
+```
+
+**Option B: Complete Override (For full proxy routing)**
+```kotlin
+// Override ALL methods with completely custom implementations
+class MyProxyClient(private val proxyUrl: String) : AWSClient() {
+    
+    override suspend fun createParticipantConnection(participantToken: String): Result<ConnectionDetails> {
+        // Route through your proxy instead of AWS
+        return makeProxyRequest("createParticipantConnection", participantToken)
+    }
+    
+    override suspend fun sendMessage(
+        connectionToken: String,
+        contentType: ContentType,
+        message: String
+    ): Result<SendMessageResult> {
+        // Custom message routing through proxy
+        return makeProxyRequest("sendMessage", message)
+    }
+    
+    // Override all other methods for complete control...
+}
+```
+
+#### Configuring the Custom Client
+
+```kotlin
+// Partial override example
+val customClient = MyCustomClient()
+
+val globalConfig = GlobalConfig(
+    region = Regions.US_WEST_2,
+    customAWSClient = customClient
+)
+
+chatSession.configure(globalConfig)
+```
+
+```kotlin
+// Complete override with WebSocket proxy
+val proxyClient = MyProxyClient("https://your-proxy.example.com/api")
+
+val globalConfig = GlobalConfig(
+    region = Regions.US_WEST_2,
+    customAWSClient = proxyClient,
+    customWebSocketURLProvider = { originalUrl ->
+        // Transform WebSocket URL to point to your proxy
+        "wss://your-proxy.example.com/ws?original=$originalUrl"
+    }
+)
+
+chatSession.configure(globalConfig)
+```
+
+#### Available Methods to Override
+
+The custom client can override all ACPS API methods:
+
+| Method | Description |
+|--------|-------------|
+| `createParticipantConnection` | Establish chat connection |
+| `disconnectParticipantConnection` | End chat connection |
+| `sendMessage` | Send text messages |
+| `sendEvent` | Send events (typing, receipts) |
+| `getTranscript` | Retrieve chat history |
+| `startAttachmentUpload` | Initiate file upload |
+| `completeAttachmentUpload` | Complete file upload |
+| `getAttachment` | Download attachments |
 
 ### SDKLogger
 The `SDKLogger` class is responsible for logging relevant runtime information to the console which is useful for debugging purposes. The `SDKLogger` will log key events such as establishing a connection or failures such as failing to send a message.
