@@ -27,7 +27,6 @@ import com.amazon.connect.chat.sdk.model.MetricName
 import com.amazon.connect.chat.sdk.model.TranscriptData
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
-import com.amazon.connect.chat.sdk.model.View
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.WebSocketManager
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
@@ -162,13 +161,6 @@ interface ChatService {
      * @return A Result indicating whether the message receipt sending was successful.
      */
     suspend fun sendMessageReceipt(messageReceiptType: MessageReceiptType, messageId: String) : Result<Unit>
-
-    /**
-     * Retrieves the view for the specified view token.
-     * @param viewToken The view token from an interactive message.
-     * @return A Result containing the View if successful.
-     */
-    suspend fun describeView(viewToken: String): Result<View>
 
     val eventPublisher: SharedFlow<ChatEventPayload>
     val transcriptPublisher: SharedFlow<TranscriptItem>
@@ -922,20 +914,6 @@ class ChatServiceImpl @Inject constructor(
             )
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to get transcript: ${exception.message}" }
-        }
-    }
-
-    override suspend fun describeView(viewToken: String): Result<View> {
-        val connectionDetails = connectionDetailsProvider.getConnectionDetails()
-            ?: return Result.failure(Exception("No connection details available"))
-
-        return runCatching {
-            getClient().describeView(
-                connectionToken = connectionDetails.connectionToken,
-                viewToken = viewToken
-            ).getOrThrow()
-        }.onFailure { exception ->
-            SDKLogger.logger.logError { "Failed to describe view: ${exception.message}" }
         }
     }
 

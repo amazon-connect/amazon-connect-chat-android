@@ -7,11 +7,7 @@ data class StartChatRequest(
     @SerializedName("ContactFlowId") val contactFlowId: String,
     @SerializedName("ParticipantDetails") val participantDetails: ParticipantDetails,
     @SerializedName("PersistentChat") val persistentChat: PersistentChat? = null,
-    @SerializedName("SupportedMessagingContentTypes") val supportedMessagingContentTypes: List<String> = listOf(
-        "text/plain",
-        "text/markdown",
-        "application/vnd.amazonaws.connect.message.interactive"
-    )
+    @SerializedName("SupportedMessagingContentTypes") val supportedMessagingContentTypes: List<String> = listOf("text/plain", "text/markdown")
 )
 
 data class ParticipantDetails(

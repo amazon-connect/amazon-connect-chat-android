@@ -38,7 +38,7 @@ data class Message(
     val content: MessageContent?
         get() = when (contentType) {
             ContentType.PLAIN_TEXT.type -> PlainTextContent.decode(text)
-            ContentType.RICH_TEXT.type -> PlainTextContent.decode(text)
+            ContentType.RICH_TEXT.type -> PlainTextContent.decode(text) // Replace with a rich text class later
             ContentType.APPLICATION_JSON.type -> PlainTextContent.decode(text)
             ContentType.INTERACTIVE_TEXT.type -> decodeInteractiveContent(text)
             else -> {
@@ -58,7 +58,6 @@ data class Message(
                 TimePickerContent.TEMPLATE_TYPE -> TimePickerContent.decode(text)
                 CarouselContent.TEMPLATE_TYPE -> CarouselContent.decode(text)
                 PanelContent.TEMPLATE_TYPE -> PanelContent.decode(text)
-                ViewResourceContent.TEMPLATE_TYPE -> ViewResourceContent.decode(text)
                 else -> {
                     logUnsupportedContentType(genericTemplate.templateType)
                     null

@@ -15,7 +15,6 @@ import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptData
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
-import com.amazon.connect.chat.sdk.model.View
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazon.connect.chat.sdk.repository.ChatService
 import com.amazonaws.services.connectparticipant.model.ScanDirection
@@ -145,13 +144,6 @@ interface ChatSession {
      * @param receiptType The type of the receipt.
      */
     suspend fun sendMessageReceipt(transcriptItem: TranscriptItem, receiptType: MessageReceiptType): Result<Boolean>
-
-    /**
-     * Retrieves the view for the specified view token.
-     * @param viewToken An encrypted token originating from the interactive message of a ShowView block operation.
-     * @return A Result containing the View if successful.
-     */
-    suspend fun describeView(viewToken: String): Result<View>
 
     var onConnectionEstablished: (() -> Unit)?
     var onConnectionReEstablished: (() -> Unit)?
@@ -426,12 +418,6 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             }.getOrElse {
                 Result.failure(it)
             }
-        }
-    }
-
-    override suspend fun describeView(viewToken: String): Result<View> {
-        return withContext(Dispatchers.IO) {
-            chatService.describeView(viewToken)
         }
     }
 
