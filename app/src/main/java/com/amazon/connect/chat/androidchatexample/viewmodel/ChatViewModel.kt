@@ -28,8 +28,6 @@ import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.TranscriptItem
-import com.amazon.connect.chat.sdk.model.View
-import com.amazon.connect.chat.sdk.model.ViewResourceContent
 import com.amazonaws.services.connectparticipant.model.ScanDirection
 import com.amazonaws.services.connectparticipant.model.SortKey
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -144,25 +142,11 @@ class ChatViewModel @Inject constructor(
         }
 
         chatSession.onMessageReceived = { transcriptItem ->
-            // Log ViewResource if present
-            if (transcriptItem is Message) {
-                val viewContent = transcriptItem.content as? ViewResourceContent
-                if (viewContent != null) {
-                    Log.d("ChatViewModel", "ViewResource received in onMessageReceived:")
-                    Log.d("ChatViewModel", "  - ViewID: ${viewContent.viewId ?: "N/A"}")
-                    
-                    // Extract viewToken and call describeView to get full schema
-                    viewContent.viewToken?.let { token ->
-                        Log.d("ChatViewModel", "  - Fetching full schema with describeView...")
-                        viewModelScope.launch {
-                            describeView(token)
-                        }
-                    }
-                }
-            }
+            // Handle received websocket message if needed
         }
 
         chatSession.onTranscriptUpdated = { transcriptData ->
+            Log.d("ChatViewModel", "Transcript onTranscriptUpdated last 3 items: ${transcriptData.transcriptList.takeLast(3)}")
             previousTranscriptNextToken = transcriptData.previousTranscriptNextToken
             viewModelScope.launch {
                 onUpdateTranscript(transcriptData.transcriptList)
@@ -388,17 +372,6 @@ class ChatViewModel @Inject constructor(
                 null
             ).onSuccess { response ->
                 Log.d("ChatViewModel", "Transcript fetched successfully")
-                
-                // Log ViewResource content from interactive messages
-                response.transcript
-                    .filterIsInstance<Message>()
-                    .filter { it.contentType == ContentType.INTERACTIVE_TEXT.type }
-                    .forEach { message ->
-                        val viewContent = message.content as? ViewResourceContent
-                        if (viewContent != null) {
-                            Log.d("ChatViewModel", "ViewResource content: viewId=${viewContent.viewId}, viewToken=${viewContent.viewToken}")
-                        }
-                    }
 
                 onCompletion(true)
             }.onFailure {
@@ -443,28 +416,5 @@ class ChatViewModel @Inject constructor(
     // Download an attachment using its ID and file name
     suspend fun downloadAttachment(attachmentId: String, fileName: String): Result<URL> {
         return chatSession.downloadAttachment(attachmentId, fileName)
-    }
-
-    // Retrieve view content for interactive messages using ShowView block
-    suspend fun describeView(viewToken: String): Result<View> {
-        return chatSession.describeView(viewToken).also { result ->
-            result.onSuccess { viewResource ->
-                Log.d("ChatViewModel", "ViewResource schema fetched successfully:")
-                Log.d("ChatViewModel", "  - ID: ${viewResource.id ?: "N/A"}")
-                Log.d("ChatViewModel", "  - Name: ${viewResource.name ?: "N/A"}")
-                Log.d("ChatViewModel", "  - ARN: ${viewResource.arn ?: "N/A"}")
-                Log.d("ChatViewModel", "  - Version: ${viewResource.version ?: 0}")
-                viewResource.content?.let { content ->
-                    Log.d("ChatViewModel", "  - Has Actions: ${content.actions != null}")
-                    Log.d("ChatViewModel", "  - Has InputSchema: ${content.inputSchema != null}")
-                    Log.d("ChatViewModel", "  - Has Template: ${content.template != null}")
-                    content.actions?.let { Log.d("ChatViewModel", "  - Actions: $it") }
-                    content.inputSchema?.let { Log.d("ChatViewModel", "  - InputSchema: $it") }
-                    content.template?.let { Log.d("ChatViewModel", "  - Template: $it") }
-                }
-            }.onFailure { error ->
-                Log.e("ChatViewModel", "Error retrieving view: ${error.message}")
-            }
-        }
     }
 }

@@ -243,7 +243,6 @@ The custom client can override all ACPS API methods:
 | `startAttachmentUpload` | Initiate file upload |
 | `completeAttachmentUpload` | Complete file upload |
 | `getAttachment` | Download attachments |
-| `describeView` | Retrieve view for interactive messages |
 
 ### SDKLogger
 The `SDKLogger` class is responsible for logging relevant runtime information to the console which is useful for debugging purposes. The `SDKLogger` will log key events such as establishing a connection or failures such as failing to send a message.
@@ -514,22 +513,6 @@ suspend fun resendFailedMessage(messageId: String): Result<Boolean>
 * `messageId`
   * messageId The Id of the message that failed to be sent.
   * Type: `String`
-
---------------------
-
-#### `ChatSession.describeView`
-Retrieves the view for the specified view token. This is used to get view content for interactive messages that use the ShowView block.
-
-```
-suspend fun describeView(viewToken: String): Result<View>
-```
-
-* `viewToken`
-  * An encrypted token originating from the interactive message of a ShowView block operation.
-  * Type: `String`
-* Return result type: [View](#view)
-
-For more information on how DescribeView API works, please visit [DescribeView](https://docs.aws.amazon.com/connect/latest/APIReference/API_connect-participant_DescribeView.html)
 
 --------------------
 
@@ -985,56 +968,6 @@ class MessageMetadata(
 * `eventDirection`
   * This is the direction of the metadata event.
   * Type: `eventDirection` (`Outgoing | Incoming | Common`)
-
---------
-### View
-A view resource object containing metadata and content necessary to render the view. This is returned by the [describeView](#chatsessiondescribeview) API.
-
-```
-data class View(
-    val arn: String? = null,
-    val content: ViewContent? = null,
-    val id: String? = null,
-    val name: String? = null,
-    val version: Int? = null
-)
-```
-* `arn`
-  * The Amazon Resource Name (ARN) of the view.
-  * Type: `String?`
-* `content`
-  * View content containing all content necessary to render a view except for runtime input data.
-  * Type: [ViewContent](#viewcontent)
-* `id`
-  * The identifier of the view.
-  * Type: `String?`
-* `name`
-  * The name of the view.
-  * Type: `String?`
-* `version`
-  * The current version of the view.
-  * Type: `Int?`
-
---------
-### ViewContent
-View content containing all content necessary to render a view except for runtime input data.
-
-```
-data class ViewContent(
-    val actions: List<String>? = null,
-    val inputSchema: String? = null,
-    val template: String? = null
-)
-```
-* `actions`
-  * A list of actions possible from the view.
-  * Type: `List<String>?`
-* `inputSchema`
-  * The schema representing the input data that the view template must be supplied to render.
-  * Type: `String?`
-* `template`
-  * The view template representing the structure of the view.
-  * Type: `String?`
 
 ## Security
 
