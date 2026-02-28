@@ -31,6 +31,7 @@ import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.PlainTextContent
 import com.amazon.connect.chat.sdk.model.QuickReplyContent
 import com.amazon.connect.chat.sdk.model.TranscriptItem
+import com.amazon.connect.chat.sdk.model.ViewResourceContent
 import java.net.URL
 
 @Composable
@@ -61,6 +62,7 @@ fun ChatMessageView(
                         }
                         is QuickReplyContent -> QuickReplyContentView(transcriptItem, content)
                         is ListPickerContent -> ListPickerContentView(transcriptItem, content)
+                        is ViewResourceContent -> ViewContentView(transcriptItem, content)
                         else -> Text(text = "Unsupported message type, View is missing")
                     }
                 }

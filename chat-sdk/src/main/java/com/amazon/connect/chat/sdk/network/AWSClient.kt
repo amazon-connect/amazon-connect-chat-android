@@ -6,13 +6,18 @@ package com.amazon.connect.chat.sdk.network
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.View
+import com.amazon.connect.chat.sdk.model.ViewContent
 import com.amazon.connect.chat.sdk.utils.CommonUtils
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazonaws.regions.Region
+import com.amazonaws.regions.Regions
 import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
 import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
 import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
+import com.amazonaws.services.connectparticipant.model.DescribeViewRequest
+import com.amazonaws.services.connectparticipant.model.DescribeViewResult
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
 import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
 import com.amazonaws.services.connectparticipant.model.GetAttachmentRequest
@@ -166,6 +171,19 @@ open class AWSClient {
     open suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
         return DefaultAWSClient.getTranscript(request)
     }
+
+    /**
+     * Retrieves the view for the specified view token.
+     * @param connectionToken The connection token.
+     * @param viewToken The view token from an interactive message.
+     * @return A Result containing the View if successful, or an exception if an error occurred.
+     */
+    open suspend fun describeView(
+        connectionToken: String,
+        viewToken: String
+    ): Result<View> {
+        return DefaultAWSClient.describeView(connectionToken, viewToken)
+    }
 }
 
 /**
@@ -316,5 +334,45 @@ internal object DefaultAWSClient {
                 client.getTranscript(request)
             }
         }
+    }
+
+    suspend fun describeView(
+        connectionToken: String,
+        viewToken: String
+    ): Result<View> {
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val client = connectParticipantClient
+                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
+
+                val request = DescribeViewRequest().apply {
+                    this.connectionToken = connectionToken
+                    this.viewToken = viewToken
+                }
+                val response = client.describeView(request)
+                mapDescribeViewResponse(response)
+            }
+        }
+    }
+
+    private fun mapDescribeViewResponse(response: DescribeViewResult): View {
+        val awsView = response.view ?: return View()
+        val awsContent = awsView.content
+        
+        val viewContent = awsContent?.let {
+            ViewContent(
+                actions = it.actions,
+                inputSchema = it.inputSchema,
+                template = it.template
+            )
+        }
+
+        return View(
+            arn = awsView.arn,
+            content = viewContent,
+            id = awsView.id,
+            name = awsView.name,
+            version = awsView.version
+        )
     }
 }
