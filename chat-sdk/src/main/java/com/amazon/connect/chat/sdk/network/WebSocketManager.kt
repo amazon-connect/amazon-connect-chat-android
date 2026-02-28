@@ -499,16 +499,16 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private suspend fun handleMessage(innerJson: JSONObject, rawData: String): TranscriptItem {
-        val participantRole = innerJson.getString("ParticipantRole")
-        val messageId = innerJson.getString("Id")
-        val messageText = innerJson.getString("Content")
-        val displayName = innerJson.getString("DisplayName")
-        val time = innerJson.getString("AbsoluteTime")
+        val participantRole = innerJson.optString("ParticipantRole", "")
+        val messageId = innerJson.optString("Id", "")
+        val messageText = innerJson.optString("Content", "")
+        val displayName = innerJson.optString("DisplayName", "")
+        val time = innerJson.optString("AbsoluteTime", "")
 
         val message = Message(
             participant = participantRole,
             text = messageText,
-            contentType = innerJson.getString("ContentType"),
+            contentType = innerJson.optString("ContentType", ""),
             timeStamp = time,
             id = messageId,
             displayName = displayName,
@@ -521,18 +521,18 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun handleParticipantEvent(innerJson: JSONObject, rawData: String): TranscriptItem {
-        val participantRole = innerJson.getString("ParticipantRole")
-        val displayName = innerJson.getString("DisplayName")
-        val time = innerJson.getString("AbsoluteTime")
-        val eventId = innerJson.getString("Id")
+        val participantRole = innerJson.optString("ParticipantRole", "")
+        val displayName = innerJson.optString("DisplayName", "")
+        val time = innerJson.optString("AbsoluteTime", "")
+        val eventId = innerJson.optString("Id", "")
 
         val event = Event(
             id = eventId,
             timeStamp = time,
             displayName = displayName,
             participant = participantRole,
-            text = innerJson.getString("ContentType"),
-            contentType = innerJson.getString("ContentType"),
+            text = innerJson.optString("ContentType", ""),
+            contentType = innerJson.optString("ContentType", ""),
             eventDirection = MessageDirection.COMMON,
             serializedContent = rawData
         )
@@ -540,14 +540,14 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun handleTyping(innerJson: JSONObject, rawData: String): TranscriptItem {
-        val participantRole = innerJson.getString("ParticipantRole")
-        val time = innerJson.getString("AbsoluteTime")
-        val displayName = innerJson.getString("DisplayName")
-        val eventId = innerJson.getString("Id")
+        val participantRole = innerJson.optString("ParticipantRole", "")
+        val time = innerJson.optString("AbsoluteTime", "")
+        val displayName = innerJson.optString("DisplayName", "")
+        val eventId = innerJson.optString("Id", "")
 
         val event = Event(
             timeStamp = time,
-            contentType = innerJson.getString("ContentType"),
+            contentType = innerJson.optString("ContentType", ""),
             id = eventId,
             displayName = displayName,
             participant = participantRole,
@@ -557,8 +557,8 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private suspend fun handleChatEnded(innerJson: JSONObject, rawData: String): TranscriptItem {
-        val time = innerJson.getString("AbsoluteTime")
-        val eventId = innerJson.getString("Id")
+        val time = innerJson.optString("AbsoluteTime", "")
+        val eventId = innerJson.optString("Id", "")
         val isFromPastSession = innerJson.optBoolean("isFromPastSession", false)
         // Current session event: Reset state and update session
         if (!isFromPastSession) {
@@ -568,7 +568,7 @@ class WebSocketManagerImpl @Inject constructor(
 
         val event = Event(
             timeStamp = time,
-            contentType = innerJson.getString("ContentType"),
+            contentType = innerJson.optString("ContentType", ""),
             id = eventId,
             eventDirection = MessageDirection.COMMON,
             serializedContent = rawData
@@ -577,15 +577,15 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private suspend fun handleMetadata(innerJson: JSONObject, rawData: String): TranscriptItem {
-        val messageMetadata = innerJson.getJSONObject("MessageMetadata")
-        val messageId = messageMetadata.getString("MessageId")
+        val messageMetadata = innerJson.optJSONObject("MessageMetadata") ?: JSONObject()
+        val messageId = messageMetadata.optString("MessageId", innerJson.optString("Id", ""))
         val receipts = messageMetadata.optJSONArray("Receipts")
         var status = MessageStatus.Delivered
-        val time = innerJson.getString("AbsoluteTime")
+        val time = innerJson.optString("AbsoluteTime", "")
 
         receipts?.let {
             for (i in 0 until it.length()) {
-                val receipt = it.getJSONObject(i)
+                val receipt = it.optJSONObject(i) ?: continue
                 if (receipt.optString("ReadTimestamp").isNotEmpty()) {
                     status = MessageStatus.Read
                 }
@@ -599,7 +599,7 @@ class WebSocketManagerImpl @Inject constructor(
             displayName = null,
             eventDirection = MessageDirection.COMMON,
             timeStamp = time,
-            contentType = innerJson.getString("ContentType"),
+            contentType = innerJson.optString("ContentType", ""),
             id = messageId,
             serializedContent = rawData
         )
@@ -623,7 +623,7 @@ class WebSocketManagerImpl @Inject constructor(
         }
 
         val metadata = MessageMetadata(
-            contentType = innerJson.getString("ContentType"),
+            contentType = innerJson.optString("ContentType", ""),
             eventDirection = MessageDirection.OUTGOING,
             timeStamp = time,
             id = messageId,
@@ -634,10 +634,10 @@ class WebSocketManagerImpl @Inject constructor(
     }
 
     private fun handleAttachment(innerJson: JSONObject, rawData: String): TranscriptItem? {
-        val participantRole = innerJson.getString("ParticipantRole")
-        val time = innerJson.getString("AbsoluteTime")
-        val displayName = innerJson.getString("DisplayName")
-        val messageId = innerJson.getString("Id")
+        val participantRole = innerJson.optString("ParticipantRole", "")
+        val time = innerJson.optString("AbsoluteTime", "")
+        val displayName = innerJson.optString("DisplayName", "")
+        val messageId = innerJson.optString("Id", "")
 
         val attachmentsArray = innerJson.optJSONArray("Attachments") ?: return null
         if (attachmentsArray.length() == 0) {
