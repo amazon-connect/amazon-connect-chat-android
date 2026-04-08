@@ -23,6 +23,7 @@ object Constants {
     const val PANEL = "Panel"
     const val TIME_PICKER = "TimePicker"
     const val CAROUSEL = "Carousel"
+    const val VIEW_RESOURCE = "ViewResource"
 
     object Error {
         fun connectionCreated(reason: String): String {

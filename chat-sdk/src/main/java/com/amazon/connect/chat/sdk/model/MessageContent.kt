@@ -320,3 +320,46 @@ data class PanelContent(
         }
     }
 }
+
+// ViewResource (ShowView block)
+@Serializable
+data class ViewResourceDataContent(
+    val viewId: String? = null,
+    val viewToken: String? = null
+)
+
+@Serializable
+data class ViewResourceData(
+    val content: ViewResourceDataContent? = null
+)
+
+@Serializable
+data class ViewResourceTemplate(
+    val templateType: String,
+    val version: String,
+    val data: ViewResourceData
+)
+
+/**
+ * Content for interactive messages using the ShowView block.
+ * Use ChatSession.describeView(viewToken) to fetch the full view content.
+ */
+data class ViewResourceContent(
+    val viewId: String?,
+    val viewToken: String?
+): InteractiveContent {
+    companion object {
+        const val TEMPLATE_TYPE = Constants.VIEW_RESOURCE
+        fun decode(text: String): InteractiveContent? {
+            return try {
+                val viewResource = Json { ignoreUnknownKeys = true }.decodeFromString<ViewResourceTemplate>(text)
+                val viewId = viewResource.data.content?.viewId
+                val viewToken = viewResource.data.content?.viewToken
+                ViewResourceContent(viewId = viewId, viewToken = viewToken)
+            } catch (e: SerializationException) {
+                SDKLogger.logger.logError{"MessageContent: Error decoding ViewResourceContent: ${e.localizedMessage}"}
+                null
+            }
+        }
+    }
+}
