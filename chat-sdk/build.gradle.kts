@@ -28,6 +28,7 @@ android {
             useSupportLibrary = true
         }
         buildConfigField("String", "SDK_VERSION", "\"${versionProperties["sdkVersion"]}\"")
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
