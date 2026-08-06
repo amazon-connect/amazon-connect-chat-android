@@ -212,12 +212,35 @@ class ChatServiceImpl @Inject constructor(
     override val chatSessionStatePublisher: SharedFlow<Boolean> get() = _chatSessionStatePublisher
     private var chatSessionStateCollectionJob: Job? = null
 
+    /**
+     * Guards [transcriptDict] and [internalTranscript]. Both are read and mutated from several
+     * threads: the main-dispatcher coroutines in this class, the [typingIndicatorTimer] thread, and
+     * the IO dispatcher that ChatSession's suspend functions run on. Without this lock, a structural
+     * modification on one thread (for example removeIf on the typing indicator timer) can invalidate
+     * an in-flight iteration on another, throwing ConcurrentModificationException.
+     */
+    private val transcriptLock = Any()
+
     @VisibleForTesting
     private var transcriptDict = mutableMapOf<String, TranscriptItem>()
     @VisibleForTesting
     internal var internalTranscript = mutableListOf<TranscriptItem>()
     @VisibleForTesting
     internal var previousTranscriptNextToken: String? = null
+
+    /** Snapshot of the transcript taken under [transcriptLock], safe to hand to subscribers. */
+    private fun transcriptSnapshot(): List<TranscriptItem> =
+        synchronized(transcriptLock) { internalTranscript.toList() }
+
+    /**
+     * Snapshot of the transcript and its pagination token together, under [transcriptLock]. Reading
+     * the token separately can pair an older list with a newer token, which makes the caller's
+     * "load more" skip a page of history.
+     */
+    private fun transcriptDataSnapshot(): TranscriptData =
+        synchronized(transcriptLock) {
+            TranscriptData(internalTranscript.toList(), previousTranscriptNextToken)
+        }
 
     private var typingIndicatorTimer: Timer? = null
     private var throttleTypingEventTimer: Timer? = null
@@ -330,45 +353,49 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private suspend fun triggerTranscriptListUpdate() {
-        _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
+        _transcriptListPublisher.emit(transcriptDataSnapshot())
     }
 
     private fun updateTranscriptDict(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
-        when (item) {
-            is MessageMetadata -> {
-                // Associate metadata with message based on its ID
-                val messageItem = transcriptDict[item.id] as? Message
-                messageItem?.let {
-                    it.metadata = item
-                    transcriptDict[item.id] = it
-                }
-            }
-            is Message -> {
-                // Remove typing indicators when a new message from the agent is received
-                if (item.participant == Constants.AGENT) {
-                    removeTypingIndicators()
-                    coroutineScope.launch {
-                        sendMessageReceipt(MessageReceiptType.MESSAGE_DELIVERED, item.id)
+        // synchronized is reentrant, so nested calls that take the same lock (removeTypingIndicators,
+        // updateTemporaryMessageForAttachments) are safe here.
+        synchronized<Unit>(transcriptLock) {
+            when (item) {
+                is MessageMetadata -> {
+                    // Associate metadata with message based on its ID
+                    val messageItem = transcriptDict[item.id] as? Message
+                    messageItem?.let {
+                        it.metadata = item
+                        transcriptDict[item.id] = it
                     }
                 }
+                is Message -> {
+                    // Remove typing indicators when a new message from the agent is received
+                    if (item.participant == Constants.AGENT) {
+                        removeTypingIndicators()
+                        coroutineScope.launch {
+                            sendMessageReceipt(MessageReceiptType.MESSAGE_DELIVERED, item.id)
+                        }
+                    }
 
-                val tempMessageId = attachmentIdToTempMessageId[item.attachmentId]
-                if (tempMessageId != null) {
-                    val tempMessage = transcriptDict[tempMessageId] as? Message
-                    if (tempMessage != null) {
-                        updateTemporaryMessageForAttachments(tempMessage, item, transcriptDict)
+                    val tempMessageId = attachmentIdToTempMessageId[item.attachmentId]
+                    if (tempMessageId != null) {
+                        val tempMessage = transcriptDict[tempMessageId] as? Message
+                        if (tempMessage != null) {
+                            updateTemporaryMessageForAttachments(tempMessage, item, transcriptDict)
+                        }
+                        attachmentIdToTempMessageId.remove(item.attachmentId)
+                    }else {
+                        transcriptDict[item.id] = item
                     }
-                    attachmentIdToTempMessageId.remove(item.attachmentId)
-                }else {
-                    transcriptDict[item.id] = item
                 }
-            }
-            is Event -> {
-                handleEvent(item, transcriptDict)
+                is Event -> {
+                    handleEvent(item, transcriptDict)
+                }
             }
         }
 
-        transcriptDict[item.id]?.let {
+        synchronized(transcriptLock) { transcriptDict[item.id] }?.let {
             handleTranscriptItemUpdate(it, shouldTriggerTranscriptListUpdate)
         }
 
@@ -377,21 +404,23 @@ class ChatServiceImpl @Inject constructor(
     private fun removeTypingIndicators() {
         typingIndicatorTimer?.cancel()
 
-        val initialCount = transcriptDict.size
+        synchronized(transcriptLock) {
+            val initialCount = transcriptDict.size
 
-        // Remove typing indicators from both transcriptDict and internalTranscript
-        transcriptDict.entries.removeIf {
-            it.value is Event && it.value.contentType == ContentType.TYPING.type
-        }
+            // Remove typing indicators from both transcriptDict and internalTranscript
+            transcriptDict.entries.removeIf {
+                it.value is Event && it.value.contentType == ContentType.TYPING.type
+            }
 
-        internalTranscript.removeIf {
-            it is Event && it.contentType == ContentType.TYPING.type
-        }
+            internalTranscript.removeIf {
+                it is Event && it.contentType == ContentType.TYPING.type
+            }
 
-        // Send the updated transcript list to subscribers if items removed
-        if (transcriptDict.size != initialCount) {
-            coroutineScope.launch {
-                _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
+            // Send the updated transcript list to subscribers if items removed
+            if (transcriptDict.size != initialCount) {
+                coroutineScope.launch {
+                    _transcriptListPublisher.emit(transcriptDataSnapshot())
+                }
             }
         }
     }
@@ -415,47 +444,48 @@ class ChatServiceImpl @Inject constructor(
         currentDict[event.id] = event
     }
 
-
     private fun handleTranscriptItemUpdate(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
         // Send out the individual transcript item to subscribers
         coroutineScope.launch {
             _transcriptPublisher.emit(item)
 
-            // Update the internal transcript list with the new or updated item
-            val existingIndex = internalTranscript.indexOfFirst { it.id == item.id }
-            if (existingIndex != -1) {
-                val existingItem = internalTranscript[existingIndex]
+            synchronized(transcriptLock) {
+                // Update the internal transcript list with the new or updated item
+                val existingIndex = internalTranscript.indexOfFirst { it.id == item.id }
+                if (existingIndex != -1) {
+                    val existingItem = internalTranscript[existingIndex]
 
-                // Reapply the metadata to the new item
-                // Whenever new items comes from getTranscript, it comes with null metadata, but we
-                // already have that item in our internalTranscript, so we will just apply existing
-                // metadata to new item.
-                if (existingItem is Message && item is Message) {
-                    item.persistentId = existingItem.persistentId
-                    if (existingItem.metadata != null && item.metadata == null) {
-                        item.metadata = existingItem.metadata
+                    // Reapply the metadata to the new item
+                    // Whenever new items comes from getTranscript, it comes with null metadata, but we
+                    // already have that item in our internalTranscript, so we will just apply existing
+                    // metadata to new item.
+                    if (existingItem is Message && item is Message) {
+                        item.persistentId = existingItem.persistentId
+                        if (existingItem.metadata != null && item.metadata == null) {
+                            item.metadata = existingItem.metadata
+                        }
                     }
-                }
 
-                // If the item already exists in the internal transcript list, update it
-                internalTranscript[existingIndex] = item
-            } else {
-                // If the item is new, determine where to insert it in the list based on its timestamp
-                val isSendingMessage = (item as? Message)?.metadata?.status == MessageStatus.Sending
-
-                if (isSendingMessage) {
-                    // Sending messages always go to the end (most recent) regardless of timestamp
-                    internalTranscript.add(item)
-                } else if (internalTranscript.isEmpty()) {
-                    // If the list is empty, add it to the beginning
-                    internalTranscript.add(0, item)
-                } else if (item.timeStamp.isNotEmpty() && internalTranscript.first().timeStamp.isNotEmpty() &&
-                    item.timeStamp < internalTranscript.first().timeStamp) {
-                    // If both timestamps are valid and the new item is older, add it to the beginning
-                    internalTranscript.add(0, item)
+                    // If the item already exists in the internal transcript list, update it
+                    internalTranscript[existingIndex] = item
                 } else {
-                    // Default: add to the end
-                    internalTranscript.add(item)
+                    // If the item is new, determine where to insert it in the list based on its timestamp
+                    val isSendingMessage = (item as? Message)?.metadata?.status == MessageStatus.Sending
+
+                    if (isSendingMessage) {
+                        // Sending messages always go to the end (most recent) regardless of timestamp
+                        internalTranscript.add(item)
+                    } else if (internalTranscript.isEmpty()) {
+                        // If the list is empty, add it to the beginning
+                        internalTranscript.add(0, item)
+                    } else if (item.timeStamp.isNotEmpty() && internalTranscript.first().timeStamp.isNotEmpty() &&
+                        item.timeStamp < internalTranscript.first().timeStamp) {
+                        // If both timestamps are valid and the new item is older, add it to the beginning
+                        internalTranscript.add(0, item)
+                    } else {
+                        // Default: add to the end
+                        internalTranscript.add(item)
+                    }
                 }
             }
 
@@ -466,31 +496,35 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private fun sendSingleUpdateToClient(message: Message) {
-        transcriptDict[message.id] = message
+        synchronized(transcriptLock) {
+            transcriptDict[message.id] = message
+        }
         handleTranscriptItemUpdate(message)
     }
 
     private fun updatePlaceholderMessage(oldId: String, newId: String) {
-        val placeholderMessage = transcriptDict[oldId] as? Message
-        if (placeholderMessage != null) {
-            if (transcriptDict[newId] != null) {
-                transcriptDict.remove(oldId)
-                internalTranscript.removeAll { it.id == oldId }
-                transcriptDict[newId]?.persistentId = oldId
-                // Send out updated transcript
-                coroutineScope.launch {
-                    _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
+        synchronized(transcriptLock) {
+            val placeholderMessage = transcriptDict[oldId] as? Message
+            if (placeholderMessage != null) {
+                if (transcriptDict[newId] != null) {
+                    transcriptDict.remove(oldId)
+                    internalTranscript.removeAll { it.id == oldId }
+                    transcriptDict[newId]?.persistentId = oldId
+                    // Send out updated transcript
+                    coroutineScope.launch {
+                        _transcriptListPublisher.emit(transcriptDataSnapshot())
+                    }
+                } else {
+                    // Update the placeholder message's ID to the new ID
+                    (placeholderMessage as TranscriptItem).updateId(newId)
+                    placeholderMessage.metadata?.status = MessageStatus.Sent
+                    placeholderMessage.persistentId = oldId
+                    transcriptDict.remove(oldId)
+                    transcriptDict[newId] = placeholderMessage
                 }
-            } else {
-                // Update the placeholder message's ID to the new ID
-                (placeholderMessage as TranscriptItem).updateId(newId)
-                placeholderMessage.metadata?.status = MessageStatus.Sent
-                placeholderMessage.persistentId = oldId
-                transcriptDict.remove(oldId)
-                transcriptDict[newId] = placeholderMessage
-            }
-            coroutineScope.launch {
-                _transcriptPublisher.emit(placeholderMessage)
+                coroutineScope.launch {
+                    _transcriptPublisher.emit(placeholderMessage)
+                }
             }
         }
     }
@@ -562,8 +596,10 @@ class ChatServiceImpl @Inject constructor(
             webSocketManager.disconnect("Resetting ChatService")
             clearSubscriptionsAndPublishers()
             connectionDetailsProvider.reset()
-            attachmentIdToTempMessageId.clear()
-            tempMessageIdToFileUrl.clear()
+            synchronized(transcriptLock) {
+                attachmentIdToTempMessageId.clear()
+                tempMessageIdToFileUrl.clear()
+            }
             true
         }.onFailure { exception ->
             SDKLogger.logger.logError { "Failed to reset state: ${exception.message}" }
@@ -604,23 +640,25 @@ class ChatServiceImpl @Inject constructor(
     }
 
     override suspend fun resendFailedMessage(messageId: String): Result<Boolean> {
-        val oldMessage = transcriptDict[messageId] as? Message
+        val oldMessage = synchronized(transcriptLock) { transcriptDict[messageId] } as? Message
 
         // cannot retry if old message didn't exist or fail to be sent
         if (oldMessage == null || MessageStatus.Failed != oldMessage.metadata?.status) {
             return Result.failure(Exception("Unable to find the failed message"))
         }
 
-        // remove failed message from transcript & transcript dict
-        internalTranscript.removeAll { it.id == messageId }
-        transcriptDict.remove(messageId)
+        synchronized(transcriptLock) {
+            // remove failed message from transcript & transcript dict
+            internalTranscript.removeAll { it.id == messageId }
+            transcriptDict.remove(messageId)
+        }
         // Send out updated transcript with old message removed
         coroutineScope.launch {
-            _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
+            _transcriptListPublisher.emit(transcriptDataSnapshot())
         }
 
         // as the next step, attempt to resend the message based on its type
-        val attachmentUrl = tempMessageIdToFileUrl[messageId]
+        val attachmentUrl = synchronized(transcriptLock) { tempMessageIdToFileUrl[messageId] }
         // if old message is an attachment
         if (attachmentUrl != null) {
             return sendAttachment(attachmentUrl)
@@ -690,7 +728,7 @@ class ChatServiceImpl @Inject constructor(
 
 
     private fun getRecentDisplayName(): String {
-        val recentCustomerMessage = transcriptDict.values
+        val recentCustomerMessage = synchronized(transcriptLock) { transcriptDict.values.toList() }
             .filterIsInstance<Message>()
             .filter { it.participant == "CUSTOMER" }
             .maxByOrNull { it.timeStamp }
@@ -748,7 +786,9 @@ class ChatServiceImpl @Inject constructor(
             )
 
             recentlySentAttachmentMessage?.let { message ->
-                tempMessageIdToFileUrl[message.id] = fileUri
+                synchronized(transcriptLock) {
+                    tempMessageIdToFileUrl[message.id] = fileUri
+                }
                 sendSingleUpdateToClient(message)
                 // Get the attachmentId by starting the upload
                 val attachmentIdResult = attachmentsManager.sendAttachment(connectionDetails.connectionToken, fileUri)
@@ -756,7 +796,9 @@ class ChatServiceImpl @Inject constructor(
                 // Get the attachmentId immediately
                 val attachmentId = attachmentIdResult.getOrThrow()
 
-                attachmentIdToTempMessageId[attachmentId] = message.id
+                synchronized(transcriptLock) {
+                    attachmentIdToTempMessageId[attachmentId] = message.id
+                }
             }
 
             true
@@ -798,8 +840,9 @@ class ChatServiceImpl @Inject constructor(
     }
 
     private suspend fun fetchReconnectedTranscript() {
-        val lastItem = internalTranscript.lastOrNull { (it as? Message)?.metadata?.status != MessageStatus.Failed }
-            ?: return
+        val lastItem = synchronized(transcriptLock) {
+            internalTranscript.lastOrNull { (it as? Message)?.metadata?.status != MessageStatus.Failed }
+        } ?: return
 
         // Construct the start position from the last item
         val startPosition = StartPosition().apply {
@@ -812,7 +855,7 @@ class ChatServiceImpl @Inject constructor(
 
     private fun isItemInInternalTranscript(Id: String?): Boolean {
         if (Id == null) return false
-        for (item in internalTranscript.reversed()) {
+        for (item in transcriptSnapshot().reversed()) {
             if (item.id == Id) {
                 return true
             }
@@ -871,22 +914,24 @@ class ChatServiceImpl @Inject constructor(
                     )
 
             if ((request.scanDirection == ScanDirection.BACKWARD.toString()) && !(isStartPositionDefined && transcriptItems.isEmpty())) {
-                if (internalTranscript.isEmpty() || transcriptItems.isEmpty()) {
-                    previousTranscriptNextToken = response.nextToken
-                    _transcriptListPublisher.emit(TranscriptData(internalTranscript.toList(), previousTranscriptNextToken))
+                if (synchronized(transcriptLock) { internalTranscript.isEmpty() } || transcriptItems.isEmpty()) {
+                    synchronized(transcriptLock) { previousTranscriptNextToken = response.nextToken }
+                    _transcriptListPublisher.emit(transcriptDataSnapshot())
                 } else {
-                    val oldestInternalTranscriptItem = internalTranscript.first()
-                    val oldestTranscriptItem: Item;
-                    if (request.sortOrder == SortKey.ASCENDING.toString()) {
-                        oldestTranscriptItem = transcriptItems.first()
-                    } else {
-                        oldestTranscriptItem = transcriptItems.last()
-                    }
-                    val oldestInternalTranscriptItemTimeStamp = oldestInternalTranscriptItem.timeStamp
-                    val oldestTranscriptItemTimeStamp = oldestTranscriptItem.absoluteTime
-                    if (oldestTranscriptItemTimeStamp.isNotEmpty() && oldestInternalTranscriptItemTimeStamp.isNotEmpty() &&
-                        oldestTranscriptItemTimeStamp <= oldestInternalTranscriptItemTimeStamp) {
-                        previousTranscriptNextToken = response.nextToken
+                    synchronized(transcriptLock) {
+                        val oldestInternalTranscriptItem = internalTranscript.first()
+                        val oldestTranscriptItem: Item;
+                        if (request.sortOrder == SortKey.ASCENDING.toString()) {
+                            oldestTranscriptItem = transcriptItems.first()
+                        } else {
+                            oldestTranscriptItem = transcriptItems.last()
+                        }
+                        val oldestInternalTranscriptItemTimeStamp = oldestInternalTranscriptItem.timeStamp
+                        val oldestTranscriptItemTimeStamp = oldestTranscriptItem.absoluteTime
+                        if (oldestTranscriptItemTimeStamp.isNotEmpty() && oldestInternalTranscriptItemTimeStamp.isNotEmpty() &&
+                            oldestTranscriptItemTimeStamp <= oldestInternalTranscriptItemTimeStamp) {
+                            previousTranscriptNextToken = response.nextToken
+                        }
                     }
                 }
             }
@@ -1008,8 +1053,10 @@ class ChatServiceImpl @Inject constructor(
         eventCollectionJob = null
         chatSessionStateCollectionJob = null
 
-        transcriptDict = mutableMapOf()
-        internalTranscript = mutableListOf()
+        synchronized(transcriptLock) {
+            transcriptDict = mutableMapOf()
+            internalTranscript = mutableListOf()
+        }
 
         typingIndicatorTimer?.cancel()
         throttleTypingEventTimer?.cancel()
