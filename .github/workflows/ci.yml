@@ -32,10 +32,7 @@ jobs:
           java-version: 17
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 30
-          build-tools: 30.0.3
+        uses: android-actions/setup-android@v4
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -70,10 +67,7 @@ jobs:
           java-version: 17
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 30
-          build-tools: 30.0.3
+        uses: android-actions/setup-android@v4
 
       - name: Cache Gradle
         uses: actions/cache@v4
