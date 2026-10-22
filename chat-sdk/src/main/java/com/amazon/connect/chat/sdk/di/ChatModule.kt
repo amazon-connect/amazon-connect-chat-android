@@ -41,7 +41,7 @@ object ChatModule {
     @Provides
     @Singleton
     fun provideChatService(
-        context: Context,
+        @ChatSdkInternal context: Context,
         awsClient: AWSClient,
         connectionDetailsProvider: ConnectionDetailsProvider,
         webSocketManager: WebSocketManager,
@@ -93,6 +93,7 @@ object ChatModule {
      */
     @Provides
     @Singleton
+    @ChatSdkInternal
     fun provideContext(@ApplicationContext appContext: Context): Context {
         return appContext
     }

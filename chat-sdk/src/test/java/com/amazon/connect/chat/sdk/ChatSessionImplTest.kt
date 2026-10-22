@@ -15,9 +15,9 @@ import com.amazon.connect.chat.sdk.model.MessageStatus
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.repository.ChatService
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.connectparticipant.model.ScanDirection
-import com.amazonaws.services.connectparticipant.model.SortKey
+import com.amazon.connect.chat.sdk.model.Region
+import com.amazon.connect.chat.sdk.model.ScanDirection
+import com.amazon.connect.chat.sdk.model.SortKey
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,7 +52,7 @@ class ChatSessionImplTest {
 
     @Test
     fun test_configure(){
-        val config = GlobalConfig(region = Regions.US_WEST_2)
+        val config = GlobalConfig(region = Region.US_WEST_2)
         chatSession.configure(config)
         verify(chatService).configure(config)
     }

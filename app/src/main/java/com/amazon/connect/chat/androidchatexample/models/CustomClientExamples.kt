@@ -7,16 +7,16 @@ import android.util.Log
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.network.AWSClient
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
-import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
-import com.amazonaws.services.connectparticipant.model.GetAttachmentResult
-import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
-import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
-import com.amazonaws.services.connectparticipant.model.SendEventResult
-import com.amazonaws.services.connectparticipant.model.SendMessageResult
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadResponse
+import aws.sdk.kotlin.services.connectparticipant.model.DisconnectParticipantResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetAttachmentResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptRequest
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptResponse
+import aws.sdk.kotlin.services.connectparticipant.model.SendEventResponse
+import aws.sdk.kotlin.services.connectparticipant.model.SendMessageResponse
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadResponse
 
 /**
  * Example: Partial Custom Client
@@ -34,7 +34,7 @@ class PartialCustomClient : AWSClient() {
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult> {
+    ): Result<SendMessageResponse> {
         Log.d(TAG, "sendMessage intercepted: $message")
         return super.sendMessage(connectionToken, contentType, message)
     }
@@ -43,7 +43,7 @@ class PartialCustomClient : AWSClient() {
         connectionToken: String,
         contentType: ContentType,
         content: String
-    ): Result<SendEventResult> {
+    ): Result<SendEventResponse> {
         Log.d(TAG, "sendEvent intercepted: ${contentType.type}")
         return super.sendEvent(connectionToken, contentType, content)
     }
@@ -65,7 +65,7 @@ class CompleteCustomClient : AWSClient() {
         return super.createParticipantConnection(participantToken)
     }
 
-    override suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult> {
+    override suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResponse> {
         Log.d(TAG, "disconnectParticipantConnection intercepted")
         return super.disconnectParticipantConnection(connectionToken)
     }
@@ -74,7 +74,7 @@ class CompleteCustomClient : AWSClient() {
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult> {
+    ): Result<SendMessageResponse> {
         Log.d(TAG, "sendMessage intercepted: $message")
         return super.sendMessage(connectionToken, contentType, message)
     }
@@ -83,7 +83,7 @@ class CompleteCustomClient : AWSClient() {
         connectionToken: String,
         contentType: ContentType,
         content: String
-    ): Result<SendEventResult> {
+    ): Result<SendEventResponse> {
         Log.d(TAG, "sendEvent intercepted: ${contentType.type}")
         return super.sendEvent(connectionToken, contentType, content)
     }
@@ -91,7 +91,7 @@ class CompleteCustomClient : AWSClient() {
     override suspend fun startAttachmentUpload(
         connectionToken: String,
         request: StartAttachmentUploadRequest
-    ): Result<StartAttachmentUploadResult> {
+    ): Result<StartAttachmentUploadResponse> {
         Log.d(TAG, "startAttachmentUpload intercepted: ${request.attachmentName}")
         return super.startAttachmentUpload(connectionToken, request)
     }
@@ -99,7 +99,7 @@ class CompleteCustomClient : AWSClient() {
     override suspend fun completeAttachmentUpload(
         connectionToken: String,
         request: CompleteAttachmentUploadRequest
-    ): Result<CompleteAttachmentUploadResult> {
+    ): Result<CompleteAttachmentUploadResponse> {
         Log.d(TAG, "completeAttachmentUpload intercepted")
         return super.completeAttachmentUpload(connectionToken, request)
     }
@@ -107,14 +107,14 @@ class CompleteCustomClient : AWSClient() {
     override suspend fun getAttachment(
         connectionToken: String,
         attachmentId: String
-    ): Result<GetAttachmentResult> {
+    ): Result<GetAttachmentResponse> {
         Log.d(TAG, "getAttachment intercepted: $attachmentId")
         return super.getAttachment(connectionToken, attachmentId)
     }
 
     override suspend fun getTranscript(
         request: GetTranscriptRequest
-    ): Result<GetTranscriptResult> {
+    ): Result<GetTranscriptResponse> {
         Log.d(TAG, "getTranscript intercepted")
         return super.getTranscript(request)
     }

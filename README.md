@@ -36,6 +36,28 @@ dependencies {
 
 The version numbers could be found under the [Releases](https://github.com/amazon-connect/amazon-connect-chat-android/releases) page.
 
+### Requirements
+
+Version 3.0 and later use the [AWS SDK for Kotlin](https://github.com/awslabs/aws-sdk-kotlin), which requires:
+
+* `minSdk` 24 or higher
+* Kotlin 2.2 or higher
+* [Core library desugaring](https://developer.android.com/studio/write/java8-support#library-desugaring) enabled in your application:
+
+```
+android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+```
+
+If you are upgrading from 2.x, see the [3.0 migration guide](MIGRATION_GUIDE_3.0.md).
+
 ### Install via Binaries Directly from GitHub Releases
 
 1. Go to the [Amazon Connect Chat SDK for Android GitHub Releases](https://github.com/amazon-connect/amazon-connect-chat-android/releases) page.
@@ -70,7 +92,7 @@ If you are not using Hilt, then you can initialise `ChatSession` like this:
 ```
 private val chatSession = ChatSessionProvider.getChatSession(context)
 ```
-> Note: When not using Hilt/Dagger for dependency injection, you may need to manually import the necessary dependencies for [AWSConnectParticipant](https://github.com/aws-amplify/aws-sdk-android) and [AWSCore](https://github.com/aws-amplify/aws-sdk-android) in your app’s build.gradle file. With Hilt/Dagger, these dependencies are managed automatically, but for manual implementations, you must include them explicitly to ensure all required classes are available.
+> Note: The SDK's Hilt bindings for types it does not own, such as `OkHttpClient`, `Retrofit.Builder` and `Context`, are qualified so that they do not conflict with your application's own bindings. `ChatSession` remains injectable without a qualifier.
 
 In this example, we are using a `ChatViewModel` class that helps bridge UI and SDK communication.  This class is responsible for managing interactions with the SDK's ChatSession object. From here, we can access the SDK's suite of APIs from the `chatSession` property. 
 
@@ -102,11 +124,11 @@ The Amazon Connect Chat SDK for Android provides two methods to receive messages
 The `GlobalConfig` object is used to configure both the AWS ConnectParticipant client as well as some of the chat behavior.
 
 #### `GlobalConfig.init`
-The initializer for the `GlobalConfig` class requires the `AWSRegionType` and the enabled `Features`
+The initializer for the `GlobalConfig` class requires the `Region` and the enabled `Features`
 
 ```
 data class GlobalConfig(
-    var region: Regions = defaultRegion,
+    var region: Region = defaultRegion,
     var features: Features = Features.defaultFeatures,
     var disableCsm: Boolean = false,
     var customAWSClient: AWSClient? = null,
@@ -114,8 +136,8 @@ data class GlobalConfig(
 )
 ```
 * `region`
-  * This property is used to set the region of the ConnectParticipant client.  This should be set to the region of your Connect instance (e.g. `.USEast1`)
-  * Type: `AWSRegionType`
+  * This property is used to set the region of the ConnectParticipant client.  This should be set to the region of your Connect instance (e.g. `Region.US_EAST_1` or `Region("us-east-1")`)
+  * Type: `Region`
 * `features: Features`
   * The features property dictates the enablement of certain features as well as their configurations. If no value is passed for this property, the chat will be configured with default values. See [Features](#features) for more details.
   * Type: [Features](#features)
@@ -154,7 +176,7 @@ By default, the SDK uses the standard AWS SDK HTTP client to communicate directl
 
 #### Creating a Custom Client
 
-Subclass `AWSClient` and override the methods you need:
+Subclass `AWSClient` and override the methods you need. Request and response types such as `SendMessageResponse` come from the AWS SDK for Kotlin package `aws.sdk.kotlin.services.connectparticipant.model`:
 
 **Option A: Partial Override**
 ```kotlin
@@ -165,7 +187,7 @@ class MyCustomClient : AWSClient() {
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult> {
+    ): Result<SendMessageResponse> {
         // Add custom logging/monitoring
         Log.d("CustomClient", "sendMessage called: $message")
         // Call parent implementation to use default AWS behavior
@@ -190,7 +212,7 @@ class MyProxyClient(private val proxyUrl: String) : AWSClient() {
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult> {
+    ): Result<SendMessageResponse> {
         // Custom message routing through proxy
         return makeProxyRequest("sendMessage", message)
     }
@@ -206,7 +228,7 @@ class MyProxyClient(private val proxyUrl: String) : AWSClient() {
 val customClient = MyCustomClient()
 
 val globalConfig = GlobalConfig(
-    region = Regions.US_WEST_2,
+    region = Region.US_WEST_2,
     customAWSClient = customClient
 )
 
@@ -218,7 +240,7 @@ chatSession.configure(globalConfig)
 val proxyClient = MyProxyClient("https://your-proxy.example.com/api")
 
 val globalConfig = GlobalConfig(
-    region = Regions.US_WEST_2,
+    region = Region.US_WEST_2,
     customAWSClient = proxyClient,
     customWebSocketURLProvider = { originalUrl ->
         // Transform WebSocket URL to point to your proxy

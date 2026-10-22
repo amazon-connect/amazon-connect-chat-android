@@ -1,6 +1,6 @@
 package com.amazon.connect.chat.sdk.utils
 
-import com.amazonaws.regions.Regions
+import com.amazon.connect.chat.sdk.model.Region
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,7 +41,7 @@ class ConstantsTest {
 
     @Test
     fun testRegionConstant() {
-        assertEquals(Regions.US_WEST_2, Constants.DEFAULT_REGION)
+        assertEquals(Region.US_WEST_2, Constants.DEFAULT_REGION)
     }
 
     @Test

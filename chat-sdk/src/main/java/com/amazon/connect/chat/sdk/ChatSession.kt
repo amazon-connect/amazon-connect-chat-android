@@ -12,15 +12,15 @@ import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
 import com.amazon.connect.chat.sdk.model.MessageStatus
+import com.amazon.connect.chat.sdk.model.ScanDirection
+import com.amazon.connect.chat.sdk.model.SortKey
 import com.amazon.connect.chat.sdk.model.TranscriptData
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.model.View
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
 import com.amazon.connect.chat.sdk.repository.ChatService
-import com.amazonaws.services.connectparticipant.model.ScanDirection
-import com.amazonaws.services.connectparticipant.model.SortKey
-import com.amazonaws.services.connectparticipant.model.StartPosition
+import aws.sdk.kotlin.services.connectparticipant.model.StartPosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -384,7 +384,7 @@ class ChatSessionImpl @Inject constructor(private val chatService: ChatService) 
             runCatching {
                 // Construct the start position if provided
                 val awsStartPosition = if (startPosition != null) {
-                    StartPosition().withId(startPosition)
+                    StartPosition { id = startPosition }
                 } else {
                     null
                 }

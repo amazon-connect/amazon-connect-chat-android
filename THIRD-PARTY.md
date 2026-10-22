@@ -1,10 +1,10 @@
 # Libraries
-## org.jetbrains.kotlin:kotlin-stdlib:1.9.20
+## org.jetbrains.kotlin:kotlin-stdlib:2.3.21
 - **Project:** Kotlin Standard Library
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** Copyright 2010-2024 JetBrains s.r.o and respective authors and developers
 
-## org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3 (*)
+## org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0 (*)
 - **Project:** kotlinx-coroutines-android
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** Copyright 2016-2024 JetBrains s.r.o and contributors
@@ -29,7 +29,7 @@
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** Copyright (C) 2016 Square, Inc.
 
-## com.squareup.okhttp3:okhttp:4.12.0 (*)
+## com.squareup.okhttp3:okhttp:5.3.2 (*)
 - **Project:** okhttp
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** Copyright 2019 Square, Inc.
@@ -49,20 +49,15 @@
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** # Copyright (C) 2021 Square, Inc.
 
-## com.google.dagger:hilt-android:2.49
+## com.google.dagger:hilt-android:2.58
 - **Project:** Hilt Android
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** Copyright (C) 2023 The Dagger Authors.
 
-## com.amazonaws:aws-android-sdk-core:2.73.0
-- **Project:** AWS SDK for Android - Core Runtime
+## aws.sdk.kotlin:connectparticipant:1.6.107
+- **Project:** AWS SDK for Kotlin - Amazon Connect Participant
 - **License:** [Apache 2.0](#apache-20)
-- **Copyright:** Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
-## com.amazonaws:aws-android-sdk-connectparticipant:2.73.0
-- **Project:** AWS SDK for Android - Amazon Connect Participant
-- **License:** [Apache 2.0](#apache-20)
-- **Copyright:** Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+- **Copyright:** Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 ## io.coil-kt:coil-compose:2.5.0
 - **Project:** coil-compose

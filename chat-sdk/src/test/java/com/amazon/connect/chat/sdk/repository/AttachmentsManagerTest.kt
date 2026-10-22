@@ -10,12 +10,10 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.api.APIClient
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
-import com.amazonaws.services.connectparticipant.model.GetAttachmentResult
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
-import com.amazonaws.services.connectparticipant.model.UploadMetadata
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetAttachmentResponse
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadRequest
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertNotNull
 import junit.framework.TestCase.assertTrue
@@ -137,8 +135,10 @@ class AttachmentsManagerTest {
 
     @Test
     fun `test getAttachmentDownloadUrl success`() = runTest {
-        val getAttachmentResult = GetAttachmentResult()
-        getAttachmentResult.url = mockUrl
+        val getAttachmentResult = GetAttachmentResponse {
+            url = mockUrl
+            attachmentSizeInBytes = 0L
+        }
         
         val mockResult = Result.success(getAttachmentResult)
         `when`(awsClient.getAttachment(mockConnectionToken, mockAttachmentId)).thenReturn(mockResult)
@@ -152,7 +152,7 @@ class AttachmentsManagerTest {
     @Test
     fun `test getAttachmentDownloadUrl failure`() = runTest {
         val exception = IOException("Invalid URL")
-        val mockResult = Result.failure<GetAttachmentResult>(exception)
+        val mockResult = Result.failure<GetAttachmentResponse>(exception)
         `when`(awsClient.getAttachment(mockConnectionToken, mockAttachmentId)).thenReturn(mockResult)
 
         val result = attachmentsManager.getAttachmentDownloadUrl(mockAttachmentId, mockConnectionToken)
@@ -163,13 +163,13 @@ class AttachmentsManagerTest {
 
     @Test
     fun `test completeAttachmentUpload success`() = runTest {
-        val completeResult = CompleteAttachmentUploadResult()
+        val completeResult = CompleteAttachmentUploadResponse {}
         val mockResult = Result.success(completeResult)
         
         // Create a concrete request that we'll use for verification
-        val expectedRequest = CompleteAttachmentUploadRequest().apply {
+        val expectedRequest = CompleteAttachmentUploadRequest {
             connectionToken = mockConnectionToken
-            setAttachmentIds(listOf(mockAttachmentId))
+            attachmentIds = listOf(mockAttachmentId)
         }
         
         // Setup the mock to return success for our specific request
@@ -184,7 +184,7 @@ class AttachmentsManagerTest {
 
     @Test
     fun `test sendAttachment with unsupported file type fails`() = runTest {
-        val startRequest = StartAttachmentUploadRequest().apply {
+        val startRequest = StartAttachmentUploadRequest {
             connectionToken = mockConnectionToken
             attachmentName = "test.unsupported"
             contentType = "application/octet-stream"

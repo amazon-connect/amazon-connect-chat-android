@@ -12,14 +12,14 @@ import com.amazon.connect.chat.sdk.network.api.AttachmentsInterface
 import com.amazon.connect.chat.sdk.network.api.MetricsInterface
 import com.amazon.connect.chat.sdk.repository.AttachmentsManager
 import com.amazon.connect.chat.sdk.utils.Constants
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
-import com.amazonaws.services.connectparticipant.model.GetAttachmentResult
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
-import com.amazonaws.services.connectparticipant.model.UploadMetadata
+import com.amazon.connect.chat.sdk.model.Region
+import aws.sdk.kotlin.services.connectparticipant.ConnectParticipantClient
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetAttachmentResponse
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadResponse
+import aws.sdk.kotlin.services.connectparticipant.model.UploadMetadata
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -54,7 +54,7 @@ import retrofit2.Response as RetrofitResponse
 class AttachmentsManagerTest {
 
     @Mock
-    private lateinit var mockClient: AmazonConnectParticipantClient
+    private lateinit var mockClient: ConnectParticipantClient
 
     @Mock
     private lateinit var attachmentsInterface: AttachmentsInterface
@@ -70,16 +70,30 @@ class AttachmentsManagerTest {
 
     private val context = mock(Context::class.java)
     private val contentResolver = mock(ContentResolver::class.java)
-    private val mockStartAttachmentUploadRequest = StartAttachmentUploadRequest()
-    private val mockStartAttachmentUploadResult = StartAttachmentUploadResult()
-    private val mockGetAttachmentResult = GetAttachmentResult()
 
     private val mockUri: Uri = Uri.parse("https://example.com/dummy")
     private val mockAttachmentId = "12345"
-    private val mockUploadMetadata = UploadMetadata()
     private val mockUrl = "https://example.com/"
     private val mockHeadersToInclude = mapOf("key1" to "value1", "key2" to "value2", "key3" to "value3")
     private val mockConnectionToken = "connectionToken"
+    private val mockStartAttachmentUploadRequest = StartAttachmentUploadRequest {
+        this.connectionToken = mockConnectionToken
+        this.attachmentName = "example.txt"
+        this.contentType = "text/plain"
+        this.attachmentSizeInBytes = 1000
+    }
+    private val mockUploadMetadata = UploadMetadata {
+        this.url = mockUrl
+        this.headersToInclude = mockHeadersToInclude
+    }
+    private val mockStartAttachmentUploadResult = StartAttachmentUploadResponse {
+        this.attachmentId = mockAttachmentId
+        this.uploadMetadata = mockUploadMetadata
+    }
+    private val mockGetAttachmentResult = GetAttachmentResponse {
+        url = mockUrl
+        attachmentSizeInBytes = 0L
+    }
     private val mockFilename = "example.txt"
 
     @Before
@@ -87,25 +101,11 @@ class AttachmentsManagerTest {
         MockitoAnnotations.openMocks(this)
         apiClient = spy(APIClient(metricsInterface, attachmentsInterface))
         `when`(context.contentResolver).thenReturn(contentResolver)
-        mockStartAttachmentUploadRequest.apply {
-            this.connectionToken = mockConnectionToken
-            this.attachmentName = "example.txt"
-            this.contentType = "text/plain"
-            this.attachmentSizeInBytes = 1000
-        }
-        mockUploadMetadata.apply {
-            this.url = mockUrl
-            this.headersToInclude = mockHeadersToInclude
-        }
-        mockStartAttachmentUploadResult.apply {
-            this.attachmentId = mockAttachmentId
-            this.uploadMetadata = mockUploadMetadata
-        }
         // Create AttachmentsManager with mock AWSClient
         attachmentsManager = spy(AttachmentsManager(context, mockAwsClient, apiClient))
         
         // Configure with GlobalConfig that uses our mock client
-        val config = GlobalConfig(region = Regions.US_WEST_2, customAWSClient = mockAwsClient)
+        val config = GlobalConfig(region = Region.US_WEST_2, customAWSClient = mockAwsClient)
         attachmentsManager.configure(config)
     }
 
@@ -170,7 +170,7 @@ class AttachmentsManagerTest {
             .`when`(attachmentsManager)
             .createStartAttachmentUploadRequest(mockConnectionToken, mockUri)
 
-        doReturn(Result.failure<StartAttachmentUploadResult>(Exception("Upload failed")))
+        doReturn(Result.failure<StartAttachmentUploadResponse>(Exception("Upload failed")))
             .`when`(mockAwsClient)
             .startAttachmentUpload(mockConnectionToken, mockStartAttachmentUploadRequest)
 
@@ -180,10 +180,10 @@ class AttachmentsManagerTest {
 
     @Test
     fun test_sendAttachment_invalidType() = runTest {
-        mockStartAttachmentUploadRequest.apply {
+        val invalidTypeRequest = mockStartAttachmentUploadRequest.copy {
             this.attachmentName = "example.asdf"
         }
-        doReturn(mockStartAttachmentUploadRequest)
+        doReturn(invalidTypeRequest)
             .`when`(attachmentsManager)
             .createStartAttachmentUploadRequest(mockConnectionToken, mockUri)
         attachmentsManager.sendAttachment(mockConnectionToken, mockUri)
@@ -209,7 +209,6 @@ class AttachmentsManagerTest {
 
     @Test
     fun test_downloadAttachment() = runTest {
-        mockGetAttachmentResult.url = mockUrl
         doReturn(Result.success(mockGetAttachmentResult))
             .`when`(mockAwsClient)
             .getAttachment(mockConnectionToken, mockAttachmentId)
@@ -235,13 +234,12 @@ class AttachmentsManagerTest {
 
     @Test
     fun test_completeAttachmentUpload() = runTest {
-        val mockCompleteAttachmentUploadRequest = CompleteAttachmentUploadRequest()
-        mockCompleteAttachmentUploadRequest.setAttachmentIds(listOf(mockAttachmentId))
-        mockCompleteAttachmentUploadRequest.apply {
+        val mockCompleteAttachmentUploadRequest = CompleteAttachmentUploadRequest {
             this.connectionToken = mockConnectionToken
+            this.attachmentIds = listOf(mockAttachmentId)
         }
 
-        val mockCompleteAttachmentUploadResult = CompleteAttachmentUploadResult()
+        val mockCompleteAttachmentUploadResult = CompleteAttachmentUploadResponse {}
 
         doReturn(Result.success(mockCompleteAttachmentUploadResult))
             .`when`(mockAwsClient)
