@@ -36,6 +36,7 @@ object NetworkModule {
      */
     @Provides
     @Singleton
+    @ChatSdkInternal
     fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder().build()
     }
@@ -48,7 +49,8 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideRetrofitBuilder(okHttpClient: OkHttpClient): Retrofit.Builder {
+    @ChatSdkInternal
+    fun provideRetrofitBuilder(@ChatSdkInternal okHttpClient: OkHttpClient): Retrofit.Builder {
         return Retrofit.Builder()
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
@@ -62,7 +64,7 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideMetricsInterface(retrofitBuilder: Retrofit.Builder): MetricsInterface {
+    fun provideMetricsInterface(@ChatSdkInternal retrofitBuilder: Retrofit.Builder): MetricsInterface {
         return RetrofitServiceCreator.createService(MetricsInterface::class.java, retrofitBuilder, url = getMetricsEndpoint())
     }
 
@@ -87,7 +89,7 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideAttachmentsManager(context: Context, awsClient: AWSClient, apiClient: APIClient): AttachmentsManager {
+    fun provideAttachmentsManager(@ChatSdkInternal context: Context, awsClient: AWSClient, apiClient: APIClient): AttachmentsManager {
         return AttachmentsManager(context, awsClient, apiClient)
     }
 
@@ -99,7 +101,7 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideAttachmentsInterface(retrofitBuilder: Retrofit.Builder): AttachmentsInterface {
+    fun provideAttachmentsInterface(@ChatSdkInternal retrofitBuilder: Retrofit.Builder): AttachmentsInterface {
         return RetrofitServiceCreator.createService(AttachmentsInterface::class.java, retrofitBuilder)
     }
 
@@ -134,7 +136,7 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideNetworkConnectionManager(context: Context): NetworkConnectionManager {
+    fun provideNetworkConnectionManager(@ChatSdkInternal context: Context): NetworkConnectionManager {
         return NetworkConnectionManager.getInstance(context)
     }
 

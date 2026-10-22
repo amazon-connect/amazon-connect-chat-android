@@ -5,7 +5,6 @@ package com.amazon.connect.chat.sdk.model
 
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.utils.Constants
-import com.amazonaws.regions.Regions
 
 /**
  * Global configuration for the Amazon Connect Chat SDK.
@@ -19,14 +18,14 @@ import com.amazonaws.regions.Regions
  *                                      (e.g., to route through a proxy).
  */
 data class GlobalConfig(
-    var region: Regions = defaultRegion,
+    var region: Region = defaultRegion,
     var features: Features = Features.defaultFeatures,
     var disableCsm: Boolean = false,
     var customAWSClient: AWSClient? = null,
     var customWebSocketURLProvider: ((String) -> String)? = null
 ) {
     companion object {
-        val defaultRegion: Regions
+        val defaultRegion: Region
             get() = Constants.DEFAULT_REGION
     }
 }

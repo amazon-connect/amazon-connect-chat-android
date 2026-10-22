@@ -13,8 +13,8 @@ import javax.inject.Inject
 import java.util.*
 import com.amazon.connect.chat.sdk.utils.Constants
 import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,7 +52,7 @@ class AttachmentsManager @Inject constructor(
         return runCatching {
             val startAttachmentUploadRequest =
                 createStartAttachmentUploadRequest(connectionToken, fileUri)
-            val fileExtension = getFileExtension(startAttachmentUploadRequest.attachmentName)
+            val fileExtension = getFileExtension(startAttachmentUploadRequest.attachmentName.orEmpty())
             if (!Constants.attachmentTypeMap.containsKey(fileExtension)) {
                 SDKLogger.logger.logDebug{"AttachmentsManager: Unsupported file type: $fileExtension"}
                 throw Exception("Unsupported file type")
@@ -65,12 +65,16 @@ class AttachmentsManager @Inject constructor(
                 ?: throw startAttachmentResult.exceptionOrNull() ?: Exception("Error starting attachment upload")
 
             val attachmentId = startAttachmentResponse.attachmentId
+                ?: throw Exception("StartAttachmentUpload response is missing the attachment ID")
+            val uploadMetadata = startAttachmentResponse.uploadMetadata
+            val uploadUrl = uploadMetadata?.url
+                ?: throw Exception("StartAttachmentUpload response is missing the upload URL")
 
             val file = fileFromContentUri(fileUri, fileExtension)
 
             apiClient.uploadAttachment(
-                startAttachmentResponse.uploadMetadata.url,
-                startAttachmentResponse.uploadMetadata.headersToInclude,
+                uploadUrl,
+                uploadMetadata.headersToInclude.orEmpty(),
                 file
             ) { response ->
                 CoroutineScope(Dispatchers.IO).launch {
@@ -89,9 +93,9 @@ class AttachmentsManager @Inject constructor(
     }
 
     suspend fun completeAttachmentUpload(connectionToken: String, attachmentId: String) {
-        val request = CompleteAttachmentUploadRequest().apply {
+        val request = CompleteAttachmentUploadRequest {
             this.connectionToken = connectionToken
-            this.setAttachmentIds(listOf(attachmentId))
+            this.attachmentIds = listOf(attachmentId)
         }
         val completeAttachmentUploadResult = getClient().completeAttachmentUpload(connectionToken, request)
 
@@ -121,7 +125,7 @@ class AttachmentsManager @Inject constructor(
                 }
             }
         }
-        val request = StartAttachmentUploadRequest().apply {
+        val request = StartAttachmentUploadRequest {
             this.connectionToken = connectionToken
             this.attachmentName = attachmentName
             this.contentType = contentType

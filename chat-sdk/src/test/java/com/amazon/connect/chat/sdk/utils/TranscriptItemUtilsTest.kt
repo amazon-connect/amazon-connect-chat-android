@@ -3,9 +3,9 @@ package com.amazon.connect.chat.sdk.utils
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageStatus
-import com.amazonaws.services.connectparticipant.model.ChatItemType
-import com.amazonaws.services.connectparticipant.model.Item
-import com.amazonaws.services.connectparticipant.model.ParticipantRole
+import aws.sdk.kotlin.services.connectparticipant.model.ChatItemType
+import aws.sdk.kotlin.services.connectparticipant.model.Item
+import aws.sdk.kotlin.services.connectparticipant.model.ParticipantRole
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -34,25 +34,29 @@ class TranscriptItemUtilsTest {
     @Test
     fun test_serializeTranscriptItem() {
         INTERACTIVE_MESSAGE_CONTENTS.forEach { content ->
-            val item = Item()
-                .withId("e1d3bc93-fc72-421b-95f6-13b37626668b")
-                .withContent(content)
-                .withContentType("application/vnd.amazonaws.connect.message.interactive")
-                .withParticipantId("c8528570-62e6-47d9-ab5d-b6e152a07935")
-                .withParticipantRole(ParticipantRole.SYSTEM)
-                .withType(ChatItemType.MESSAGE)
+            val item = Item {
+                id = "e1d3bc93-fc72-421b-95f6-13b37626668b"
+                this.content = content
+                contentType = "application/vnd.amazonaws.connect.message.interactive"
+                participantId = "c8528570-62e6-47d9-ab5d-b6e152a07935"
+                participantRole = ParticipantRole.System
+                type = ChatItemType.Message
+            }
             val result = TranscriptItemUtils.serializeTranscriptItem(item)
             assertNotNull(result)
+            assertTrue(result?.contains("\"ParticipantRole\":\"SYSTEM\"") == true)
+            assertTrue(result?.contains("\"Type\":\"MESSAGE\"") == true)
         }
     }
 
     @Test
     fun test_serializeTranscriptItem_withMinimalProperties() {
         // Create an item with minimal properties
-        val item = Item()
-            .withId(null)
-            .withContent(null)
-            .withContentType(null)
+        val item = Item {
+            id = null
+            content = null
+            contentType = null
+        }
         
         // Test serialization
         val result = TranscriptItemUtils.serializeTranscriptItem(item)
@@ -69,9 +73,10 @@ class TranscriptItemUtilsTest {
     @Test
     fun test_serializeTranscriptItem_withMalformedContent() {
         // Create an item with malformed JSON content
-        val item = Item()
-            .withContent("{malformed json")
-            .withContentType("application/json")
+        val item = Item {
+            content = "{malformed json"
+            contentType = "application/json"
+        }
         
         // Test serialization
         val result = TranscriptItemUtils.serializeTranscriptItem(item)

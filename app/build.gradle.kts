@@ -1,8 +1,11 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.hilt)
     alias(libs.plugins.serialization)
+    alias(libs.plugins.composeCompiler)
     id("com.spotify.ruler")
     id("com.google.devtools.ksp")
 }
@@ -37,23 +40,22 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlin {
-        jvmToolchain(17)
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.4"
     }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
     }
 }
 
@@ -98,9 +100,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     ksp(libs.hiltAndroidCompiler)
 
-    // AWS
-    implementation(libs.awsSdkCore)
-    implementation(libs.awsSdkConnectParticipant)
+    coreLibraryDesugaring(libs.desugarJdkLibs)
 
     // Serialization
     implementation(libs.serializationJson)

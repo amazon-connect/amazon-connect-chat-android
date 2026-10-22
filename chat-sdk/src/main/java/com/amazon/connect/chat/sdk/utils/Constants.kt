@@ -3,7 +3,8 @@
 
 package com.amazon.connect.chat.sdk.utils
 
-import com.amazonaws.regions.Regions
+import com.amazon.connect.chat.sdk.BuildConfig
+import com.amazon.connect.chat.sdk.model.Region
 
 object Constants {
     const val AWS_CONNECT_PARTICIPANT_KEY = "AWSConnectParticipant"
@@ -17,7 +18,9 @@ object Constants {
     const val EVENT = "EVENT"
     const val MESSAGE_RECEIPT_THROTTLE_TIME = 5.0
     const val MESSAGE_RECEIPT_DELIVERED_THROTTLE_TIME = 3.0
-    val DEFAULT_REGION: Regions = Regions.US_WEST_2
+    val DEFAULT_REGION: Region = Region.US_WEST_2
+    const val USER_AGENT_PRODUCT_TOKEN = "AmazonConnect-Mobile Chat-Android SDK/${BuildConfig.SDK_VERSION}"
+    const val USER_AGENT_APP_ID = "AmazonConnect-Mobile-Chat-Android-SDK-${BuildConfig.SDK_VERSION}"
     const val QUICK_REPLY = "QuickReply"
     const val LIST_PICKER = "ListPicker"
     const val PANEL = "Panel"

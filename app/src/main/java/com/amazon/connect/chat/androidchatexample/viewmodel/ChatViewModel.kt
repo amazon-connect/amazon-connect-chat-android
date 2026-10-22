@@ -27,11 +27,11 @@ import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.model.GlobalConfig
 import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageReceiptType
+import com.amazon.connect.chat.sdk.model.ScanDirection
+import com.amazon.connect.chat.sdk.model.SortKey
 import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.View
 import com.amazon.connect.chat.sdk.model.ViewResourceContent
-import com.amazonaws.services.connectparticipant.model.ScanDirection
-import com.amazonaws.services.connectparticipant.model.SortKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import java.net.URL
