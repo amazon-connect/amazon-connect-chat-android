@@ -48,6 +48,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // OkHttp 5 artifacts such as logging-interceptor and okhttp-coroutines (used by the AWS SDK
+            // for Kotlin) each ship this OSGi manifest, so packaging fails on the duplicate.
+            excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
 }

@@ -41,7 +41,7 @@ The version numbers could be found under the [Releases](https://github.com/amazo
 Version 3.0 and later use the [AWS SDK for Kotlin](https://github.com/awslabs/aws-sdk-kotlin), which requires:
 
 * `minSdk` 24 or higher
-* Kotlin 2.2 or higher
+* Kotlin 2.2 or higher. The SDK depends on `kotlin-stdlib` 2.3.21, so Gradle resolves your application's Kotlin standard library to 2.3.21.
 * [Core library desugaring](https://developer.android.com/studio/write/java8-support#library-desugaring) enabled in your application:
 
 ```
@@ -61,17 +61,20 @@ If you are upgrading from 2.x, see the [3.0 migration guide](MIGRATION_GUIDE_3.0
 ### Install via Binaries Directly from GitHub Releases
 
 1. Go to the [Amazon Connect Chat SDK for Android GitHub Releases](https://github.com/amazon-connect/amazon-connect-chat-android/releases) page.
-2. Download the latest release of the `AmazonConnectChatAndroid.aar`.
-3. Unzip the downloaded file, if necessary.
-4. Copy the `AmazonConnectChatAndroid.aar` file into your Android project into the project's `lib` directory.
-5. In your `build.gradle` file, add `AmazonConnectChatAndroid.aar` to your dependency list.
+2. Download `amazon-connect-chat-android-<version>.aar` from the latest release.
+3. Copy the file into your Android project's `libs` directory.
+4. In your `build.gradle` file, add the AAR to your dependency list.
 
 Example:
 ```
 dependencies {
-    implementation(name: 'AmazonConnectChatAndroid', ext: 'aar')
+    implementation(files("libs/amazon-connect-chat-android-3.0.0.aar"))
 }
 ```
+
+An AAR file does not carry its dependencies. If you install it directly, also declare the SDK's
+dependencies, including `aws.sdk.kotlin:connectparticipant`, in your application. Installing from
+Maven Central resolves them for you and is recommended.
 
 ## Getting Started
 

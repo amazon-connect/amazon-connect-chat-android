@@ -26,6 +26,8 @@ android {
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Ship the SDK's R8/ProGuard rules in the AAR so they apply to minified consumer apps.
+        consumerProguardFiles("consumer-rules.pro")
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -88,7 +90,6 @@ dependencies {
     implementation(libs.okhttp)
     api(libs.adapterRxjava2)
     implementation(libs.converterGson)
-    implementation(libs.loggingInterceptor)
 
     //Hilt
     compileOnly(libs.hiltAndroid)

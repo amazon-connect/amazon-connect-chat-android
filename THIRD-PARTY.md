@@ -34,11 +34,6 @@
 - **License:** [Apache 2.0](#apache-20)
 - **Copyright:** Copyright 2019 Square, Inc.
 
-## com.squareup.okhttp3:logging-interceptor:4.9.1
-- **Project:** logging-interceptor
-- **License:** [Apache 2.0](#apache-20)
-- **Copyright:** Copyright 2019 Square, Inc.
-
 ## com.squareup:otto:1.3.8
 - **Project:** otto
 - **License:** [Apache 2.0](#apache-20)

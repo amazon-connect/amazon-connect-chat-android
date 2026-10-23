@@ -225,6 +225,9 @@ internal object DefaultAWSClient {
         }
         connectParticipantClient = createConnectParticipantClient(config.region)
         managedClientRegion = config.region
+        // Release the replaced client's HTTP engine and connection pool. Only a client this object
+        // created is closed here; one supplied through setClient() is never replaced above.
+        currentClient?.close()
     }
 
     internal fun createConnectParticipantClient(region: Region): ConnectParticipantClient {

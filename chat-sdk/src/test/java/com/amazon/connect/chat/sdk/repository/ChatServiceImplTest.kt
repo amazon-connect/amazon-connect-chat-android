@@ -79,7 +79,14 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CyclicBarrier
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptRequest
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 @ExperimentalCoroutinesApi
@@ -1006,6 +1013,194 @@ class ChatServiceImplTest {
             Dispatchers.setMain(testDispatcher)
             realDispatcher.close()
             Thread.setDefaultUncaughtExceptionHandler(previousHandler)
+        }
+    }
+
+    /**
+     * Two concurrent retries of the same failed message must send it only once. The Failed check
+     * and the removal in resendFailedMessage share one lock, so exactly one retry can pass the check.
+     */
+    @Test
+    fun test_concurrentResendOfSameFailedMessage_sendsItOnlyOnce() {
+        val sendCounts = ConcurrentHashMap<String, AtomicInteger>()
+        val fakeAwsClient = object : AWSClient() {
+            override suspend fun sendMessage(
+                connectionToken: String,
+                contentType: ContentType,
+                message: String
+            ): Result<SendMessageResponse> {
+                sendCounts.computeIfAbsent(message) { AtomicInteger() }.incrementAndGet()
+                return Result.failure(RuntimeException("Network error"))
+            }
+        }
+
+        withConcurrentService(fakeAwsClient) { service ->
+            repeat(300) { i ->
+                val text = "message $i"
+                runBlocking { service.sendMessage(ContentType.PLAIN_TEXT, text) }
+                val messageId = transcriptDictOf(service) {
+                    it.values.filterIsInstance<Message>().first { m -> m.text == text }.id
+                }
+
+                val barrier = CyclicBarrier(2)
+                val accepted = AtomicInteger()
+                val threads = List(2) {
+                    Thread {
+                        barrier.await()
+                        val result = runBlocking { service.resendFailedMessage(messageId) }
+                        // A retry that passes the check resends, which fails again with the
+                        // network error; a rejected retry fails with "Unable to find".
+                        if (result.exceptionOrNull()?.message != "Unable to find the failed message") {
+                            accepted.incrementAndGet()
+                        }
+                    }.apply { start() }
+                }
+                threads.forEach { it.join(10_000) }
+
+                assertEquals("Iteration $i: exactly one retry should pass the Failed check", 1, accepted.get())
+                assertEquals("Iteration $i: original send plus one retry", 2, sendCounts.getValue(text).get())
+            }
+        }
+    }
+
+    /**
+     * getTranscript must not lose a fetched page when another thread empties the transcript while
+     * the response is processed. The empty check and the oldest-item read share one lock, so first()
+     * can no longer run against a list that was emptied after the check.
+     */
+    @Test
+    fun test_getTranscript_whileTranscriptIsEmptiedConcurrently_doesNotFail() {
+        val fakeAwsClient = object : AWSClient() {
+            override suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResponse> =
+                Result.success(GetTranscriptResponse {
+                    transcript = listOf(createMockItem("server-item", "2024-01-01T00:00:00.000Z"))
+                })
+        }
+
+        withConcurrentService(fakeAwsClient) { service ->
+            val running = AtomicBoolean(true)
+            val mutator = Thread {
+                var n = 0
+                while (running.get()) {
+                    transcriptDictOf(service) {
+                        service.internalTranscript.add(
+                            Message(
+                                id = "local-${n++}",
+                                timeStamp = "2024-01-01T00:00:01.000Z",
+                                participant = Constants.CUSTOMER,
+                                contentType = ContentType.PLAIN_TEXT.type,
+                                text = "local"
+                            )
+                        )
+                    }
+                    transcriptDictOf(service) { service.internalTranscript.clear() }
+                }
+            }.apply { start() }
+
+            try {
+                repeat(3_000) { i ->
+                    val result = runBlocking { service.getTranscript(null, null, null, null, null) }
+                    result.exceptionOrNull()?.let { fail("getTranscript call $i failed with $it") }
+                }
+            } finally {
+                running.set(false)
+                mutator.join(10_000)
+            }
+        }
+    }
+
+    /**
+     * Every transcript item updateTranscriptDict stores must be published, even if another thread
+     * removes it from the dictionary right after the update. The item is read in the same lock
+     * block as the update, so the removal cannot make the per-item publish silently skip it.
+     */
+    @Test
+    fun test_updateTranscriptDict_whileItemsAreRemovedConcurrently_publishesEveryItem() {
+        withConcurrentService(object : AWSClient() {}) { service ->
+            val published = ConcurrentHashMap.newKeySet<String>()
+            val collector = CoroutineScope(Dispatchers.IO).launch {
+                service.transcriptPublisher.collect { published.add(it.id) }
+            }
+            // MutableSharedFlow has no replay, so wait for the collector before publishing.
+            val publisherField = ChatServiceImpl::class.java.getDeclaredField("_transcriptPublisher").apply { isAccessible = true }
+            val publisher = publisherField.get(service) as MutableSharedFlow<*>
+            assertTrue("Collector never subscribed", (1..100).any {
+                if (publisher.subscriptionCount.value > 0) true else { Thread.sleep(20); false }
+            })
+
+            val update = ChatServiceImpl::class.java.getDeclaredMethod(
+                "updateTranscriptDict", TranscriptItem::class.java, Boolean::class.javaPrimitiveType
+            ).apply { isAccessible = true }
+            val running = AtomicBoolean(true)
+            val remover = Thread {
+                while (running.get()) transcriptDictOf(service) { it.clear() }
+            }.apply { start() }
+
+            val count = 5_000
+            try {
+                repeat(count) { i ->
+                    val item = Message(
+                        id = "item-$i",
+                        timeStamp = "2024-01-01T00:00:00.000Z",
+                        participant = Constants.CUSTOMER,
+                        contentType = ContentType.PLAIN_TEXT.type,
+                        text = "text $i"
+                    )
+                    update.invoke(service, item, false)
+                }
+            } finally {
+                running.set(false)
+                remover.join(10_000)
+            }
+
+            assertTrue("Only ${published.size} of $count items were published", (1..200).any {
+                if (published.size == count) true else { Thread.sleep(50); false }
+            })
+            collector.cancel()
+        }
+    }
+
+    /** Runs [block] against a service on a real multi-threaded Main dispatcher with thread-safe fakes. */
+    private fun withConcurrentService(awsClient: AWSClient, block: (ChatServiceImpl) -> Unit) {
+        val executor = Executors.newFixedThreadPool(4)
+        val realDispatcher = executor.asCoroutineDispatcher()
+        Dispatchers.setMain(realDispatcher)
+        val fakeConnectionDetails = createMockConnectionDetails("valid_token")
+        val fakeProvider = object : ConnectionDetailsProvider {
+            override fun updateChatDetails(newDetails: ChatDetails) {}
+            override fun getConnectionDetails(): ConnectionDetails = fakeConnectionDetails
+            override fun updateConnectionDetails(newDetails: ConnectionDetails) {}
+            override fun getChatDetails(): ChatDetails = ChatDetails(participantToken = "token")
+            override fun isChatSessionActive(): Boolean = true
+            override fun setChatSessionState(isActive: Boolean) {}
+            override fun reset() {}
+            override var chatSessionState: StateFlow<Boolean> = MutableStateFlow(true)
+        }
+        val service = ChatServiceImpl(
+            context,
+            awsClient,
+            fakeProvider,
+            webSocketManager,
+            metricsManager,
+            attachmentsManager,
+            messageReceiptsManager
+        )
+        try {
+            block(service)
+        } finally {
+            Dispatchers.setMain(testDispatcher)
+            realDispatcher.close()
+        }
+    }
+
+    /** Runs [block] on the service's transcript dictionary while holding its transcript lock. */
+    private fun <T> transcriptDictOf(service: ChatServiceImpl, block: (MutableMap<String, TranscriptItem>) -> T): T {
+        val lock = ChatServiceImpl::class.java.getDeclaredField("transcriptLock").apply { isAccessible = true }
+            .get(service)
+        val dictField = ChatServiceImpl::class.java.getDeclaredField("transcriptDict").apply { isAccessible = true }
+        synchronized(lock) {
+            @Suppress("UNCHECKED_CAST")
+            return block(dictField.get(service) as MutableMap<String, TranscriptItem>)
         }
     }
 

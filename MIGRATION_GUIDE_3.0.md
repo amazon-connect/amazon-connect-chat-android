@@ -12,6 +12,9 @@ The AWS SDK for Kotlin requires:
 * Kotlin 2.2 or higher
 * Core library desugaring
 
+The SDK is built with Kotlin 2.3 and depends on `kotlin-stdlib` 2.3.21, so Gradle resolves your
+application's Kotlin standard library to 2.3.21 even if you compile with Kotlin 2.2.
+
 ```kotlin
 android {
     compileOptions {
@@ -32,7 +35,22 @@ depends on them.
 
 The Chat SDK now depends on OkHttp 5.3.2, which is backwards compatible with OkHttp 4.x and does not
 raise your `compileSdk` requirement. If your application declares OkHttp 4.x, Gradle resolves it to
-5.3.2.
+5.3.2. Keep any other OkHttp artifacts you use, such as `logging-interceptor`, on the same version.
+
+OkHttp 5 artifacts such as `logging-interceptor` and `okhttp-coroutines` (used by the AWS SDK for
+Kotlin) each include `META-INF/versions/9/OSGI-INF/MANIFEST.MF`. If your application uses one of
+them and packaging fails with `2 files found with path 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'`,
+exclude the file:
+
+```kotlin
+android {
+    packaging {
+        resources {
+            excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
+}
+```
 
 ## 2. Update region names
 
@@ -58,6 +76,11 @@ GlobalConfig(region = Region("ap-southeast-4"))
 `Region.getName()` returns the identifier, as `Regions.getName()` did. A deprecated
 `com.amazon.connect.chat.sdk.model.Regions` alias is included, so replacing only the import also
 compiles. The default region remains `us-west-2`.
+
+`Regions` was an enum in 2.x, while `Region` is a class. Code that uses enum features, such as
+`Regions.values()`, `Regions.valueOf(...)`, `.name`, `.ordinal`, `EnumSet`, or an exhaustive `when`
+without an `else` branch, must be updated; use `Region.fromName(...)` to look up a region by
+identifier.
 
 ## 3. Update transcript option types
 
@@ -146,6 +169,9 @@ Service errors are now AWS SDK for Kotlin exceptions, such as
 the status from the error metadata when you need it:
 
 ```kotlin
+import aws.smithy.kotlin.runtime.ServiceException
+import aws.smithy.kotlin.runtime.http.response.HttpResponse
+
 val status = ((error as? ServiceException)?.sdkErrorMetadata?.protocolResponse as? HttpResponse)?.status?.value
 ```
 
@@ -156,6 +182,26 @@ qualifier, so applications that provide their own bindings for those types no lo
 `DuplicateBindings` errors
 ([#88](https://github.com/amazon-connect/amazon-connect-chat-android/issues/88)). Injecting
 `ChatSession` is unchanged.
+
+If your application injected `Context`, `OkHttpClient` or `Retrofit.Builder` without providing them
+itself, it relied on the SDK's bindings, and Dagger now fails the build with a `MissingBinding`
+error. Inject `@ApplicationContext Context` instead of `Context`, and provide your own `OkHttpClient`
+and `Retrofit.Builder`, for example:
+
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+object AppNetworkModule {
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder().build()
+
+    @Provides
+    @Singleton
+    fun provideRetrofitBuilder(okHttpClient: OkHttpClient): Retrofit.Builder =
+        Retrofit.Builder().client(okHttpClient)
+}
+```
 
 ## 7. Validate your application
 

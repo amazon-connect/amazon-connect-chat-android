@@ -360,8 +360,9 @@ class ChatServiceImpl @Inject constructor(
 
     private fun updateTranscriptDict(item: TranscriptItem, shouldTriggerTranscriptListUpdate: Boolean = true) {
         // synchronized is reentrant, so nested calls that take the same lock (removeTypingIndicators,
-        // updateTemporaryMessageForAttachments) are safe here.
-        synchronized<Unit>(transcriptLock) {
+        // updateTemporaryMessageForAttachments) are safe here. The updated item is read in the same
+        // block, so another thread cannot remove it between the update and the lookup.
+        val updatedItem = synchronized(transcriptLock) {
             when (item) {
                 is MessageMetadata -> {
                     // Associate metadata with message based on its ID
@@ -395,12 +396,12 @@ class ChatServiceImpl @Inject constructor(
                     handleEvent(item, transcriptDict)
                 }
             }
+            transcriptDict[item.id]
         }
 
-        synchronized(transcriptLock) { transcriptDict[item.id] }?.let {
+        updatedItem?.let {
             handleTranscriptItemUpdate(it, shouldTriggerTranscriptListUpdate)
         }
-
     }
 
     private fun removeTypingIndicators() {
@@ -642,17 +643,23 @@ class ChatServiceImpl @Inject constructor(
     }
 
     override suspend fun resendFailedMessage(messageId: String): Result<Boolean> {
-        val oldMessage = synchronized(transcriptLock) { transcriptDict[messageId] } as? Message
-
-        // cannot retry if old message didn't exist or fail to be sent
-        if (oldMessage == null || MessageStatus.Failed != oldMessage.metadata?.status) {
-            return Result.failure(Exception("Unable to find the failed message"))
+        // The Failed check and the removal share one block, so two concurrent retries of the same
+        // message cannot both pass the check and send it twice.
+        val oldMessage = synchronized(transcriptLock) {
+            val message = transcriptDict[messageId] as? Message
+            if (message == null || MessageStatus.Failed != message.metadata?.status) {
+                null
+            } else {
+                // remove failed message from transcript & transcript dict
+                internalTranscript.removeAll { it.id == messageId }
+                transcriptDict.remove(messageId)
+                message
+            }
         }
 
-        synchronized(transcriptLock) {
-            // remove failed message from transcript & transcript dict
-            internalTranscript.removeAll { it.id == messageId }
-            transcriptDict.remove(messageId)
+        // cannot retry if old message didn't exist or fail to be sent
+        if (oldMessage == null) {
+            return Result.failure(Exception("Unable to find the failed message"))
         }
         // Send out updated transcript with old message removed
         coroutineScope.launch {
@@ -926,17 +933,19 @@ class ChatServiceImpl @Inject constructor(
                     )
 
             if ((requestScanDirection == ScanDirection.BACKWARD) && !(isStartPositionDefined && transcriptItems.isEmpty())) {
-                if (synchronized(transcriptLock) { internalTranscript.isEmpty() } || transcriptItems.isEmpty()) {
-                    synchronized(transcriptLock) { previousTranscriptNextToken = response.nextToken }
-                    _transcriptListPublisher.emit(transcriptDataSnapshot())
-                } else {
-                    synchronized(transcriptLock) {
-                        val oldestInternalTranscriptItem = internalTranscript.first()
-                        val oldestTranscriptItem: Item;
-                        if (requestSortKey == SortKey.ASCENDING) {
-                            oldestTranscriptItem = transcriptItems.first()
+                // The empty check, the oldest-item read and the token write share one block, so
+                // another thread emptying the transcript in between cannot make first() throw. The
+                // emit runs after the block because it suspends.
+                val shouldEmitTranscriptList = synchronized(transcriptLock) {
+                    val oldestInternalTranscriptItem = internalTranscript.firstOrNull()
+                    if (oldestInternalTranscriptItem == null || transcriptItems.isEmpty()) {
+                        previousTranscriptNextToken = response.nextToken
+                        true
+                    } else {
+                        val oldestTranscriptItem: Item = if (requestSortKey == SortKey.ASCENDING) {
+                            transcriptItems.first()
                         } else {
-                            oldestTranscriptItem = transcriptItems.last()
+                            transcriptItems.last()
                         }
                         val oldestInternalTranscriptItemTimeStamp = oldestInternalTranscriptItem.timeStamp
                         val oldestTranscriptItemTimeStamp = oldestTranscriptItem.absoluteTime.orEmpty()
@@ -944,7 +953,11 @@ class ChatServiceImpl @Inject constructor(
                             oldestTranscriptItemTimeStamp <= oldestInternalTranscriptItemTimeStamp) {
                             previousTranscriptNextToken = response.nextToken
                         }
+                        false
                     }
+                }
+                if (shouldEmitTranscriptList) {
+                    _transcriptListPublisher.emit(transcriptDataSnapshot())
                 }
             }
             // Process transcript items sequentially without triggering individual updates

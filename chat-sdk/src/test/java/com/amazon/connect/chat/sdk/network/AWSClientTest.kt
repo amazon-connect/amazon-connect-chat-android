@@ -37,11 +37,13 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -50,6 +52,15 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import aws.sdk.kotlin.services.connectparticipant.withConfig
+import aws.smithy.kotlin.runtime.net.url.Url
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.Assert.assertNotNull
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
 @ExperimentalCoroutinesApi
@@ -110,6 +121,39 @@ class AWSClientTest {
         val second = clientField.get(DefaultAWSClient) as ConnectParticipantClient
         assertNotSame(first, second)
         assertEquals("ap-southeast-2", second.config.region)
+        // The replaced client is closed, which shuts down its HTTP engine instead of leaking it.
+        assertFalse(first.config.httpClient.coroutineContext[Job]!!.isActive)
+        assertTrue(second.config.httpClient.coroutineContext[Job]!!.isActive)
+    }
+
+    @Test
+    fun `test region change lets a request in flight on the replaced client complete`() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody("{}")
+                    .setHeadersDelay(1500, TimeUnit.MILLISECONDS)
+            )
+            val replaced = DefaultAWSClient.createConnectParticipantClient(Region.EU_WEST_2).withConfig {
+                endpointUrl = Url.parse(server.url("/").toString())
+            }
+            DefaultAWSClient::class.java.getDeclaredField("connectParticipantClient").apply { isAccessible = true }
+                .set(DefaultAWSClient, replaced)
+            DefaultAWSClient::class.java.getDeclaredField("managedClientRegion").apply { isAccessible = true }
+                .set(DefaultAWSClient, Region.EU_WEST_2)
+
+            val inFlight = async(Dispatchers.IO) { DefaultAWSClient.sendEvent(testConnectionToken, ContentType.TYPING, "") }
+            assertNotNull("Request never reached the server", server.takeRequest(5, TimeUnit.SECONDS))
+
+            // Replaces and closes the client while its request is still waiting for the response.
+            DefaultAWSClient.configure(GlobalConfig(region = Region.US_WEST_2))
+
+            val result = inFlight.await()
+            assertTrue("In-flight request failed: ${result.exceptionOrNull()}", result.isSuccess)
+        } finally {
+            server.shutdown()
+        }
     }
 
     @Test
