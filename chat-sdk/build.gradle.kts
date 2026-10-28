@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 val versionProperties = Properties().apply {
@@ -10,6 +11,7 @@ plugins {
     `maven-publish`
     alias(libs.plugins.hilt)
     alias(libs.plugins.serialization)
+    alias(libs.plugins.composeCompiler)
     id("com.spotify.ruler")
     id("com.google.devtools.ksp")
 }
@@ -24,6 +26,8 @@ android {
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Ship the SDK's R8/ProGuard rules in the AAR so they apply to minified consumer apps.
+        consumerProguardFiles("consumer-rules.pro")
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -43,19 +47,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = "1.8"
+        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        // https://developer.android.com/jetpack/androidx/releases/compose-kotlin#pre-release_kotlin_compatibility
-        kotlinCompilerExtensionVersion = "1.5.4"
     }
 
     packaging {
@@ -69,6 +65,12 @@ android {
             withJavadocJar()
             withSourcesJar()
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
     }
 }
 
@@ -88,7 +90,6 @@ dependencies {
     implementation(libs.okhttp)
     api(libs.adapterRxjava2)
     implementation(libs.converterGson)
-    implementation(libs.loggingInterceptor)
 
     //Hilt
     compileOnly(libs.hiltAndroid)
@@ -97,11 +98,17 @@ dependencies {
     ksp(libs.hiltAndroidCompiler)
 
     // AWS
-    api(libs.awsSdkCore)
-    api(libs.awsSdkConnectParticipant)
+    api(libs.awsSdkKotlinConnectParticipant)
+    coreLibraryDesugaring(libs.desugarJdkLibs)
 
     // Serialization
     implementation(libs.serializationJson)
+
+    constraints {
+        // jspecify 1.0.0, pulled in by OkHttp 5, ships META-INF/versions/9/OSGI-INF/MANIFEST.MF, which
+        // collides with okhttp-coroutines when an application is packaged. 1.0.1 no longer ships it.
+        implementation(libs.jspecify)
+    }
 
     // Testing
     // Mockito for mocking
@@ -118,9 +125,11 @@ dependencies {
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidxJunit)
+    androidTestImplementation(libs.material3)
 
 
     testImplementation(libs.robolectric)
+    testImplementation(libs.mockwebserver)
 }
 
 // Ensure the AAR file is built before publishing

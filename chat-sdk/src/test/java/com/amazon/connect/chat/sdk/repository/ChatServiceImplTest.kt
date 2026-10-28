@@ -15,24 +15,38 @@ import com.amazon.connect.chat.sdk.model.TranscriptItem
 import com.amazon.connect.chat.sdk.model.TranscriptResponse
 import com.amazon.connect.chat.sdk.network.AWSClient
 import com.amazon.connect.chat.sdk.network.WebSocketManager
+import com.amazon.connect.chat.sdk.model.Event
 import com.amazon.connect.chat.sdk.provider.ConnectionDetailsProvider
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
-import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
-import com.amazonaws.services.connectparticipant.model.Item
-import com.amazonaws.services.connectparticipant.model.ScanDirection
-import com.amazonaws.services.connectparticipant.model.SendEventResult
-import com.amazonaws.services.connectparticipant.model.SendMessageResult
-import com.amazonaws.services.connectparticipant.model.SortKey
-import com.amazonaws.services.connectparticipant.model.StartPosition
+import com.amazon.connect.chat.sdk.utils.Constants
+import com.amazon.connect.chat.sdk.model.Region
+import aws.sdk.kotlin.services.connectparticipant.model.AccessDeniedException
+import aws.sdk.kotlin.services.connectparticipant.model.CreateParticipantConnectionRequest
+import aws.sdk.kotlin.services.connectparticipant.withConfig
+import aws.smithy.kotlin.runtime.net.url.Url
+import com.amazon.connect.chat.sdk.network.DefaultAWSClient
+import kotlinx.coroutines.test.TestScope
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import com.amazon.connect.chat.sdk.model.ScanDirection
+import com.amazon.connect.chat.sdk.model.SortKey
+import aws.sdk.kotlin.services.connectparticipant.model.ChatItemType
+import aws.sdk.kotlin.services.connectparticipant.model.DisconnectParticipantResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptResponse
+import aws.sdk.kotlin.services.connectparticipant.model.Item
+import aws.sdk.kotlin.services.connectparticipant.model.ParticipantRole
+import aws.sdk.kotlin.services.connectparticipant.model.SendEventResponse
+import aws.sdk.kotlin.services.connectparticipant.model.SendMessageResponse
+import aws.sdk.kotlin.services.connectparticipant.model.StartPosition
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,10 +68,26 @@ import junit.framework.TestCase.fail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.mockito.kotlin.whenever
 import java.util.UUID
 import java.net.URL
+import java.util.Timer
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CyclicBarrier
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptRequest
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
@@ -119,9 +149,16 @@ class ChatServiceImplTest {
         )
     }
 
+    @After
+    fun tearDown() {
+        // setUp installs a test dispatcher as Dispatchers.Main; without resetting it the dispatcher
+        // leaks into other test classes in the same JVM.
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun test_configure(){
-        val config = GlobalConfig(region = Regions.US_WEST_2)
+        val config = GlobalConfig(region = Region.US_WEST_2)
         chatService.configure(config)
         verify(awsClient).configure(config)
     }
@@ -167,7 +204,7 @@ class ChatServiceImplTest {
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
         `when`(awsClient.disconnectParticipantConnection(mockConnectionDetails.connectionToken))
-            .thenReturn(Result.success(DisconnectParticipantResult()))
+            .thenReturn(Result.success(DisconnectParticipantResponse {}))
 
         // Invoke the disconnection logic.
         val result = chatService.disconnectChatSession()
@@ -239,7 +276,7 @@ class ChatServiceImplTest {
         val contentType = ContentType.PLAIN_TEXT
 
         `when`(awsClient.sendMessage(mockConnectionDetails.connectionToken, contentType, mockMessage))
-            .thenReturn(Result.success(SendMessageResult()))
+            .thenReturn(Result.success(SendMessageResponse {}))
 
         val result = chatService.sendMessage(contentType, mockMessage)
 
@@ -279,7 +316,7 @@ class ChatServiceImplTest {
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
 
         `when`(awsClient.sendMessage(mockConnectionDetails.connectionToken, contentType, mockMessage))
-            .thenThrow(RuntimeException("Network error")).thenReturn(Result.success(SendMessageResult()))
+            .thenThrow(RuntimeException("Network error")).thenReturn(Result.success(SendMessageResponse {}))
 
         val messageId = "123e4567-e89b-12d3-a456-426614174000"
         mockkStatic(UUID::class)
@@ -303,7 +340,7 @@ class ChatServiceImplTest {
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
         `when`(awsClient.sendEvent(mockConnectionDetails.connectionToken, contentType, eventContent))
             .thenReturn(Result.success(
-            SendEventResult()
+            SendEventResponse {}
         ))
 
         val result = chatService.sendEvent(contentType, eventContent)
@@ -476,14 +513,14 @@ class ChatServiceImplTest {
         val sortKey = SortKey.ASCENDING
         val maxResults = 10
         val nextToken = "nextToken123"
-        val startPosition = StartPosition().apply { id = "startId" }
+        val startPosition = StartPosition { id = "startId" }
         val mockTranscriptResponse = TranscriptResponse("", nextToken, listOf())
 
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
 
-        // Create a mock GetTranscriptResult and configure it to return expected values
-        val mockGetTranscriptResult = mock<GetTranscriptResult>()
+        // Create a mock GetTranscriptResponse and configure it to return expected values
+        val mockGetTranscriptResult = mock<GetTranscriptResponse>()
         `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
         `when`(mockGetTranscriptResult.initialContactId).thenReturn("")
         `when`(mockGetTranscriptResult.nextToken).thenReturn(nextToken)
@@ -503,7 +540,7 @@ class ChatServiceImplTest {
         val sortKey = SortKey.ASCENDING
         val maxResults = 10
         val nextToken = "nextToken123"
-        val startPosition = StartPosition().apply { id = "startId" }
+        val startPosition = StartPosition { id = "startId" }
 
         val mockConnectionDetails = createMockConnectionDetails("valid_token")
         `when`(connectionDetailsProvider.getConnectionDetails()).thenReturn(mockConnectionDetails)
@@ -519,16 +556,16 @@ class ChatServiceImplTest {
     }
 
     private fun createMockItem(id: String, timestamp: String): Item {
-        val item = Item()
-        item.absoluteTime = timestamp
-        item.content = "test${id}"
-        item.contentType = "text/plain"
-        item.id = id
-        item.type = "MESSAGE"
-        item.participantId = id
-        item.displayName = "test${id}"
-        item.participantRole = "CUSTOMER"
-        return item
+        return Item {
+            absoluteTime = timestamp
+            content = "test${id}"
+            contentType = "text/plain"
+            this.id = id
+            type = ChatItemType.Message
+            participantId = id
+            displayName = "test${id}"
+            participantRole = ParticipantRole.Customer
+        }
     }
 
     @Test
@@ -541,8 +578,8 @@ class ChatServiceImplTest {
         chatServiceInstance.createChatSession(chatDetails)
         advanceUntilIdle()
 
-        // Create a mock GetTranscriptResult and configure it to return expected values
-        val mockGetTranscriptResult = mock<GetTranscriptResult>()
+        // Create a mock GetTranscriptResponse and configure it to return expected values
+        val mockGetTranscriptResult = mock<GetTranscriptResponse>()
         `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
         `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken1")
         `when`(mockGetTranscriptResult.initialContactId).thenReturn("")
@@ -597,8 +634,7 @@ class ChatServiceImplTest {
         // Expect previousTranscriptNextToken to be the same when receiving an empty array using startPosition.
         `when`(mockGetTranscriptResult.transcript).thenReturn(listOf())
         `when`(mockGetTranscriptResult.nextToken).thenReturn("nextToken5")
-        val mockStartPosition = StartPosition()
-        mockStartPosition.id = "1234"
+        val mockStartPosition = StartPosition { id = "1234" }
 
         chatServiceInstance.getTranscript(ScanDirection.BACKWARD, SortKey.ASCENDING, 10, null, mockStartPosition)
         advanceUntilIdle()
@@ -614,8 +650,8 @@ class ChatServiceImplTest {
         chatService.createChatSession(chatDetails)
         advanceUntilIdle()
 
-        // Create a mock GetTranscriptResult and configure it to return expected values
-        val mockGetTranscriptResult = mock<GetTranscriptResult>()
+        // Create a mock GetTranscriptResponse and configure it to return expected values
+        val mockGetTranscriptResult = mock<GetTranscriptResponse>()
 
         `when`(mockGetTranscriptResult.initialContactId).thenReturn("")
         `when`(awsClient.getTranscript(anyOrNull())).thenReturn(Result.success(mockGetTranscriptResult))
@@ -799,6 +835,375 @@ class ChatServiceImplTest {
         assertEquals(0, chatService.internalTranscript.size)
     }
 
+    /**
+     * Regression test for the ConcurrentModificationException reported in issue #102.
+     *
+     * The transcript collections are touched from the main-dispatcher coroutines, the typing
+     * indicator timer thread, and the IO dispatcher. This test drives inserts and typing-indicator
+     * removals from multiple real threads at once; before the fix, the removeIf in
+     * removeTypingIndicators would structurally modify internalTranscript while
+     * handleTranscriptItemUpdate was iterating it in indexOfFirst, throwing
+     * ConcurrentModificationException.
+     */
+    @Test
+    fun test_concurrentTranscriptUpdates_doNotThrowConcurrentModificationException() {
+        // A real multi-threaded dispatcher is required here: the StandardTestDispatcher used by the
+        // other tests is single-threaded and cannot surface this race.
+        val executor = Executors.newFixedThreadPool(8) as ThreadPoolExecutor
+        val realDispatcher = executor.asCoroutineDispatcher()
+        Dispatchers.setMain(realDispatcher)
+
+        // Hand-written fakes rather than Mockito mocks for every collaborator this test invokes
+        // concurrently: Mockito's invocation container is not safe for concurrent invocation and can
+        // throw ConcurrentModificationException from its own internals, which would otherwise be
+        // caught below and misreported as a transcript race.
+        val fakeConnectionDetails = createMockConnectionDetails("valid_token")
+        val fakeReceiptsManager = object : MessageReceiptsManager {
+            override var timer: Timer? = null
+            override var throttleTime: Double = 0.0
+            override var deliveredThrottleTime: Double = 0.0
+            override var shouldSendMessageReceipts: Boolean = false
+            override suspend fun throttleAndSendMessageReceipt(
+                event: MessageReceiptType,
+                messageId: String
+            ): Result<PendingMessageReceipts> = Result.success(PendingMessageReceipts())
+            override fun invalidateTimer() {}
+            override fun handleMessageReceipt(event: MessageReceiptType, messageId: String) {}
+            override fun clearPendingMessageReceipts() {}
+        }
+        val fakeProvider = object : ConnectionDetailsProvider {
+            override fun updateChatDetails(newDetails: ChatDetails) {}
+            override fun getConnectionDetails(): ConnectionDetails = fakeConnectionDetails
+            override fun updateConnectionDetails(newDetails: ConnectionDetails) {}
+            override fun getChatDetails(): ChatDetails = ChatDetails(participantToken = "token")
+            override fun isChatSessionActive(): Boolean = true
+            override fun setChatSessionState(isActive: Boolean) {}
+            override fun reset() {}
+            override var chatSessionState: StateFlow<Boolean> = MutableStateFlow(true)
+        }
+        val fakeAwsClient = object : AWSClient() {
+            override suspend fun createParticipantConnection(participantToken: String) =
+                Result.success(fakeConnectionDetails)
+
+            override suspend fun sendMessage(
+                connectionToken: String,
+                contentType: ContentType,
+                message: String
+            ) = Result.success(SendMessageResponse {})
+
+            override suspend fun sendEvent(
+                connectionToken: String,
+                contentType: ContentType,
+                content: String
+            ) = Result.success(SendEventResponse {})
+        }
+
+        val service = ChatServiceImpl(
+            context,
+            fakeAwsClient,
+            fakeProvider,
+            webSocketManager,
+            metricsManager,
+            attachmentsManager,
+            fakeReceiptsManager
+        )
+
+        val failure = AtomicReference<Throwable?>(null)
+
+        // The CME in the reported stack trace is thrown inside coroutineScope.launch, i.e. on a
+        // dispatcher thread owned by the service, NOT on the threads this test spawns. That scope
+        // uses a plain Job with no CoroutineExceptionHandler, so without this hook the exception is
+        // merely printed, silently cancels the scope, and the test would still pass green.
+        //
+        // The handler is process-wide, so record only throwables originating in SDK code. Otherwise
+        // unrelated noise (another test class's leftover coroutines, Robolectric internals, or a
+        // RejectedExecutionException from closing the pool) would fail this test.
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            val fromSdk = throwable.stackTrace.any {
+                it.className.startsWith("com.amazon.connect.chat.sdk")
+            }
+            if (fromSdk) failure.compareAndSet(null, throwable)
+        }
+
+        try {
+            // Start the session so the websocket transcript subscription is collecting.
+            runBlocking { service.createChatSession(ChatDetails(participantToken = "token")) }
+
+            // Wait deterministically for the collector to subscribe. transcriptSharedFlow has zero
+            // replay, so emitting before it subscribes would drop every event on the floor and the
+            // test would pass while exercising nothing.
+            val subscribed = (1..100).any {
+                if (transcriptSharedFlow.subscriptionCount.value > 0) true
+                else { Thread.sleep(50); false }
+            }
+            assertTrue("Transcript collector never subscribed", subscribed)
+
+            val threadCount = 8
+            val iterations = 150
+            val startLatch = CountDownLatch(1)
+            val doneLatch = CountDownLatch(threadCount)
+
+            repeat(threadCount) { threadIndex ->
+                Thread {
+                    try {
+                        startLatch.await()
+                        repeat(iterations) { i ->
+                            runBlocking {
+                                if (threadIndex % 2 == 0) {
+                                    // Inserts into the transcript: goes through
+                                    // sendSingleUpdateToClient -> handleTranscriptItemUpdate, and
+                                    // iterates transcriptDict via getRecentDisplayName.
+                                    service.sendMessage(
+                                        ContentType.PLAIN_TEXT,
+                                        "message $threadIndex-$i"
+                                    )
+                                } else {
+                                    // Typing events and agent messages: the agent branch calls
+                                    // removeTypingIndicators, whose removeIf structurally modifies
+                                    // internalTranscript concurrently with the inserts above.
+                                    transcriptSharedFlow.emit(
+                                        Event(
+                                            id = "typing-$threadIndex-$i",
+                                            timeStamp = "2024-01-01T00:00:00.${i}Z",
+                                            contentType = ContentType.TYPING.type
+                                        ) to true
+                                    )
+                                    transcriptSharedFlow.emit(
+                                        Message(
+                                            id = "agent-$threadIndex-$i",
+                                            timeStamp = "2024-01-01T00:00:00.${i}Z",
+                                            participant = Constants.AGENT,
+                                            contentType = ContentType.PLAIN_TEXT.type,
+                                            text = "agent message $i"
+                                        ) to true
+                                    )
+                                }
+                            }
+                        }
+                    } catch (t: Throwable) {
+                        failure.compareAndSet(null, t)
+                    } finally {
+                        doneLatch.countDown()
+                    }
+                }.start()
+            }
+
+            startLatch.countDown()
+            assertTrue("Concurrency test timed out", doneLatch.await(60, TimeUnit.SECONDS))
+
+            // Let coroutines already dispatched to the service scope finish, so exceptions thrown
+            // there reach the handler above before we assert. Wait for the pool to actually go idle
+            // rather than sleeping a fixed interval, which on a loaded machine would let a genuine
+            // regression slip through green.
+            runBlocking { service.reset() }
+            val drained = (1..200).any {
+                if (executor.activeCount == 0 && executor.queue.isEmpty()) true
+                else { Thread.sleep(50); false }
+            }
+            assertTrue("Service coroutines never drained", drained)
+
+            failure.get()?.let {
+                val origin = it.stackTrace.firstOrNull { frame ->
+                    frame.className.startsWith("com.amazon.connect.chat.sdk")
+                }
+                fail("Concurrent transcript access threw ${it::class.java.name} at $origin")
+            }
+        } finally {
+            Dispatchers.setMain(testDispatcher)
+            realDispatcher.close()
+            Thread.setDefaultUncaughtExceptionHandler(previousHandler)
+        }
+    }
+
+    /**
+     * Two concurrent retries of the same failed message must send it only once. The Failed check
+     * and the removal in resendFailedMessage share one lock, so exactly one retry can pass the check.
+     */
+    @Test
+    fun test_concurrentResendOfSameFailedMessage_sendsItOnlyOnce() {
+        val sendCounts = ConcurrentHashMap<String, AtomicInteger>()
+        val fakeAwsClient = object : AWSClient() {
+            override suspend fun sendMessage(
+                connectionToken: String,
+                contentType: ContentType,
+                message: String
+            ): Result<SendMessageResponse> {
+                sendCounts.computeIfAbsent(message) { AtomicInteger() }.incrementAndGet()
+                return Result.failure(RuntimeException("Network error"))
+            }
+        }
+
+        withConcurrentService(fakeAwsClient) { service ->
+            repeat(300) { i ->
+                val text = "message $i"
+                runBlocking { service.sendMessage(ContentType.PLAIN_TEXT, text) }
+                val messageId = transcriptDictOf(service) {
+                    it.values.filterIsInstance<Message>().first { m -> m.text == text }.id
+                }
+
+                val barrier = CyclicBarrier(2)
+                val accepted = AtomicInteger()
+                val threads = List(2) {
+                    Thread {
+                        barrier.await()
+                        val result = runBlocking { service.resendFailedMessage(messageId) }
+                        // A retry that passes the check resends, which fails again with the
+                        // network error; a rejected retry fails with "Unable to find".
+                        if (result.exceptionOrNull()?.message != "Unable to find the failed message") {
+                            accepted.incrementAndGet()
+                        }
+                    }.apply { start() }
+                }
+                threads.forEach { it.join(10_000) }
+
+                assertEquals("Iteration $i: exactly one retry should pass the Failed check", 1, accepted.get())
+                assertEquals("Iteration $i: original send plus one retry", 2, sendCounts.getValue(text).get())
+            }
+        }
+    }
+
+    /**
+     * getTranscript must not lose a fetched page when another thread empties the transcript while
+     * the response is processed. The empty check and the oldest-item read share one lock, so first()
+     * can no longer run against a list that was emptied after the check.
+     */
+    @Test
+    fun test_getTranscript_whileTranscriptIsEmptiedConcurrently_doesNotFail() {
+        val fakeAwsClient = object : AWSClient() {
+            override suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResponse> =
+                Result.success(GetTranscriptResponse {
+                    transcript = listOf(createMockItem("server-item", "2024-01-01T00:00:00.000Z"))
+                })
+        }
+
+        withConcurrentService(fakeAwsClient) { service ->
+            val running = AtomicBoolean(true)
+            val mutator = Thread {
+                var n = 0
+                while (running.get()) {
+                    transcriptDictOf(service) {
+                        service.internalTranscript.add(
+                            Message(
+                                id = "local-${n++}",
+                                timeStamp = "2024-01-01T00:00:01.000Z",
+                                participant = Constants.CUSTOMER,
+                                contentType = ContentType.PLAIN_TEXT.type,
+                                text = "local"
+                            )
+                        )
+                    }
+                    transcriptDictOf(service) { service.internalTranscript.clear() }
+                }
+            }.apply { start() }
+
+            try {
+                repeat(3_000) { i ->
+                    val result = runBlocking { service.getTranscript(null, null, null, null, null) }
+                    result.exceptionOrNull()?.let { fail("getTranscript call $i failed with $it") }
+                }
+            } finally {
+                running.set(false)
+                mutator.join(10_000)
+            }
+        }
+    }
+
+    /**
+     * Every transcript item updateTranscriptDict stores must be published, even if another thread
+     * removes it from the dictionary right after the update. The item is read in the same lock
+     * block as the update, so the removal cannot make the per-item publish silently skip it.
+     */
+    @Test
+    fun test_updateTranscriptDict_whileItemsAreRemovedConcurrently_publishesEveryItem() {
+        withConcurrentService(object : AWSClient() {}) { service ->
+            val published = ConcurrentHashMap.newKeySet<String>()
+            val collector = CoroutineScope(Dispatchers.IO).launch {
+                service.transcriptPublisher.collect { published.add(it.id) }
+            }
+            // MutableSharedFlow has no replay, so wait for the collector before publishing.
+            val publisherField = ChatServiceImpl::class.java.getDeclaredField("_transcriptPublisher").apply { isAccessible = true }
+            val publisher = publisherField.get(service) as MutableSharedFlow<*>
+            assertTrue("Collector never subscribed", (1..100).any {
+                if (publisher.subscriptionCount.value > 0) true else { Thread.sleep(20); false }
+            })
+
+            val update = ChatServiceImpl::class.java.getDeclaredMethod(
+                "updateTranscriptDict", TranscriptItem::class.java, Boolean::class.javaPrimitiveType
+            ).apply { isAccessible = true }
+            val running = AtomicBoolean(true)
+            val remover = Thread {
+                while (running.get()) transcriptDictOf(service) { it.clear() }
+            }.apply { start() }
+
+            val count = 5_000
+            try {
+                repeat(count) { i ->
+                    val item = Message(
+                        id = "item-$i",
+                        timeStamp = "2024-01-01T00:00:00.000Z",
+                        participant = Constants.CUSTOMER,
+                        contentType = ContentType.PLAIN_TEXT.type,
+                        text = "text $i"
+                    )
+                    update.invoke(service, item, false)
+                }
+            } finally {
+                running.set(false)
+                remover.join(10_000)
+            }
+
+            assertTrue("Only ${published.size} of $count items were published", (1..200).any {
+                if (published.size == count) true else { Thread.sleep(50); false }
+            })
+            collector.cancel()
+        }
+    }
+
+    /** Runs [block] against a service on a real multi-threaded Main dispatcher with thread-safe fakes. */
+    private fun withConcurrentService(awsClient: AWSClient, block: (ChatServiceImpl) -> Unit) {
+        val executor = Executors.newFixedThreadPool(4)
+        val realDispatcher = executor.asCoroutineDispatcher()
+        Dispatchers.setMain(realDispatcher)
+        val fakeConnectionDetails = createMockConnectionDetails("valid_token")
+        val fakeProvider = object : ConnectionDetailsProvider {
+            override fun updateChatDetails(newDetails: ChatDetails) {}
+            override fun getConnectionDetails(): ConnectionDetails = fakeConnectionDetails
+            override fun updateConnectionDetails(newDetails: ConnectionDetails) {}
+            override fun getChatDetails(): ChatDetails = ChatDetails(participantToken = "token")
+            override fun isChatSessionActive(): Boolean = true
+            override fun setChatSessionState(isActive: Boolean) {}
+            override fun reset() {}
+            override var chatSessionState: StateFlow<Boolean> = MutableStateFlow(true)
+        }
+        val service = ChatServiceImpl(
+            context,
+            awsClient,
+            fakeProvider,
+            webSocketManager,
+            metricsManager,
+            attachmentsManager,
+            messageReceiptsManager
+        )
+        try {
+            block(service)
+        } finally {
+            Dispatchers.setMain(testDispatcher)
+            realDispatcher.close()
+        }
+    }
+
+    /** Runs [block] on the service's transcript dictionary while holding its transcript lock. */
+    private fun <T> transcriptDictOf(service: ChatServiceImpl, block: (MutableMap<String, TranscriptItem>) -> T): T {
+        val lock = ChatServiceImpl::class.java.getDeclaredField("transcriptLock").apply { isAccessible = true }
+            .get(service)
+        val dictField = ChatServiceImpl::class.java.getDeclaredField("transcriptDict").apply { isAccessible = true }
+        synchronized(lock) {
+            @Suppress("UNCHECKED_CAST")
+            return block(dictField.get(service) as MutableMap<String, TranscriptItem>)
+        }
+    }
+
     private fun createMockConnectionDetails(token : String): ConnectionDetails {
         return ConnectionDetails(
             connectionToken = token,
@@ -807,4 +1212,71 @@ class ChatServiceImplTest {
         )
     }
 
+
+    private fun serviceErrorFromHttpResponse(statusCode: Int, errorType: String): Throwable {
+        val server = MockWebServer()
+        server.start()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(statusCode)
+                .setHeader("Content-Type", "application/json")
+                .setHeader("x-amzn-ErrorType", errorType)
+                .setBody("""{"message":"error"}""")
+        )
+        val client = DefaultAWSClient.createConnectParticipantClient(Region.US_WEST_2).withConfig {
+            endpointUrl = Url.parse(server.url("/").toString())
+            retryStrategy { maxAttempts = 1 }
+        }
+        try {
+            return runBlocking {
+                runCatching { client.createParticipantConnection(CreateParticipantConnectionRequest { participantToken = "token" }) }
+            }.exceptionOrNull() ?: throw AssertionError("Expected a service error")
+        } finally {
+            client.close()
+            server.shutdown()
+        }
+    }
+
+    private suspend fun TestScope.requestNewWebSocketUrlFailingWith(error: Throwable): List<ChatEventPayload> {
+        whenever(webSocketManager.isReconnecting).thenReturn(MutableStateFlow(false))
+        whenever(connectionDetailsProvider.getChatDetails()).thenReturn(ChatDetails(participantToken = "token"))
+        `when`(awsClient.createParticipantConnection("token")).thenReturn(Result.failure(error))
+
+        val events = mutableListOf<ChatEventPayload>()
+        val collector = chatService.eventPublisher.onEach { events.add(it) }.launchIn(this)
+        advanceUntilIdle()
+        newWsUrlFlow.emit(Unit)
+        advanceUntilIdle()
+        collector.cancel()
+        return events
+    }
+
+    @Test
+    fun test_newWsUrlRequest_accessDeniedServiceError_endsChat() = runTest {
+        val error = serviceErrorFromHttpResponse(403, "AccessDeniedException")
+        assertTrue(error is AccessDeniedException)
+
+        val events = requestNewWebSocketUrlFailingWith(error)
+
+        assertTrue(events.any { it.chatEvent == ChatEvent.ChatEnded })
+        verify(connectionDetailsProvider).setChatSessionState(false)
+    }
+
+    @Test
+    fun test_newWsUrlRequest_otherServiceError_doesNotEndChat() = runTest {
+        val error = serviceErrorFromHttpResponse(500, "InternalServerException")
+
+        val events = requestNewWebSocketUrlFailingWith(error)
+
+        assertTrue(events.none { it.chatEvent == ChatEvent.ChatEnded })
+        verify(connectionDetailsProvider, never()).setChatSessionState(false)
+    }
+
+    @Test
+    fun test_newWsUrlRequest_customClientErrorMentioning403_endsChat() = runTest {
+        val events = requestNewWebSocketUrlFailingWith(RuntimeException("HTTP 403 Forbidden"))
+
+        assertTrue(events.any { it.chatEvent == ChatEvent.ChatEnded })
+        verify(connectionDetailsProvider).setChatSessionState(false)
+    }
 }

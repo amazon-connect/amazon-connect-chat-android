@@ -9,7 +9,7 @@ import com.amazon.connect.chat.sdk.model.Message
 import com.amazon.connect.chat.sdk.model.MessageDirection
 import com.amazon.connect.chat.sdk.model.MessageMetadata
 import com.amazon.connect.chat.sdk.model.MessageStatus
-import com.amazonaws.services.connectparticipant.model.Item
+import aws.sdk.kotlin.services.connectparticipant.model.Item
 import com.amazon.connect.chat.sdk.utils.logger.SDKLogger
 import org.json.JSONObject
 import java.util.UUID
@@ -64,7 +64,7 @@ object TranscriptItemUtils {
     fun serializeTranscriptItem(item: Item): String? {
         return try {
             // Convert participant role to string
-            val participantRole = item.participantRole
+            val participantRole = item.participantRole?.value
 
             // Process attachments
             val attachmentsArray = item.attachments?.map { attachment ->
@@ -72,11 +72,11 @@ object TranscriptItemUtils {
                     "AttachmentId" to (attachment.attachmentId ?: ""),
                     "AttachmentName" to (attachment.attachmentName ?: ""),
                     "ContentType" to (attachment.contentType ?: ""),
-                    "Status" to attachment.status
+                    "Status" to attachment.status?.value
                 )
             } ?: emptyList()
 
-            var messageMetadataDict: Map<String, Any>? = null
+            var messageMetadataDict: Map<String, Any?>? = null
             if (item.messageMetadata != null) {
                 val receiptsArray = item.messageMetadata?.receipts?.map { receipt ->
                     mapOf(
@@ -86,7 +86,7 @@ object TranscriptItemUtils {
                     )
                 } ?: emptyList()
                 messageMetadataDict = mapOf(
-                    "MessageId" to item.messageMetadata.messageId,
+                    "MessageId" to item.messageMetadata?.messageId,
                     "Receipts" to receiptsArray
                 )
             }
@@ -97,7 +97,7 @@ object TranscriptItemUtils {
                 "AbsoluteTime" to (item.absoluteTime ?: ""),
                 "ContentType" to (item.contentType ?: ""),
                 "Content" to (item.content ?: ""),
-                "Type" to item.type,
+                "Type" to item.type?.value,
                 "DisplayName" to (item.displayName ?: ""),
                 "Attachments" to attachmentsArray,
                 "isFromPastSession" to true, // Mark all these items as coming from a past session

@@ -6,30 +6,37 @@ package com.amazon.connect.chat.sdk.network
 import com.amazon.connect.chat.sdk.model.ConnectionDetails
 import com.amazon.connect.chat.sdk.model.ContentType
 import com.amazon.connect.chat.sdk.model.GlobalConfig
+import com.amazon.connect.chat.sdk.model.Region
 import com.amazon.connect.chat.sdk.model.View
 import com.amazon.connect.chat.sdk.model.ViewContent
-import com.amazon.connect.chat.sdk.utils.CommonUtils
 import com.amazon.connect.chat.sdk.utils.Constants
-import com.amazonaws.regions.Region
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.connectparticipant.AmazonConnectParticipantClient
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.CompleteAttachmentUploadResult
-import com.amazonaws.services.connectparticipant.model.CreateParticipantConnectionRequest
-import com.amazonaws.services.connectparticipant.model.DescribeViewRequest
-import com.amazonaws.services.connectparticipant.model.DescribeViewResult
-import com.amazonaws.services.connectparticipant.model.DisconnectParticipantRequest
-import com.amazonaws.services.connectparticipant.model.DisconnectParticipantResult
-import com.amazonaws.services.connectparticipant.model.GetAttachmentRequest
-import com.amazonaws.services.connectparticipant.model.GetAttachmentResult
-import com.amazonaws.services.connectparticipant.model.GetTranscriptRequest
-import com.amazonaws.services.connectparticipant.model.GetTranscriptResult
-import com.amazonaws.services.connectparticipant.model.SendEventRequest
-import com.amazonaws.services.connectparticipant.model.SendEventResult
-import com.amazonaws.services.connectparticipant.model.SendMessageRequest
-import com.amazonaws.services.connectparticipant.model.SendMessageResult
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadRequest
-import com.amazonaws.services.connectparticipant.model.StartAttachmentUploadResult
+import aws.sdk.kotlin.runtime.auth.credentials.StaticCredentialsProvider
+import aws.sdk.kotlin.services.connectparticipant.ConnectParticipantClient
+import aws.sdk.kotlin.services.connectparticipant.auth.ConnectParticipantAuthSchemeParameters
+import aws.sdk.kotlin.services.connectparticipant.auth.ConnectParticipantAuthSchemeProvider
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.CompleteAttachmentUploadResponse
+import aws.sdk.kotlin.services.connectparticipant.model.ConnectionType
+import aws.sdk.kotlin.services.connectparticipant.model.CreateParticipantConnectionRequest
+import aws.sdk.kotlin.services.connectparticipant.model.DescribeViewRequest
+import aws.sdk.kotlin.services.connectparticipant.model.DescribeViewResponse
+import aws.sdk.kotlin.services.connectparticipant.model.DisconnectParticipantRequest
+import aws.sdk.kotlin.services.connectparticipant.model.DisconnectParticipantResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetAttachmentRequest
+import aws.sdk.kotlin.services.connectparticipant.model.GetAttachmentResponse
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptRequest
+import aws.sdk.kotlin.services.connectparticipant.model.GetTranscriptResponse
+import aws.sdk.kotlin.services.connectparticipant.model.SendEventRequest
+import aws.sdk.kotlin.services.connectparticipant.model.SendEventResponse
+import aws.sdk.kotlin.services.connectparticipant.model.SendMessageRequest
+import aws.sdk.kotlin.services.connectparticipant.model.SendMessageResponse
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadRequest
+import aws.sdk.kotlin.services.connectparticipant.model.StartAttachmentUploadResponse
+import aws.smithy.kotlin.runtime.auth.AuthOption
+import aws.smithy.kotlin.runtime.auth.AuthSchemeId
+import aws.smithy.kotlin.runtime.auth.awscredentials.Credentials
+import aws.smithy.kotlin.runtime.http.auth.AnonymousAuthScheme
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,14 +52,14 @@ import kotlinx.coroutines.withContext
  * Example:
  * ```kotlin
  * class MyCustomClient : AWSClient() {
- *     override suspend fun sendMessage(...): Result<SendMessageResult> {
+ *     override suspend fun sendMessage(...): Result<SendMessageResponse> {
  *         Log.d("MyClient", "Intercepting sendMessage")
  *         return super.sendMessage(...) // or route to your backend
  *     }
  * }
  *
  * val config = GlobalConfig(
- *     region = Regions.US_WEST_2,
+ *     region = Region.US_WEST_2,
  *     customAWSClient = MyCustomClient()
  * )
  * chatSession.configure(config)
@@ -90,7 +97,7 @@ open class AWSClient {
      * @param connectionToken The connection token.
      * @return A Result containing the disconnect participant result if successful, or an exception if an error occurred.
      */
-    open suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult> {
+    open suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResponse> {
         return DefaultAWSClient.disconnectParticipantConnection(connectionToken)
     }
 
@@ -105,7 +112,7 @@ open class AWSClient {
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult> {
+    ): Result<SendMessageResponse> {
         return DefaultAWSClient.sendMessage(connectionToken, contentType, message)
     }
 
@@ -120,7 +127,7 @@ open class AWSClient {
         connectionToken: String,
         contentType: ContentType,
         content: String
-    ): Result<SendEventResult> {
+    ): Result<SendEventResponse> {
         return DefaultAWSClient.sendEvent(connectionToken, contentType, content)
     }
 
@@ -133,7 +140,7 @@ open class AWSClient {
     open suspend fun startAttachmentUpload(
         connectionToken: String,
         request: StartAttachmentUploadRequest
-    ): Result<StartAttachmentUploadResult> {
+    ): Result<StartAttachmentUploadResponse> {
         return DefaultAWSClient.startAttachmentUpload(connectionToken, request)
     }
 
@@ -146,7 +153,7 @@ open class AWSClient {
     open suspend fun completeAttachmentUpload(
         connectionToken: String,
         request: CompleteAttachmentUploadRequest
-    ): Result<CompleteAttachmentUploadResult> {
+    ): Result<CompleteAttachmentUploadResponse> {
         return DefaultAWSClient.completeAttachmentUpload(connectionToken, request)
     }
 
@@ -159,7 +166,7 @@ open class AWSClient {
     open suspend fun getAttachment(
         connectionToken: String,
         attachmentId: String
-    ): Result<GetAttachmentResult> {
+    ): Result<GetAttachmentResponse> {
         return DefaultAWSClient.getAttachment(connectionToken, attachmentId)
     }
 
@@ -168,7 +175,7 @@ open class AWSClient {
      * @param request The get transcript request.
      * @return A Result containing the get transcript result if successful, or an exception if an error occurred.
      */
-    open suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
+    open suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResponse> {
         return DefaultAWSClient.getTranscript(request)
     }
 
@@ -191,53 +198,96 @@ open class AWSClient {
  * This object is used by the open AWSClient class for default behavior.
  */
 internal object DefaultAWSClient {
-    private var connectParticipantClient: AmazonConnectParticipantClient? = null
+    private const val CONNECTION_TIMEOUT_MILLIS = 15_000
+    private const val SOCKET_TIMEOUT_MILLIS = 15_000
+
+    @Volatile
+    private var connectParticipantClient: ConnectParticipantClient? = null
+
+    // Region of the client created by configure(); null when the client was supplied through setClient().
+    @Volatile
+    private var managedClientRegion: Region? = null
 
     /**
      * Sets the client instance. Primarily used for testing.
      */
-    internal fun setClient(client: AmazonConnectParticipantClient) {
+    @Synchronized
+    internal fun setClient(client: ConnectParticipantClient) {
         connectParticipantClient = client
+        managedClientRegion = null
     }
 
+    @Synchronized
     fun configure(config: GlobalConfig) {
-        if (connectParticipantClient == null) {
-            val clientConfiguration = CommonUtils.createConnectParticipantConfiguration()
-            connectParticipantClient = AmazonConnectParticipantClient(clientConfiguration)
+        val currentClient = connectParticipantClient
+        if (currentClient != null && (managedClientRegion == null || managedClientRegion == config.region)) {
+            return
         }
-        connectParticipantClient?.setRegion(Region.getRegion(config.region))
+        connectParticipantClient = createConnectParticipantClient(config.region)
+        managedClientRegion = config.region
+        // Release the replaced client's HTTP engine and connection pool. Only a client this object
+        // created is closed here; one supplied through setClient() is never replaced above.
+        currentClient?.close()
+    }
+
+    internal fun createConnectParticipantClient(region: Region): ConnectParticipantClient {
+        return ConnectParticipantClient {
+            this.region = region.getName()
+            applicationId = Constants.USER_AGENT_APP_ID
+            // The Connect Participant Service authorizes calls with the participant or connection token
+            // in the X-Amz-Bearer header and does not use SigV4, so requests are sent unsigned, as they
+            // were with the AWS Mobile SDK. The static placeholder credentials keep the client from
+            // building the default credential chain, which would otherwise probe the device environment.
+            authSchemes = listOf(AnonymousAuthScheme)
+            authSchemeProvider = AnonymousAuthSchemeProvider
+            credentialsProvider = StaticCredentialsProvider(Credentials(accessKeyId = "", secretAccessKey = ""))
+            interceptors += UserAgentProductTokenInterceptor(Constants.USER_AGENT_PRODUCT_TOKEN)
+            httpClient {
+                connectTimeout = CONNECTION_TIMEOUT_MILLIS.milliseconds
+                socketReadTimeout = SOCKET_TIMEOUT_MILLIS.milliseconds
+            }
+        }
+    }
+
+    private object AnonymousAuthSchemeProvider : ConnectParticipantAuthSchemeProvider {
+        override suspend fun resolveAuthScheme(params: ConnectParticipantAuthSchemeParameters): List<AuthOption> =
+            listOf(AuthOption(AuthSchemeId.Anonymous))
+    }
+
+    private fun requireClient(): ConnectParticipantClient {
+        return connectParticipantClient
+            ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
     }
 
     suspend fun createParticipantConnection(participantToken: String): Result<ConnectionDetails> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                
-                val request = CreateParticipantConnectionRequest().apply {
-                    setType(Constants.ACPS_REQUEST_TYPES)
+                val request = CreateParticipantConnectionRequest {
+                    type = Constants.ACPS_REQUEST_TYPES.map { ConnectionType.fromValue(it) }
                     this.participantToken = participantToken
                 }
-                val response = client.createParticipantConnection(request)
+                val response = requireClient().createParticipantConnection(request)
+                val websocketUrl = response.websocket?.url
+                val connectionToken = response.connectionCredentials?.connectionToken
+                if (websocketUrl == null || connectionToken == null) {
+                    throw IllegalStateException("CreateParticipantConnection response is missing the websocket URL or connection token.")
+                }
                 ConnectionDetails(
-                    websocketUrl = response.websocket.url,
-                    connectionToken = response.connectionCredentials.connectionToken,
-                    expiry = response.websocket.connectionExpiry
+                    websocketUrl = websocketUrl,
+                    connectionToken = connectionToken,
+                    expiry = response.websocket?.connectionExpiry.orEmpty()
                 )
             }
         }
     }
 
-    suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResult> {
+    suspend fun disconnectParticipantConnection(connectionToken: String): Result<DisconnectParticipantResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                
-                val request = DisconnectParticipantRequest().apply {
+                val request = DisconnectParticipantRequest {
                     this.connectionToken = connectionToken
                 }
-                client.disconnectParticipant(request)
+                requireClient().disconnectParticipant(request)
             }
         }
     }
@@ -246,18 +296,15 @@ internal object DefaultAWSClient {
         connectionToken: String,
         contentType: ContentType,
         message: String
-    ): Result<SendMessageResult> {
+    ): Result<SendMessageResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                
-                val request = SendMessageRequest().apply {
+                val request = SendMessageRequest {
                     this.connectionToken = connectionToken
                     this.contentType = contentType.type
                     this.content = message
                 }
-                client.sendMessage(request)
+                requireClient().sendMessage(request)
             }
         }
     }
@@ -266,18 +313,17 @@ internal object DefaultAWSClient {
         connectionToken: String,
         contentType: ContentType,
         content: String
-    ): Result<SendEventResult> {
+    ): Result<SendEventResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                
-                val request = SendEventRequest().apply {
+                val request = SendEventRequest {
                     this.connectionToken = connectionToken
                     this.contentType = contentType.type
-                    this.content = content
+                    // The service rejects an empty Content string. The AWS Mobile SDK left empty strings
+                    // out of the request body, so events without content, such as typing, must omit it.
+                    this.content = content.ifEmpty { null }
                 }
-                client.sendEvent(request)
+                requireClient().sendEvent(request)
             }
         }
     }
@@ -285,12 +331,10 @@ internal object DefaultAWSClient {
     suspend fun startAttachmentUpload(
         connectionToken: String,
         request: StartAttachmentUploadRequest
-    ): Result<StartAttachmentUploadResult> {
+    ): Result<StartAttachmentUploadResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                client.startAttachmentUpload(request)
+                requireClient().startAttachmentUpload(request)
             }
         }
     }
@@ -298,12 +342,10 @@ internal object DefaultAWSClient {
     suspend fun completeAttachmentUpload(
         connectionToken: String,
         request: CompleteAttachmentUploadRequest
-    ): Result<CompleteAttachmentUploadResult> {
+    ): Result<CompleteAttachmentUploadResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                client.completeAttachmentUpload(request)
+                requireClient().completeAttachmentUpload(request)
             }
         }
     }
@@ -311,27 +353,22 @@ internal object DefaultAWSClient {
     suspend fun getAttachment(
         connectionToken: String,
         attachmentId: String
-    ): Result<GetAttachmentResult> {
+    ): Result<GetAttachmentResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                
-                val request = GetAttachmentRequest().apply {
+                val request = GetAttachmentRequest {
                     this.connectionToken = connectionToken
                     this.attachmentId = attachmentId
                 }
-                client.getAttachment(request)
+                requireClient().getAttachment(request)
             }
         }
     }
 
-    suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResult> {
+    suspend fun getTranscript(request: GetTranscriptRequest): Result<GetTranscriptResponse> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-                client.getTranscript(request)
+                requireClient().getTranscript(request)
             }
         }
     }
@@ -342,23 +379,20 @@ internal object DefaultAWSClient {
     ): Result<View> {
         return withContext(Dispatchers.IO) {
             runCatching {
-                val client = connectParticipantClient
-                    ?: throw IllegalStateException("AWSClient not configured. Call configure() first.")
-
-                val request = DescribeViewRequest().apply {
+                val request = DescribeViewRequest {
                     this.connectionToken = connectionToken
                     this.viewToken = viewToken
                 }
-                val response = client.describeView(request)
+                val response = requireClient().describeView(request)
                 mapDescribeViewResponse(response)
             }
         }
     }
 
-    private fun mapDescribeViewResponse(response: DescribeViewResult): View {
+    private fun mapDescribeViewResponse(response: DescribeViewResponse): View {
         val awsView = response.view ?: return View()
         val awsContent = awsView.content
-        
+
         val viewContent = awsContent?.let {
             ViewContent(
                 actions = it.actions,
